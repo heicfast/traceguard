@@ -47,12 +47,24 @@ def main() -> int:
     manifest["run_dir"] = str(run_dir)
 
     # ---- clone + install pinned code -------------------------------------------
-    r = run(["git", "clone", "-q", REPO_URL, "traceguard"])
+    r = run(["git", "clone", "-q", REPO_URL, "/tmp/traceguard"])
     if r.returncode != 0:
         raise SystemExit(1)
-    r = run(["git", "-C", "traceguard", "checkout", TRACEGUARD_COMMIT])
+    r = run(["git", "-C", "/tmp/traceguard", "checkout", TRACEGUARD_COMMIT])
     if r.returncode != 0:
         raise SystemExit(1)
+
+    # derive the exact config from the generation run's frozen manifest so the
+    # monitor stage uses the same frozen settings as the generation stage
+    manifest_data = json.loads(Path(candidates[0]).read_text(encoding="utf-8"))
+    config_payload = manifest_data.get("config")
+    if not config_payload:
+        raise SystemExit("run manifest carries no config; cannot reproduce frozen settings")
+    import yaml
+    config_yaml = "/tmp/traceguard-config-from-manifest.yaml"
+    Path(config_yaml).write_text(yaml.safe_dump(config_payload, sort_keys=True), encoding="utf-8")
+    manifest["config_sha256_from_gen_manifest"] = manifest_data.get("config_sha256")
+
     # copy run artifacts to a writable location (input mounts are read-only)
     work_run = Path("/kaggle/working/mon-input") / stage_dir / "run"
     work_run.parent.mkdir(parents=True, exist_ok=True)
@@ -61,7 +73,7 @@ def main() -> int:
         raise SystemExit(1)
 
     r = run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e",
-             "traceguard[analysis]"], check=False)
+             "/tmp/traceguard[analysis]"], check=False)
     manifest["pip_rc"] = r.returncode
     import importlib
 
@@ -78,14 +90,14 @@ def main() -> int:
 
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
     os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
-    sys.path.insert(0, "/kaggle/working/traceguard/src")
+    sys.path.insert(0, "/tmp/traceguard/src")
 
     # ---- run the monitoring CLI over the copied run ------------------------------
     mon_cmd = [sys.executable, "-m", "traceguard.cli", "monitor",
-               "--config", "configs/gpu_smoke.yaml",
+               "--config", config_yaml,
                "--run-dir", str(work_run),
                "--monitors"] + MONITORS
-    proc = subprocess.run(mon_cmd, cwd="traceguard")
+    proc = subprocess.run(mon_cmd, cwd="/tmp/traceguard")
     manifest["monitor_rc"] = proc.returncode
 
     # ---- copy score artifacts to output ----------------------------------------
