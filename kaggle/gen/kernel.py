@@ -142,7 +142,6 @@ def main() -> int:
     # ---- RELEASE the validation model before the generation subprocess loads
     # its own copy (two resident 8GB copies would OOM a single T4). -----------
     import gc
-    validation_probe = manifest["think_validation"]
     del provider, turn
     gc.collect()
     torch.cuda.empty_cache()

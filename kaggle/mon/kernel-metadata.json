@@ -10,6 +10,6 @@
   "machine_shape": "NvidiaTeslaT4",
   "dataset_sources": [],
   "competition_sources": [],
-  "kernel_sources": ["umar0x/traceguard-gen"],
+  "kernel_sources": ["umar0x/traceguard-episode-generation"],
   "model_sources": []
 }

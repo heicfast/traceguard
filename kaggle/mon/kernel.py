@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 TRACEGUARD_COMMIT = "c21e33ed2d057a4e05db085edb97ad388720c254"
@@ -29,7 +29,7 @@ def main() -> int:
     started = time.time()
     manifest = {
         "kernel": "traceguard-mon",
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
         "pinned_commit": TRACEGUARD_COMMIT,
         "monitors": MONITORS,
     }
@@ -42,7 +42,6 @@ def main() -> int:
         os.system("find /kaggle/input -maxdepth 4 -type d | head -50")
         raise SystemExit(1)
     run_dir = Path(candidates[0]).parent
-    config_path = candidates[0].replace("run_manifest.json", "")
     stage_dir = run_dir.parent.name
     print("Using run dir:", run_dir, flush=True)
     manifest["run_dir"] = str(run_dir)
@@ -54,7 +53,6 @@ def main() -> int:
     r = run(["git", "-C", "traceguard", "checkout", TRACEGUARD_COMMIT])
     if r.returncode != 0:
         raise SystemExit(1)
-    cfg_candidates = ["/kaggle/working/traceguard/configs/gpu_smoke.yaml"]
     # copy run artifacts to a writable location (input mounts are read-only)
     work_run = Path("/kaggle/working/mon-input") / stage_dir / "run"
     work_run.parent.mkdir(parents=True, exist_ok=True)
@@ -66,6 +64,7 @@ def main() -> int:
              "traceguard[analysis]"], check=False)
     manifest["pip_rc"] = r.returncode
     import importlib
+
     import transformers
     manifest["transformers_before"] = transformers.__version__
     from packaging.version import parse as vparse
