@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from traceguard.models.interface import split_reasoning
+from traceguard.models.interface import THINK_CLOSE, THINK_OPEN, split_reasoning
 from traceguard.monitors.conditions import build_partner_index
 from traceguard.tasks.generator import build_episode_plan
 from traceguard.tasks.specs import (
@@ -208,16 +208,55 @@ def test_shuffle_partner_label_guard():
 
 
 def test_split_reasoning_parsing():
-    full = "Customer confusion:step oneCustomer confusion:The answer"
+    """Regression tests for the think/answer split (the anti-leak contract).
+
+    These fixtures are BUILT from the canonical constants so a corrupted-tag
+    regression can never make tests pass against wrong delimiters again.
+    """
+    full = THINK_OPEN + "step one" + THINK_CLOSE + "The answer"
     turn = split_reasoning(full)
     assert turn.reasoning_text == "step one"
     assert turn.assistant_text == "The answer"
     assert turn.reasoning_parse_status == "complete"
-    truncated = split_reasoning("Customer confusion:never closed")
+
+    truncated = split_reasoning(THINK_OPEN + "never closed")
     assert truncated.reasoning_text == "never closed"
+    assert truncated.assistant_text == ""
     assert truncated.reasoning_parse_status == "truncated"
-    plain = split_reasoning("just an answer")
+
+    # Thinking mode, NO tags at all: the chat template pre-filled the opening
+    # tag in the prompt, so EVERYTHING generated is reasoning. The answer
+    # channel must stay EMPTY (reasoning must never leak into it).
+    leaked_old_bug = split_reasoning("long reasoning text with no tags")
+    assert leaked_old_bug.reasoning_text == "long reasoning text with no tags"
+    assert leaked_old_bug.assistant_text == ""
+    assert leaked_old_bug.reasoning_parse_status == "truncated"
+
+    # Non-thinking mode, no tags: plain answer, no reasoning.
+    plain = split_reasoning("just an answer", reasoning_mode=False)
     assert plain.reasoning_parse_status == "absent" and plain.reasoning_text is None
-    empty_block = split_reasoning("Customer confusion:Customer confusion:the answer")
+    assert plain.assistant_text == "just an answer"
+
+    empty_block = split_reasoning(THINK_OPEN + THINK_CLOSE + "the answer")
     assert empty_block.reasoning_parse_status == "empty_block"
     assert empty_block.assistant_text == "the answer"
+
+    # Literal-text close tag (model emitted the tag as text, not special token)
+    lit = split_reasoning("reasoned as text" + THINK_CLOSE + "the answer")
+    assert lit.reasoning_parse_status == "complete"
+    assert lit.reasoning_text == "reasoned as text"
+    assert lit.assistant_text == "the answer"
+
+
+def test_think_tag_constants_byte_exact():
+    """The delimiters must be the exact Qwen3 tag bytes.
+
+    Guards against the file-rewriting incident where THINK_OPEN/THINK_CLOSE
+    were silently replaced by an unrelated marker string in a previous
+    session (see docs/deviations.md).
+    """
+    assert chr(60) + "think" + chr(62) == THINK_OPEN
+    assert chr(60) + "/think" + chr(62) == THINK_CLOSE
+    assert len(THINK_OPEN) == 7 and len(THINK_CLOSE) == 8
+    # the corrupted marker string must never reappear
+    assert "Customer" not in THINK_OPEN and "Customer" not in THINK_CLOSE

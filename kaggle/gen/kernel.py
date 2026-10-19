@@ -139,6 +139,9 @@ def main() -> int:
     toks = turn.token_usage.get("generated_tokens", 0)
     manifest["measured_tokens_per_sec"] = round(toks / secs, 1) if secs > 0 else None
 
+    # capture resolved revision BEFORE releasing the validation model
+    resolved_model_revision = provider.model_revision
+
     # ---- RELEASE the validation model before the generation subprocess loads
     # its own copy (two resident 8GB copies would OOM a single T4). -----------
     import gc
@@ -156,9 +159,27 @@ def main() -> int:
     (OUT / STAGE / "environment.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
+    # ---- config placeholder substitution ----------------------------------------
+    # The frozen configs keep PIN_EXACT_COMMIT_BEFORE_RUN placeholders for
+    # model/code revisions; the kernel resolves them at run time so the run
+    # manifest records the TRUE as-run values (and the config hash covers the
+    # actual frozen inputs, not the placeholders).
+    import yaml
+    cfg_data = yaml.safe_load((REPO_DIR / CONFIG).read_text(encoding="utf-8"))
+    cfg_data["provenance"]["code_revision"] = TRACEGUARD_COMMIT
+    cfg_data["agent"]["model_revision"] = resolved_model_revision
+    cfg_data["agent"]["tokenizer_revision"] = resolved_model_revision
+    cfg_data["monitor"]["model_revision"] = resolved_model_revision
+    patched_cfg = Path("/tmp/run_config.yaml")
+    patched_cfg.write_text(yaml.safe_dump(cfg_data, sort_keys=True), encoding="utf-8")
+    manifest["config_source"] = CONFIG
+    manifest["config_substituted"] = patched_cfg.name
+    manifest["config_code_revision"] = TRACEGUARD_COMMIT
+    manifest["config_model_revision"] = resolved_model_revision
+
     # ---- episode generation via CLI (frozen config, resumable shards) -----------
     gen_cmd = [sys.executable, "-m", "traceguard.cli", "generate",
-               "--config", CONFIG, "--run-dir", str(OUT / STAGE / "run"),
+               "--config", str(patched_cfg), "--run-dir", str(OUT / STAGE / "run"),
                "--stage", STAGE, "--shard", str(SHARD), "--shard-count", str(SHARD_COUNT),
                "--provider", "qwen"]
     proc = subprocess.run(gen_cmd, cwd=str(REPO_DIR))

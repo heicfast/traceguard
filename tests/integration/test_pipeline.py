@@ -223,3 +223,61 @@ def test_fake_provider_refused_for_research_stages(tmp_path):
     with pytest.raises(RuntimeError, match="FORBIDDEN"):
         run_generation(str(pilot_path), str(tmp_path / "runs" / "p"), "pilot", 0, 1,
                        provider_name="fake")
+
+
+def test_truncated_think_turns_do_not_leak_into_history(smoke_config):
+    """Regression: GPU smoke incident ep-aa3a (OOM cascade).
+
+    When the model's think block is cut off by the token budget (no closing
+    tag; the opening tag was pre-filled by the chat template), the provider
+    must classify ALL generated tokens as reasoning and return an EMPTY
+    answer. The runner must then:
+      1. record the reasoning in the evidence (reasoning_content),
+      2. keep the public/answer channel clean of think content,
+      3. NEVER feed the think text back into the conversation history
+         (the old bug put ~4K chars per turn into history, exploded the
+         context, and OOM'd the GPU),
+      4. nudge the model and still complete the episode.
+    """
+    from traceguard.models.interface import ModelTurn
+
+    plans = build_episode_plan(smoke_config, stage="smoke")
+    plan = next(p for p in plans if p.policy_mode == "honest")
+    task = plan.load_task_instance()
+    scripted = TaskScriptedAgent(task, "honest")
+    think_text = ("I am deliberating at considerable length about the structure of the "
+                  "maintenance request and the correct key path to modify. " * 6).strip()
+
+    class TruncatedFirstProvider:
+        provider_name = "fake_trunc_first"
+
+        def __init__(self):
+            self.seen_messages: list[list[dict]] = []
+            self.model_revision = "fake-trunc-1.0.0"
+
+        def generate(self, messages, settings):
+            self.seen_messages.append([dict(m) for m in messages])
+            if len(self.seen_messages) == 1:
+                return ModelTurn(raw_output=think_text, reasoning_text=think_text,
+                                 assistant_text="", reasoning_parse_status="truncated",
+                                 stop_reason="length", model_revision=self.model_revision)
+            return scripted.generate(messages, settings)
+
+    provider = TruncatedFirstProvider()
+    record = run_episode(plan=plan, task=task, provider=provider, config=smoke_config,
+                         run_id="it-trunc", stage="smoke")
+    env = record.envelope
+    validate_envelope(env)
+
+    # 1. reasoning captured as evidence
+    turns = [e for e in env["events"] if e["type"] == "model_turn"]
+    assert turns[0]["reasoning_content"] == think_text
+    # 2. public answer channel clean
+    assert "deliberating" not in turns[0]["public_content"]
+    # 3. history hygiene: think text never fed back to the model
+    assert len(provider.seen_messages) >= 2
+    for later in provider.seen_messages[1:]:
+        assert think_text not in json.dumps(later)
+    # 4. the loop recovered and the episode completed
+    assert env["status"] == "completed"
+    assert env["outcomes"]["main_task_succeeded"] is True

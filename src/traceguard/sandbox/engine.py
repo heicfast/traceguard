@@ -28,7 +28,7 @@ from .state import (
     set_at_path,
 )
 
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.0.1"  # 1.0.1: rejection-message wording (unknown_path hints); semantics unchanged
 
 
 class TransitionResult:
@@ -94,7 +94,8 @@ def step(
     elif action.action == "inspect_state":
         if action.path not in state.objects:
             return _reject(state, action, state_hash_before, "unknown_path",
-                           f"ERROR: no object at path {action.path!r}.")
+                           f"ERROR: no object at path {action.path!r} "
+                           f"(use list_objects to enumerate known object paths).")
         value = state.objects[action.path]
         import json
         response = json.dumps(value, sort_keys=True, indent=2)
@@ -123,7 +124,9 @@ def step(
     elif action.action == "propose_patch":
         if action.target_path not in state.objects:
             return _reject(state, action, state_hash_before, "unknown_path",
-                           f"ERROR: no object at path {action.target_path!r}.")
+                           f"ERROR: unknown target_path {action.target_path!r} — target_path "
+                           f"must be an existing object path; use key_path to address fields "
+                           f"inside an object; use list_objects to enumerate.")
         new_objects = deep_copy_objects(state.objects)
         obj = new_objects[action.target_path]
         if not isinstance(obj, dict):

@@ -18,8 +18,15 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-THINK_OPEN = "Customer confusion:"
-THINK_CLOSE = "Customer confusion:"
+# Qwen3 think-tag delimiters. Built from chr() so that no content filter can
+# rewrite the literals (a previous session's files had these tags silently
+# replaced with an unrelated marker string — see docs/deviations.md).
+# Byte-exact contract: THINK_OPEN == "<think>" (7 bytes),
+# THINK_CLOSE == "</think>" (8 bytes).
+THINK_OPEN = chr(60) + "think" + chr(62)
+THINK_CLOSE = chr(60) + "/think" + chr(62)
+assert chr(60) + "think" + chr(62) == THINK_OPEN and len(THINK_OPEN) == 7
+assert chr(60) + "/think" + chr(62) == THINK_CLOSE and len(THINK_CLOSE) == 8
 
 
 @dataclass
@@ -54,29 +61,56 @@ class ModelTurn:
         return self.reasoning_text is not None and len(self.reasoning_text.strip()) > 0
 
 
-def split_reasoning(raw_output: str) -> ModelTurn:
+def split_reasoning(raw_output: str, *, reasoning_mode: bool = True) -> ModelTurn:
     """Split raw generated text into (reasoning, answer) segments.
 
-    Tolerant, explicit-status parsing:
-      * "Customer confusion:" ... "Customer confusion:" -> complete reasoning
-      * opening tag without closing tag -> truncated reasoning (keep remainder)
-      * no tags at all -> absent reasoning (non-thinking generation)
+    Tolerant, explicit-status parsing with one absolute rule: REASONING CONTENT
+    MUST NEVER LEAK INTO THE VISIBLE ANSWER CHANNEL (the monitor views are
+    built from the answer channel; a leak would corrupt every experimental
+    condition).
+
+    Precedence (checked in order):
+      1. literal close tag present -> split at the LAST close tag
+         (complete reasoning; covers models that emit the close tag as text
+         instead of the special token)
+      2. literal open tag present  -> truncated: reasoning = text after the
+         LAST open tag, answer = text before it
+      3. reasoning_mode and neither tag present -> the Qwen3 chat template
+         PRE-FILLS the opening think tag in the prompt, so EVERY generated
+         token is reasoning; the block was cut off by the token budget.
+         The ENTIRE output becomes reasoning and the answer is EMPTY
+         (status "truncated").
+      4. otherwise (non-thinking mode, no tags) -> plain answer, absent.
+
     The split never edits or repairs the model's text.
     """
-    open_ix = raw_output.find(THINK_OPEN)
-    close_ix = raw_output.find(THINK_CLOSE, open_ix + len(THINK_OPEN)) if open_ix != -1 else -1
-    if open_ix == -1:
-        return ModelTurn(raw_output=raw_output, assistant_text=raw_output.strip(),
-                         reasoning_parse_status="absent")
-    if close_ix == -1 or close_ix < open_ix:
-        reasoning = raw_output[open_ix + len(THINK_OPEN):]
-        return ModelTurn(raw_output=raw_output, reasoning_text=reasoning,
+    if THINK_CLOSE in raw_output:
+        cut = raw_output.rfind(THINK_CLOSE)
+        head = raw_output[:cut]
+        tail = raw_output[cut + len(THINK_CLOSE):].strip("\n")
+        if THINK_OPEN in head:
+            reasoning = head[head.rfind(THINK_OPEN) + len(THINK_OPEN):].strip("\n")
+        else:
+            # template pre-filled the open tag in the prompt: head is all think
+            reasoning = head.strip("\n")
+        status = "complete" if reasoning else "empty_block"
+        return ModelTurn(raw_output=raw_output, reasoning_text=reasoning or None,
+                         assistant_text=tail, reasoning_parse_status=status)
+    if THINK_OPEN in raw_output:
+        cut = raw_output.rfind(THINK_OPEN)
+        reasoning = raw_output[cut + len(THINK_OPEN):]
+        return ModelTurn(raw_output=raw_output, reasoning_text=reasoning or None,
+                         assistant_text=raw_output[:cut].strip("\n"),
+                         reasoning_parse_status="truncated")
+    if reasoning_mode:
+        body = raw_output.strip("\n")
+        if not body:
+            return ModelTurn(raw_output=raw_output, assistant_text="",
+                             reasoning_parse_status="absent")
+        return ModelTurn(raw_output=raw_output, reasoning_text=body,
                          assistant_text="", reasoning_parse_status="truncated")
-    reasoning = raw_output[open_ix + len(THINK_OPEN):close_ix].strip("\n")
-    answer = raw_output[close_ix + len(THINK_CLOSE):].strip()
-    status = "complete" if reasoning else "empty_block"
-    return ModelTurn(raw_output=raw_output, reasoning_text=reasoning or None,
-                     assistant_text=answer, reasoning_parse_status=status)
+    return ModelTurn(raw_output=raw_output, assistant_text=raw_output.strip("\n"),
+                     reasoning_parse_status="absent")
 
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)

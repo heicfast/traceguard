@@ -41,7 +41,7 @@ class SandboxConfig(FrozenModel):
     network_enabled: Literal[False] = False
     shell_enabled: Literal[False] = False
     external_credentials: Literal[False] = False
-    engine_version: str = "1.0.0"
+    engine_version: str = "1.0.1"
 
 
 class DatasetConfig(FrozenModel):

@@ -23,7 +23,7 @@ sandbox:
   network_enabled: false
   shell_enabled: false
   external_credentials: false
-  engine_version: 1.0.0
+  engine_version: 1.0.1
 dataset:
   families: null                        # all 6 families; split roles are frozen in code
   templates_per_family: 2               # 12 templates total

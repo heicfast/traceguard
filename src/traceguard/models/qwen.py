@@ -6,10 +6,12 @@ Implements the model card's exact behavior
 * ``tokenizer.apply_chat_template(..., enable_thinking=...)`` selects
   thinking / non-thinking mode. transformers>=4.51 is REQUIRED
   (older versions raise ``KeyError: 'qwen3'``).
-* Thinking output is a ``Customer confusion: ... Customer confusion:`` block;
-  the closing tag is token id 151668. Splitting is done at the TOKEN level
-  using the LAST occurrence of the closing tag (model-card algorithm), with a
-  text-level fallback.
+* Thinking output is a think-tag block; the closing tag is token id 151668.
+  Splitting is done at the TOKEN level using the LAST occurrence of the
+  closing tag (model-card algorithm), with the unified text-level fallback
+  ``split_reasoning`` (which enforces: reasoning never leaks into the
+  visible answer channel — thinking mode with a pre-filled opening tag and
+  no closing tag means EVERY generated token is reasoning).
 * Conversation history handed back to the model must contain ONLY the final
   answer part (think blocks stripped) — the chat template expects this and we
   enforce it.
@@ -30,7 +32,7 @@ import time
 from typing import Any
 
 from ..ids import sha256_text
-from .interface import THINK_OPEN, GenerationSettings, ModelTurn
+from .interface import GenerationSettings, ModelTurn, split_reasoning
 
 QWEN_CLOSE_THINK_TOKEN_ID = 151668
 
@@ -111,9 +113,11 @@ class QwenHFProvider:
             output_ids = self.model.generate(**inputs, **gen_kwargs)
         new_ids = output_ids[0][inputs["input_ids"].shape[-1]:].tolist()
 
-        # Token-level think/answer split (model card algorithm: LAST close tag)
-        reasoning_text: str | None = None
-        parse_status = "absent"
+        # Token-level think/answer split (model card algorithm: LAST close tag).
+        # If the closing special token never appears (token budget exhausted
+        # mid-think, or the model emitted the tag as literal text), fall back
+        # to split_reasoning, which guarantees reasoning can never leak into
+        # the visible answer channel.
         try:
             index = len(new_ids) - new_ids[::-1].index(QWEN_CLOSE_THINK_TOKEN_ID)
         except ValueError:
@@ -121,22 +125,23 @@ class QwenHFProvider:
         if index > 0:
             reasoning_ids = new_ids[:index]
             answer_ids = new_ids[index:]
-            reasoning_text = self.tokenizer.decode(reasoning_ids, skip_special_tokens=True).strip("\n")
-            answer_text = self.tokenizer.decode(answer_ids, skip_special_tokens=True).strip("\n")
+            reasoning_text = self.tokenizer.decode(reasoning_ids,
+                                                   skip_special_tokens=True).strip("\n")
+            answer_text = self.tokenizer.decode(answer_ids,
+                                                skip_special_tokens=True).strip("\n")
             if reasoning_text:
-                parse_status = "complete" if len(reasoning_ids) < settings.max_new_tokens else "truncated"
+                parse_status = "complete" if len(reasoning_ids) < settings.max_new_tokens \
+                    else "truncated"
             else:
                 # empty think block: template-prefilled non-thinking turn
                 parse_status = "empty_block"
                 reasoning_text = None
         else:
-            answer_text = self.tokenizer.decode(new_ids, skip_special_tokens=True).strip("\n")
-            if THINK_OPEN in answer_text:
-                # model opened a think tag but never closed it
-                raw_open = answer_text.find(THINK_OPEN)
-                reasoning_text = answer_text[raw_open + len(THINK_OPEN):]
-                answer_text = answer_text[:raw_open].strip("\n")
-                parse_status = "truncated"
+            decoded = self.tokenizer.decode(new_ids, skip_special_tokens=True)
+            turn = split_reasoning(decoded, reasoning_mode=settings.reasoning_mode)
+            reasoning_text = turn.reasoning_text
+            answer_text = turn.assistant_text
+            parse_status = turn.reasoning_parse_status
 
         usage = {
             "prompt_tokens": int(inputs["input_ids"].shape[-1]),
@@ -155,6 +160,18 @@ class QwenHFProvider:
                                 "model_id": self.model_id,
                                 "prompt_sha256": sha256_text(prompt_text)[:16]},
         )
+
+
+    def between_episodes(self) -> None:
+        """Release cached GPU memory between episodes (housekeeping only).
+
+        This does NOT touch sampling or determinism: generation is already
+        complete and every turn's seeds are set explicitly per call.
+        """
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            self._torch.cuda.empty_cache()
 
 
 def build_provider_from_config(config, seed: int = 0):

@@ -12,7 +12,7 @@ import os
 import platform
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -24,7 +24,7 @@ def main() -> int:
         return 2
 
     manifest = {
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
         "python": platform.python_version(),
         "platform": platform.platform(),
         "torch": torch.__version__,

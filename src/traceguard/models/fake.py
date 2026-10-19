@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from .interface import GenerationSettings, ModelTurn, split_reasoning
+from .interface import THINK_CLOSE, THINK_OPEN, GenerationSettings, ModelTurn, split_reasoning
 
 
 class FakeModel:
@@ -44,7 +44,7 @@ class FakeModel:
         raw_parts: list[str] = []
         reasoning = entry.get("reasoning")
         if reasoning is not None:
-            raw_parts.append(f"Customer confusion:{reasoning}Customer confusion:")
+            raw_parts.append(THINK_OPEN + str(reasoning) + THINK_CLOSE)
         answer = entry.get("answer", "")
         tool = entry.get("tool")
         if tool is not None:
@@ -52,7 +52,7 @@ class FakeModel:
             answer = answer + "\n" + json.dumps(tool, sort_keys=True)
         raw_parts.append(answer)
         raw = "\n".join(raw_parts)
-        turn = split_reasoning(raw)
+        turn = split_reasoning(raw, reasoning_mode=settings.reasoning_mode)
         turn.stop_reason = entry.get("stop", "stop")
         turn.model_revision = self.model_revision
         turn.elapsed_ms = 0.0

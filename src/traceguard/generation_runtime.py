@@ -112,6 +112,13 @@ def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
         except Exception:
             failures.append(f"{ep_id}: {traceback.format_exc(limit=4)}")
             store.log("stderr.log", f"[generation] {ep_id} failed\n" + traceback.format_exc() + "\n")
+        finally:
+            # GPU memory hygiene between episodes (no effect on sampling;
+            # per-turn seeds are explicit). Guards against KV-cache fragment
+            # accumulation observed in the first GPU smoke run.
+            release = getattr(provider, "between_episodes", None)
+            if callable(release):
+                release()
 
     store.write_checksums()
     return {
