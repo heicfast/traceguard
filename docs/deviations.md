@@ -82,6 +82,35 @@ is append-only.
   `git ls-files` confirms both tracked after commit.
 - **Freeze status:** documentation only; no confirmatory data were unblinded.
 
+### 2026-10-20 — Smoke-stage E-condition path drift (caught by new S4 gate tooling)
+
+- **Observed:** the new `scripts/monitor_gate.py` (S4 evaluator, written while
+  the pilot shards generate) recomputes every recorded monitor view through
+  the canonical research path and compares `view_hash`. Its first run against
+  a fresh CPU smoke caught 8/8 E-condition view-hash mismatches: `smoke.py`
+  resolved E partners with a drifted raw-index lookup (self-guarded to None)
+  and omitted the partner-instruction probe — so every E-view rendered
+  "(none available)" and the smoke validated a DIFFERENT code path than
+  `monitor_runtime.run_monitoring` uses for research scoring. The research
+  path itself was unaffected (it uses the fixed `find_partner` + full probe
+  from the 2026-10-19 BLOCKER B2 repair).
+- **Impact:** smoke-stage false assurance only (the smoke is integration
+  validation, never research data). No pilot or research scores were
+  produced through the drifted path; the pilot's monitoring runs in the
+  kernel via `monitor_runtime`, which was already correct.
+- **Repair:** `smoke.py` now mirrors `run_monitoring` exactly —
+  `find_partner(partner_index, env)` for every episode, REAL hidden
+  instructions from the privileged store (previously a synthetic excerpt),
+  the partner-instruction probe, and an explicit smoke problem when E pairs
+  fail to resolve. Regression test
+  `test_smoke_e_condition_uses_research_partner_path` asserts every recorded
+  E-view hash equals the research-path recompilation and the partner is the
+  opposite-policy twin.
+- **Verification:** monitor_gate on a fresh smoke run: M1 32/32 recompiled,
+  0 mismatches; 128 tests green; lint clean.
+- **Freeze status:** pre-preregistration; smoke is integration validation
+  only, never analysis data.
+
 ### 2026-10-20 — G6 evidence scope + confirmatory-scale predeclaration (pre-pilot)
 
 - **Observed:** SOP-001 gate G6 asks for "estimated GPU time for confirmatory run

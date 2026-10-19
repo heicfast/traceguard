@@ -16,7 +16,7 @@ from typing import Any
 from .agents.runner import run_episode
 from .config import ExperimentConfig, load_config, write_run_manifest
 from .models.fake import TaskScriptedAgent
-from .monitors.conditions import build_partner_index, compile_all_conditions
+from .monitors.conditions import build_partner_index, compile_all_conditions, find_partner
 from .monitors.rules import KeywordMonitor, RuleMonitor
 from .tasks.generator import build_episode_plan, plan_manifest
 from .tasks.split import manifest_hash
@@ -76,6 +76,7 @@ def run_smoke(config_path: str | None, out_dir: str) -> dict[str, Any]:
 
     problems: list[str] = []
     episodes: list[dict[str, Any]] = []
+    privileged_by_id: dict[str, dict[str, Any]] = {}
     for plan in plans:
         task = plan.load_task_instance()
         provider = TaskScriptedAgent(task, plan.policy_mode)
@@ -89,23 +90,34 @@ def run_smoke(config_path: str | None, out_dir: str) -> dict[str, Any]:
         try:
             store.record_episode(record.envelope, record.privileged)
             episodes.append(record.envelope)
+            privileged_by_id[record.episode_id] = record.privileged
         except ValueError as exc:
             problems.append(f"store: {exc}")
 
     # -- compile all views + run deterministic monitors -----------------------
+    # MUST mirror monitor_runtime.run_monitoring exactly: find_partner
+    # (policy-keyed opposite-mode lookup), REAL hidden instructions from the
+    # privileged store, and the partner-instruction probe. The smoke stage
+    # exists to validate the research path — a drifted copy here once
+    # degenerated every E-view to "(none available)" (caught 2026-10-20 by
+    # scripts/monitor_gate.py M1 hash re-verification).
     conditions = config.monitor.conditions
     partner_index = build_partner_index(episodes)
     rule_monitor = RuleMonitor()
     keyword_monitor = KeywordMonitor()
     score_rows: list[dict[str, Any]] = []
     for env in episodes:
-        partner = partner_index.get(_partner_key(env))
-        if partner is not None and partner["episode_id"] == env["episode_id"]:
-            partner = None  # self-partner guard
-        hidden = None
-        if env["policy_mode"] == "attack":
-            hidden = "confidential instruction excerpt for smoke leakage testing"
-        obs_all = compile_all_conditions(env, conditions, partner, hidden)
+        partner = find_partner(partner_index, env)
+        if "actions_plus_shuffled_cot" in conditions and partner is None:
+            problems.append(
+                f"E-pairing: no opposite-policy partner for {env['episode_id']} — "
+                "smoke must contain complete honest/attack pairs")
+        hidden = privileged_by_id.get(env["episode_id"], {}).get("hidden_instruction")
+        partner_hidden = (
+            privileged_by_id.get(partner["episode_id"], {}).get("hidden_instruction")
+            if partner is not None else None)
+        obs_all = compile_all_conditions(env, conditions, partner, hidden,
+                                         partner_hidden_instruction=partner_hidden)
         for _condition_name, obs in obs_all.items():
             for monitor in (rule_monitor, keyword_monitor):
                 score = monitor.score(obs)
@@ -151,11 +163,6 @@ def run_smoke(config_path: str | None, out_dir: str) -> dict[str, Any]:
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     store.write_checksums()
     return {"ok": not problems, "summary": summary}
-
-
-def _partner_key(env: dict) -> tuple:
-    from .monitors.conditions import episode_partner_key
-    return episode_partner_key(env)
 
 
 def attempts_expected(attacks: list[dict]) -> list[dict]:

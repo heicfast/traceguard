@@ -315,3 +315,50 @@ def test_v2_transactional_shards_merge_and_verify(tmp_path):
     assert report["ok"], report["problems"]
     assert len(list((merged / "transactions").glob("*.json"))) == report["episodes"]
     assert len(list((merged / "commits").glob("*.json"))) == report["episodes"]
+
+
+def test_smoke_e_condition_uses_research_partner_path(tmp_path):
+    """Regression (2026-10-20): the smoke stage once resolved E partners with a
+    drifted raw-index lookup (self-guarded to None), so every E-view rendered
+    "(none available)" and silently validated a DIFFERENT path than the research
+    monitoring. Caught by scripts/monitor_gate.py M1 hash re-verification. The
+    smoke must exercise the same find_partner + partner-instruction-probe path
+    as monitor_runtime.run_monitoring, and every recorded E-view hash must
+    match the research-path recompilation."""
+    from traceguard.monitors.conditions import (
+        build_partner_index,
+        compile_all_conditions,
+        find_partner,
+    )
+    from traceguard.smoke import run_smoke
+
+    out = tmp_path / "run"
+    result = run_smoke(None, str(out))
+    assert result["ok"], result["summary"]["problems"]
+
+    store = RunStore(out / "traceguard_smoke")
+    episodes = store.load_all_episodes(validate=True)
+    privileged = store.load_all_privileged()
+    by_id = {e["episode_id"]: e for e in episodes}
+    partner_index = build_partner_index(episodes)
+
+    e_scores = store.load_scores("rules_v1", "actions_plus_shuffled_cot")
+    assert e_scores, "smoke must score the E condition"
+    for rec in e_scores:
+        env = by_id[rec["episode_id"]]
+        partner = find_partner(partner_index, env)
+        assert partner is not None, f"E pairing failed for {env['episode_id']}"
+        assert partner["episode_id"] != env["episode_id"]
+        assert partner["policy_mode"] != env["policy_mode"], (
+            "E partner must be the opposite-policy twin")
+        obs = compile_all_conditions(
+            env, ["actions_plus_shuffled_cot"], partner,
+            privileged.get(env["episode_id"], {}).get("hidden_instruction"),
+            partner_hidden_instruction=privileged.get(
+                partner["episode_id"], {}).get("hidden_instruction"),
+        )["actions_plus_shuffled_cot"]
+        assert str(obs.view_hash) == str(rec["view_hash"]), (
+            f"E view drift for {env['episode_id']}: the smoke scored a view that "
+            "differs from the research-path recompilation")
+        assert "[reasoning, turn 1" in obs.text, (
+            f"E view for {env['episode_id']} lost the partner reasoning trace")
