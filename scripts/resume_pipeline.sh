@@ -96,11 +96,13 @@ pilot() {
   python3 "$HERE/scripts/audit_episodes.py" --run-dir "$DL/pilot_merged/run"
   python3 "$HERE/scripts/pilot_gate.py" --run-dir "$DL/pilot_merged/run" \
     --gpu-feasibility-evidence "$HERE/runs/gpu_feasibility/evidence_2026-10-20.json"
-  # dataset for the monitor kernel
+  # dataset for the monitor kernel (--public: everything public per owner directive;
+  # the CLI default is PRIVATE, which would break the mon kernel's public-clone
+  # assumptions and the open-research policy)
   mkdir -p "$DL/pilot_dataset"
   cp -r "$DL/pilot_merged/run" "$DL/pilot_dataset/traceguard-output/pilot/run"
   cp "$HERE/kaggle/dataset_metadata.json" "$DL/pilot_dataset/dataset-metadata.json"
-  ( cd "$DL/pilot_dataset" && $KG datasets create -p . )
+  ( cd "$DL/pilot_dataset" && $KG datasets create -p . --public )
   # monitor kernel (scores all conditions; ~3h GPU)
   ( cd "$HERE/kaggle/mon" && $KG kernels push -p . )
   poll_kernel "$MON" kaggle/mon
