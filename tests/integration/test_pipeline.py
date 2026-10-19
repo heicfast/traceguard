@@ -281,3 +281,37 @@ def test_truncated_think_turns_do_not_leak_into_history(smoke_config):
     # 4. the loop recovered and the episode completed
     assert env["status"] == "completed"
     assert env["outcomes"]["main_task_succeeded"] is True
+
+
+def test_v2_transactional_shards_merge_and_verify(tmp_path):
+    import subprocess
+    import sys
+
+    from traceguard.generation_runtime import run_generation
+    from traceguard.verification import verify_run
+
+    repo = Path(__file__).resolve().parents[2]
+    cfg = repo / "configs" / "smoke.yaml"
+    shard_dirs = [tmp_path / "worker-0", tmp_path / "worker-1"]
+    for shard, shard_dir in enumerate(shard_dirs):
+        result = run_generation(
+            config_path=str(cfg),
+            run_dir=str(shard_dir),
+            stage="smoke",
+            shard=shard,
+            shard_count=2,
+            provider_name="fake",
+        )
+        assert result["ok"]
+
+    merged = tmp_path / "merged"
+    command = [sys.executable, str(repo / "scripts" / "merge_shards.py")]
+    for shard_dir in shard_dirs:
+        command.extend(["--shard-dir", str(shard_dir)])
+    command.extend(["--out", str(merged)])
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    report = verify_run(str(merged))
+    assert report["ok"], report["problems"]
+    assert len(list((merged / "transactions").glob("*.json"))) == report["episodes"]
+    assert len(list((merged / "commits").glob("*.json"))) == report["episodes"]

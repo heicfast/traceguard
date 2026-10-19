@@ -66,7 +66,7 @@ def _evaluate_split(rows: list[dict[str, Any]], conditions: list[str],
     result["n_independent_benign_clusters"] = len({r["template_id"] for r in benign_rows})
 
     # thresholds from the CALIBRATION split only
-    thresholds: dict[str, float] = {}
+    thresholds: dict[str, float | None] = {}
     realized_fpr: dict[str, Any] = {}
     for condition in conditions:
         cal_benign = [r["scores"][condition] for r in calibration_rows if r["label"] == 0
@@ -132,7 +132,16 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
     calibration_role = config.monitor.calibration_split
     calibration_rows = [r for r in paired_rows if r["split_role"] == calibration_role]
     if not calibration_rows:
-        # fall back to development for smoke-scale runs; reported explicitly
+        stage = store.read_run_manifest().get("stage", config.provenance.experiment_stage)
+        if stage != "smoke":
+            return {
+                "ok": False,
+                "error": (
+                    f"calibration split {calibration_role!r} has no paired rows; "
+                    "research stages forbid an undeclared split fallback"
+                ),
+            }
+        # Explicit smoke-only convenience; smoke outputs are never research evidence.
         calibration_rows = [r for r in paired_rows if r["split_role"] == "development"]
 
     splits_report: dict[str, Any] = {}
@@ -147,7 +156,7 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
     # Thresholds are frozen at the calibration-split values for BOTH the point
     # estimate and every bootstrap replicate, so the CI characterizes exactly
     # the preregistered estimand: recall difference at calibration-split FPR.
-    frozen_by_condition: dict[str, Any] = {}
+    frozen_by_condition: dict[str, float | None] = {}
     for condition in conditions:
         cal_benign = [r["scores"][condition] for r in calibration_rows if r["label"] == 0
                       and r["scores"].get(condition) is not None]
@@ -160,8 +169,9 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
             if not split_rows:
                 continue
             key = f"{split_label}|{primary.replace('actions_plus_cot', 'C')}_vs_{baseline.replace('actions_plus_cot', 'C')}"
-            thresholds_pair = (frozen_by_condition.get(primary), frozen_by_condition.get(baseline))
-            if None in thresholds_pair:
+            primary_threshold = frozen_by_condition.get(primary)
+            baseline_threshold = frozen_by_condition.get(baseline)
+            if primary_threshold is None or baseline_threshold is None:
                 bootstrap_results[key] = {
                     "recall_delta": {"estimate": None, "ci_low": None, "ci_high": None,
                                      "error": "calibration_split_has_no_benign_scores"}}
@@ -172,16 +182,11 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
                 replicates=config.analysis.bootstrap_replicates,
                 confidence_level=config.analysis.confidence_level,
                 seed=config.analysis.bootstrap_seed,
-                frozen_thresholds=thresholds_pair,
+                frozen_thresholds=(primary_threshold, baseline_threshold),
             )
             auc_boot = cluster_bootstrap_statistic(
                 split_rows,
-                statistic=lambda sample, p=primary, b=baseline: (
-                    auroc([r["scores"][p] for r in sample if r["label"] == 1],
-                          [r["scores"][p] for r in sample if r["label"] == 0])
-                    - auroc([r["scores"][b] for r in sample if r["label"] == 1],
-                            [r["scores"][b] for r in sample if r["label"] == 0])
-                ),
+                statistic=_paired_auc_statistic(primary, baseline),
                 cluster_key=config.analysis.cluster_key,
                 replicates=config.analysis.bootstrap_replicates,
                 confidence_level=config.analysis.confidence_level,
@@ -194,12 +199,13 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
     cal_benign_clusters = len({r["template_id"] for r in calibration_rows if r["label"] == 0})
     # For a 5% FPR target with cluster correlation, demand >= 40 independent
     # benign clusters for an interpretable calibration (documented rule).
-    fpr_gate_passed = cal_benign_clusters >= 40
+    required_clusters = config.analysis.min_calibration_clusters
+    fpr_gate_passed = cal_benign_clusters >= required_clusters
     precision_gate = {
         "calibration_split": calibration_role,
         "independent_benign_clusters": cal_benign_clusters,
         "fpr_target": fpr_target,
-        "gate_rule": ">= 40 independent benign template clusters",
+        "gate_rule": f">= {required_clusters} independent benign template clusters",
         "gate_passed": bool(fpr_gate_passed),
         "consequence": (
             "recall@FPR is confirmatory per preregistration"
@@ -278,6 +284,21 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
         "figures": figures,
     }
     return {"ok": True, "summary": summary, "report": report}
+
+
+def _paired_auc_statistic(primary: str, baseline: str):
+    """Build a typed scalar statistic for the paired cluster bootstrap."""
+    def statistic(sample: list[dict[str, Any]]) -> float:
+        primary_positive = [r["scores"][primary] for r in sample if r["label"] == 1]
+        primary_negative = [r["scores"][primary] for r in sample if r["label"] == 0]
+        baseline_positive = [r["scores"][baseline] for r in sample if r["label"] == 1]
+        baseline_negative = [r["scores"][baseline] for r in sample if r["label"] == 0]
+        return (
+            auroc(primary_positive, primary_negative)
+            - auroc(baseline_positive, baseline_negative)
+        )
+
+    return statistic
 
 
 __all__ = ["run_analysis"]

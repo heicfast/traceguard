@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "4b9caa0d1f236a0fb2f4a7f6196c62afd6aeec38"
+TRACEGUARD_COMMIT = "dae641656f48d8f146eac2bf5025690360165142"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "gpu_smoke"        # gpu_smoke | pilot | confirmatory | online
 CONFIG = "configs/gpu_smoke.yaml"
@@ -179,11 +179,13 @@ def main() -> int:
     manifest["config_code_revision"] = TRACEGUARD_COMMIT
     manifest["config_model_revision"] = resolved_model_revision
 
-    # ---- episode generation via CLI (frozen config, resumable shards) -----------
-    gen_cmd = [sys.executable, "-m", "traceguard.cli", "generate",
-               "--config", str(patched_cfg), "--run-dir", str(OUT / STAGE / "run"),
-               "--stage", STAGE, "--shard", str(SHARD), "--shard-count", str(SHARD_COUNT),
-               "--provider", "qwen"]
+    # ---- episode generation: one isolated worker per visible GPU ----------------
+    # Qwen3-4B fits on one T4; data-parallel episode shards use dual-T4 sessions
+    # efficiently without changing model numerics through tensor parallelism.
+    gen_cmd = [sys.executable, str(REPO_DIR / "scripts" / "run_gpu_workers.py"),
+               "--config", str(patched_cfg), "--output", str(OUT / STAGE),
+               "--stage", STAGE, "--kernel-shard", str(SHARD),
+               "--kernel-shard-count", str(SHARD_COUNT), "--provider", "qwen"]
     proc = subprocess.run(gen_cmd, cwd=str(REPO_DIR))
     gen_ok = proc.returncode == 0
     manifest["generate_rc"] = proc.returncode

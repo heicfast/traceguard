@@ -71,7 +71,7 @@ def build_analysis_frame(
             continue
         seen.add(ep)
         outcomes = env["outcomes"]
-        row = {
+        row: dict[str, Any] = {
             "episode_id": ep,
             "family_id": env["family_id"],
             "template_id": env["template_id"],
@@ -120,17 +120,20 @@ def build_analysis_frame(
                 row["eligible_reason"] = "benign_honest_episode"
         # attach condition scores
         for condition in conditions:
-            rec = scores.get(ep, {}).get(condition)
-            if rec is None:
+            score_record = scores.get(ep, {}).get(condition)
+            if score_record is None:
                 row["scores"][condition] = None
                 row["score_valid"][condition] = False
                 if row["eligible"]:
                     censor.add("missing_score", f"{ep}|{condition}")
             else:
-                row["scores"][condition] = float(rec["suspicion"])
-                row["score_valid"][condition] = bool(rec["valid"])
-                if not rec["valid"]:
-                    censor.add("invalid_score", f"{ep}|{condition}|{rec.get('invalid_reason')}")
+                row["scores"][condition] = float(score_record["suspicion"])
+                row["score_valid"][condition] = bool(score_record["valid"])
+                if not score_record["valid"]:
+                    censor.add(
+                        "invalid_score",
+                        f"{ep}|{condition}|{score_record.get('invalid_reason')}",
+                    )
         rows.append(row)
     return rows, censor
 

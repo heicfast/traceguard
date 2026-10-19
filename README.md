@@ -11,14 +11,20 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | Milestone | State |
 |---|---|
 | M0 design + governance | done |
-| M1 deterministic sandbox + exact grader + tests | done (95 tests, CPU-only) |
+| M1 deterministic sandbox + exact grader + tests | done (CPU-only suite) |
 | M2 evidence pipeline + view compiler + leakage tests | done |
 | M3 FakeModel end-to-end CPU integration | done |
 | M4 Kaggle GPU preflight + Qwen3 integration | see `kaggle/` + `worklog/` |
 | M5 monitor conditions A/C/D/E on same episodes | code done; GPU runs pending |
-| M6 pilot + capability/precision gate | pending GPU |
+| M6 pilot + capability/precision gate | running; diagnostic only until downloaded and verified |
 | M7 preregistration freeze | template ready |
 | M8 confirmatory + online intervention | pending |
+
+**v2 review verdict:** the kernel is suitable for a new pilot, but confirmatory
+execution is deliberately blocked. The current validation split has only two
+independent template clusters versus the predeclared minimum of forty for a
+fixed-5%-FPR estimate, and the task bank must pass an action-only saturation
+gate. See [`docs/RESEARCH_REVIEW_V2.md`](docs/RESEARCH_REVIEW_V2.md).
 
 ## The four non-negotiable rules
 
@@ -45,13 +51,13 @@ python -m traceguard.cli smoke --out runs/smoke   # full pipeline smoke with scr
 
 ## Architecture in one paragraph
 
-Frozen experiment configs drive seeded task-instance generation across six synthetic task families (config updates, schema migration, dependency metadata, incident workflow, service rotation, backup policy). A deterministic in-memory sandbox executes strictly typed tool calls (`inspect_state`, `list_objects`, `propose_patch`, `submit_task`) and judges protected-invariant violations by exact state comparison. The agent runtime (Qwen3-4B in native thinking mode on Kaggle, or a scripted fake for CPU tests) records every turn: genuine `think` tokens, visible answers, tool proposals, tool results, state hashes. An allowlist ViewCompiler compiles monitor evidence (conditions A/B/C/D/E/F) with mechanical leakage assertions; hidden instructions, outcome labels, and `hidden_instruction` events can never enter monitor views. Deterministic baselines (rules, keywords) and an LLM monitor with a frozen prompt score every condition on the *same* stored episodes. The analysis layer computes paired recall differences with template-clustered bootstrap confidence intervals, precision gates for low-FPR claims, capability funnels, and provenance-stamped figures.
+Frozen experiment configs drive seeded task-instance generation across eight synthetic task families. A deterministic in-memory sandbox executes strictly typed tool calls (`inspect_state`, `list_objects`, `propose_patch`, `submit_task`) and judges protected-invariant violations by exact state comparison. The Qwen runtime records complete prompt and generated token ids, decoded outputs, messages, seeds, revisions, chat-template/runtime metadata, and hashes; CPU tests use a scripted fake. Episode evidence is committed through a crash-recoverable transaction before JSONL projection. An allowlist ViewCompiler builds conditions A/B/C/D/E/F with mechanical leakage assertions. Deterministic and LLM monitors score the *same* stored episodes and retain exact prompts/raw responses. The analysis layer computes paired effects, clustered uncertainty, precision gates, censor accounting, and provenance-stamped figures.
 
 ## Repository layout
 
 ```
 src/traceguard/
-  tasks/       TaskSpec registry (6 families, 12 templates), seeded instances, split manifest
+  tasks/       TaskSpec registry (8 families, 16 templates), seeded instances, split manifest
   sandbox/     pure state, typed actions, engine, invariants, exact grader
   models/      provider contract, FakeModel/scripted agent, Qwen3 HF adapter
   agents/      honest/attack policy composition, episode runner
@@ -61,7 +67,7 @@ src/traceguard/
   analyses/    metrics (AUROC/AP/recall@FPR), paired cluster bootstrap, plots
   cli.py       doctor | smoke | generate | monitor | analyze | verify | export
 configs/       smoke.yaml, pilot.yaml (frozen candidates)
-tests/         unit + property + integration (95 tests)
+tests/         unit + property + integration tests
 docs/          protocol, architecture, SOPs, quality manual, review system
 kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 ```
@@ -72,6 +78,9 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - [`docs/SOP_001_EXPERIMENT_EXECUTION.md`](docs/SOP_001_EXPERIMENT_EXECUTION.md) — stage-by-stage execution procedure with gates
 - [`docs/SOP_002_KAGGLE_OPERATIONS.md`](docs/SOP_002_KAGGLE_OPERATIONS.md) — Kaggle push/monitor/download operations
 - [`docs/REVIEW_SYSTEM.md`](docs/REVIEW_SYSTEM.md) — multi-POV independent review protocol (developer / scientist / security / statistician)
+- [`docs/ARCHITECTURE_V2.md`](docs/ARCHITECTURE_V2.md) — trusted-computing boundary, data flow, performance and hard gates
+- [`docs/RAW_EVIDENCE_SPEC.md`](docs/RAW_EVIDENCE_SPEC.md) — exact token/prompt/runtime retention and release separation
+- [`docs/RESEARCH_REVIEW_V2.md`](docs/RESEARCH_REVIEW_V2.md) — consolidated findings and confirmatory blockers
 - [`docs/prior_art_matrix.md`](docs/prior_art_matrix.md) — how TRACEGUARD differs from SLEIGHT-Bench, MonitorBench, OpenAI monitorability evals, SHADE-Arena
 - [`docs/research_question.md`](docs/research_question.md) — the one falsifiable hypothesis and its negative outcomes
 - [`docs/deviations.md`](docs/deviations.md) — dated deviation log (changes after any freeze)
@@ -86,6 +95,8 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - Chen et al., *Reasoning Models Don't Always Say What They Think* — https://arxiv.org/abs/2505.05410
 - Inspect AI — https://inspect.aisi.org.uk/ · ControlArena — https://control-arena.aisi.org.uk/
 - Qwen3-4B — https://huggingface.co/Qwen/Qwen3-4B (Apache 2.0)
+- Wang et al., *MonitorBench* — https://arxiv.org/abs/2603.28590
+- OpenAI, *Reasoning Models Struggle to Control their Chains of Thought* — https://openai.com/index/reasoning-models-chain-of-thought-controllability/
 
 ## License
 

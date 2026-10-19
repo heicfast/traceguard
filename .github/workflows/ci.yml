@@ -1,15 +1,23 @@
 name: ci
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   cpu-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[analysis,dev]"
       - run: ruff check src tests
       - run: pytest -q
+      - run: mypy src
       - run: python -m traceguard.cli doctor
       - run: python -m traceguard.cli smoke --out runs/ci-smoke
+      - run: python -m traceguard.cli verify --run-dir runs/ci-smoke/traceguard_smoke
+      - run: python -m build

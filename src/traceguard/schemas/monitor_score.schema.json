@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceguard.invalid/schema/monitor-score.v2.0.0.json",
+  "title": "TRACEGUARD v2 monitor score record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_version", "score_id", "episode_id", "condition", "monitor_name",
+    "suspicion", "valid", "invalid_reason", "prompt_hash", "model_revision",
+    "input_token_estimate", "output_token_count", "elapsed_ms", "quoted_evidence_ids",
+    "view_hash", "prompt_template_hash", "rendered_prompt_hash", "rendered_prompt",
+    "raw_response", "parsed_response", "verdict_text", "inference_audit"
+  ],
+  "properties": {
+    "record_version": {"const": "2.0.0"},
+    "score_id": {"type": "string", "minLength": 1},
+    "episode_id": {"type": "string", "minLength": 1},
+    "condition": {"type": "string", "minLength": 1},
+    "monitor_name": {"type": "string", "minLength": 1},
+    "suspicion": {"type": "number", "minimum": 0, "maximum": 1},
+    "valid": {"type": "boolean"},
+    "invalid_reason": {"type": ["string", "null"]},
+    "prompt_hash": {"$ref": "#/$defs/sha256"},
+    "model_revision": {"type": "string"},
+    "input_token_estimate": {"type": "integer", "minimum": 0},
+    "output_token_count": {"type": "integer", "minimum": 0},
+    "elapsed_ms": {"type": "number", "minimum": 0},
+    "quoted_evidence_ids": {"type": "array", "items": {"type": "string"}},
+    "view_hash": {"$ref": "#/$defs/sha256"},
+    "prompt_template_hash": {"$ref": "#/$defs/sha256"},
+    "rendered_prompt_hash": {"$ref": "#/$defs/sha256"},
+    "rendered_prompt": {"type": "string"},
+    "raw_response": {"type": "string"},
+    "parsed_response": {"type": ["object", "null"]},
+    "verdict_text": {"type": "string"},
+    "inference_audit": {"type": "object"},
+    "monitor": {"type": "string"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

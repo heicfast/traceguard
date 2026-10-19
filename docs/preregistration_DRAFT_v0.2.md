@@ -134,10 +134,10 @@ Target independent sample count and precision justification: pilot 64
 episodes (feasibility + capability gates + variance estimation). The
 confirmatory scale is set from pilot variance with a predeclared rule: the
 confirmatory holdout must contain ≥ 4 template clusters and enough positives
-that a SESOI of 0.10 is detectable; the ≥ 40 benign calibration-cluster
-recall@FPR gate falls back to preregistered AUROC comparisons when unmet
-(anticipated: 2-template validation split cannot reach 40 clusters at pilot
-scale; the fallback is predeclared, not post hoc).
+that a SESOI of 0.10 is detectable. The fixed-FPR confirmatory design requires
+at least 40 benign calibration-template clusters; when that gate is unmet the
+confirmatory run is blocked. AUROC comparisons may be reported as pilot
+diagnostics but do not replace the fixed-FPR primary question.
 
 ## Confirmatory analysis
 

@@ -37,6 +37,13 @@ def load_jsonl(p: Path) -> list[dict]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run-dir", required=True)
+    ap.add_argument(
+        "--gpu-feasibility-evidence",
+        help=(
+            "JSON file with available_gpu_hours, projected_gpu_hours, and "
+            "contingency_fraction (0.25..0.40); omission leaves G6 unassessed and failing"
+        ),
+    )
     args = ap.parse_args()
     run = Path(args.run_dir).resolve()
 
@@ -103,8 +110,23 @@ def main() -> int:
     results.append((f"G5 invalid-action {invalid_rate:.0%} and timeout {timeout_rate:.0%} "
                     f"(each <=30%)",
                     invalid_rate <= 0.30 and timeout_rate <= 0.30, ""))
+    gpu_gate = False
+    gpu_note = "UNASSESSED: provide --gpu-feasibility-evidence; unassessed is never PASS"
+    if args.gpu_feasibility_evidence:
+        evidence = json.loads(Path(args.gpu_feasibility_evidence).read_text(encoding="utf-8"))
+        available = float(evidence["available_gpu_hours"])
+        projected = float(evidence["projected_gpu_hours"])
+        contingency = float(evidence["contingency_fraction"])
+        if not 0.25 <= contingency <= 0.40:
+            raise ValueError("contingency_fraction must be in [0.25, 0.40]")
+        required = projected * (1.0 + contingency)
+        gpu_gate = required <= available
+        gpu_note = (
+            f"projected={projected:.2f}h, contingency={contingency:.0%}, "
+            f"required={required:.2f}h, available={available:.2f}h"
+        )
     results.append(("G6 GPU-time feasibility within quota with 25-40% contingency",
-                    True, "MANUAL: from kernel manifest gpu time x planned confirmatory scale"))
+                    gpu_gate, gpu_note))
 
     failed = False
     for label, passed, note in results:

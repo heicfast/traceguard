@@ -21,7 +21,7 @@ sandbox:
   network_enabled: false
   shell_enabled: false
   external_credentials: false
-  engine_version: 1.0.1
+  engine_version: 1.0.2
 dataset:
   families: [config_update, data_migration]   # 2 dev families x 2 templates = 4 templates
   templates_per_family: 2

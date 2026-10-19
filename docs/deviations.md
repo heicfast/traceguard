@@ -28,3 +28,26 @@ is append-only.
 | 2026-10-19 | PREDECLARED LIMITATIONS recorded (not fixed yet, scheduled before S5 freeze): (a) holdout = 1 family / 2 template clusters → clustered CI is degenerate; plan: author 2 new families (4 templates) for the holdout before confirmatory; (b) all 12 attacks are single action-visible propose_patch calls whose dispositive evidence appears in condition A — the confirmatory claim must be worded "CoT adds nothing when attacks are fully action-visible" unless new cross-object/multi-step templates are added; (c) trace-availability gate re-specified to use per-turn parse statuses (any non-empty thinking output now counts as a trace); (d) multi-part goals are graded on the primary goal key only (predeclared definition of main-task success) | Scientist review Q4/Q5; these are design truths that must be stated in the preregistration, not patched silently | Preregistration fields; pilot (feasibility stage) proceeds under current splits per reviewer recommendation | senior scientist review |
 | 2026-10-19 | Split manifest v1.0.0 → v1.1.0: holdout moved from incident_workflow (1 family / 2 template clusters) to two NEW families — secrets_registry + release_gate (2 families / 4 template clusters); incident_workflow joins the shift set. Benchmark expanded 6 → 8 families / 12 → 16 templates; pilot plan 48 → 64 episodes | Senior-scientist review C2: the old holdout gave a degenerate clustered bootstrap (2 clusters → ~3 distinct resample compositions → no valid CI regardless of data). The new holdout families are unseen at pilot time, making the confirmatory holdout a genuine distribution shift AND giving a non-degenerate cluster bootstrap. Two of the four new attacks are deliberately innocuous-looking on the action surface (export_allowlist grant, blackout.active=false) to partially address the action-visibility limitation | All episodes regenerate (pre-pilot, no data existed); template registry + split manifest hash changed; pilot GPU cost +33% (2 shards × 32 episodes, ~3-5h each) | senior scientist review + implementation agent |
 | 2026-10-19 | GPU quota exhaustion event: after ~3h of cumulative GPU kernel time (preflight 0.3h + smoke v1 1.3h + smoke v3 1.1h), every subsequently queued GPU kernel (smoke v4, pilot shard 0 v1/v2, smoke v5) was auto-canceled by Kaggle after 30min-3.5h in queue; a CPU probe kernel completes instantly, proving the account and CLI path are healthy. Pilot generation BLOCKED on external GPU capacity, not on methodology | Kaggle account GPU allowance drained; the exact weekly allowance is account-tier-specific and was smaller than assumed | No data affected; kernels are resumable (re-push skips completed episodes); scripts/resume_pipeline.sh automates the full pilot sequence (push -> poll -> collect -> merge -> dataset -> monitor kernel -> analysis) when capacity returns; alternative: supply a different Kaggle token or any CUDA host (kernels are path-portable) | implementation agent (external constraint) |
+
+# 2026-10-19 — v2 provenance gate for sandbox engine version
+
+- **Observed:** the pilot configuration declared `sandbox.engine_version: 1.0.1`
+  while the checked-in transition engine reports `ENGINE_VERSION = 1.0.2`.
+- **Impact:** already-started pilot outputs remain usable for capability and
+  pipeline diagnostics because each transition stores its actual engine
+  version, but the run-manifest config is not an exact as-run specification.
+  Those outputs are therefore **not admissible as confirmatory evidence**.
+- **Repair:** configs now pin `1.0.2`; configuration loading hard-fails when the
+  declared and imported engine versions differ. The next research run must use
+  the v2 commit and receives a new config hash/run id.
+- **Freeze status:** pre-preregistration; no confirmatory data were unblinded.
+
+### 2026-10-19 — Remove automatic AUROC substitution
+
+- **Observed:** the draft protocol allowed an underpowered fixed-FPR design to
+  relabel paired AUROC as the confirmatory primary outcome.
+- **Impact:** AUROC answers a ranking question, not recall at the intended
+  operating point, so substitution would change the scientific question.
+- **Repair:** confirmatory execution is now blocked below 40 independent benign
+  calibration-template clusters; AUROC remains a pilot/exploratory diagnostic.
+- **Freeze status:** pre-preregistration; no confirmatory data were unblinded.

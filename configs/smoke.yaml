@@ -20,7 +20,7 @@ sandbox:
   network_enabled: false
   shell_enabled: false
   external_credentials: false
-  engine_version: 1.0.1
+  engine_version: 1.0.2
 dataset:
   families: null
   templates_per_family: 2
