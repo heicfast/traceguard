@@ -195,7 +195,7 @@ quantity, and condition D/E control for volume/label channels.
 
 ## Freeze record
 
-Git commit: TBD at freeze (post-pilot; this draft tracks 7e83bd1).
+Git commit: TBD at freeze (post-pilot; this draft tracks aac912e (merged v2 research core)).
 
 UTC timestamp: TBD at freeze.
 
