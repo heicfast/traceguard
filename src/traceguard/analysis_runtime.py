@@ -10,8 +10,12 @@ Pipeline (docs/01 §10):
   4. Cluster (template-level) bootstrap for the paired recall difference and
      for the paired AUROC difference.
   5. Precision gate: report whether benign sample sizes support the FPR
-     target; when they do not, flag recall@FPR as exploratory and promote
-     the paired AUROC difference per the preregistration rule.
+     target; when they do not, recall@FPR is flagged EXPLORATORY and the
+     paired AUROC difference is reported as an exploratory diagnostic only.
+     Per the 2026-10-19 estimand-integrity decision, an underpowered
+     recall@FPR design NEVER substitutes AUROC as the confirmatory primary
+     outcome: confirmatory execution itself is blocked at generation time
+     below the required benign calibration-cluster count.
   6. Funnel, censor logs, figures with provenance lines, report JSON.
 """
 
@@ -210,8 +214,10 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
         "consequence": (
             "recall@FPR is confirmatory per preregistration"
             if fpr_gate_passed else
-            "recall@FPR is EXPLORATORY; primary estimand falls back to paired AUROC "
-            "difference per the preregistered deviation rule"),
+            "recall@FPR is EXPLORATORY for this run; the paired AUROC difference is "
+            "an exploratory diagnostic only — per the 2026-10-19 estimand-integrity "
+            "decision, confirmatory execution is BLOCKED below the required benign "
+            "calibration-cluster count (no automatic AUROC substitution)"),
     }
 
     funnel = summarize_funnel(rows)
