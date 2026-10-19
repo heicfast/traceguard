@@ -8,10 +8,13 @@ Implements the model card's exact behavior
   (older versions raise ``KeyError: 'qwen3'``).
 * Thinking output is a think-tag block; the closing tag is token id 151668.
   Splitting is done at the TOKEN level using the LAST occurrence of the
-  closing tag (model-card algorithm), with the unified text-level fallback
-  ``split_reasoning`` (which enforces: reasoning never leaks into the
-  visible answer channel — thinking mode with a pre-filled opening tag and
-  no closing tag means EVERY generated token is reasoning).
+  closing tag (a deliberate divergence from the model card's first-occurrence
+  snippet: taking the LAST close keeps the answer channel free of trailing
+  think content in degenerate multi-block outputs — keep this), with the
+  unified text-level fallback ``split_reasoning`` (which enforces: reasoning
+  never leaks into the visible answer channel — thinking mode with a
+  pre-filled opening tag and no closing tag means EVERY generated token is
+  reasoning).
 * Conversation history handed back to the model must contain ONLY the final
   answer part (think blocks stripped) — the chat template expects this and we
   enforce it.
@@ -53,9 +56,26 @@ class QwenHFProvider:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
+        # Environment overrides make the kernel-controlled dtype/device policy
+        # apply to EVERY construction path (review finding: these env vars were
+        # previously read only by a dead factory function, so the T4 fp16
+        # forcing was silently never applied).
+        if torch_dtype == "auto":
+            torch_dtype = os.environ.get("TRACEGUARD_TORCH_DTYPE", "auto")
+        if device_map is None:
+            raw_map = os.environ.get("TRACEGUARD_DEVICE_MAP", "").strip()
+            if raw_map:
+                import json as _json
+
+                try:
+                    parsed = _json.loads(raw_map)
+                    device_map = parsed if isinstance(parsed, dict) else raw_map
+                except _json.JSONDecodeError:
+                    device_map = raw_map  # e.g. "cuda:0" or "auto"
         self._torch = torch
         self.model_id = model_id
         self.device_map = device_map or {"": 0}
+        self.applied_dtype = torch_dtype
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
         self.model_revision = self._resolve_revision(model_id, revision)
         # transformers v5 renamed `torch_dtype` to `dtype`; support both.

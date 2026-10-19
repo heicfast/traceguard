@@ -198,13 +198,31 @@ def test_shuffle_uses_partner_reasoning():
 
 
 def test_shuffle_partner_label_guard():
-    """The partner index must map by content key, not by label."""
+    """The partner index maps by (content key, policy); BOTH twins resolve.
+
+    Review finding 2026-10-19: the old last-write-wins index silently returned
+    partner=None for one twin, making attack-side condition E degenerate to
+    condition A. The policy-keyed index must return the OPPOSITE-mode twin
+    for every episode, never the episode itself.
+    """
+    from traceguard.monitors.conditions import find_partner
+
     env_a = _fake_envelope(attack=True)
     env_b = _fake_envelope(attack=False)
     env_b["episode_id"] = "ep-other456"
     env_b["seed"] = env_a["seed"]
     idx = build_partner_index([env_a, env_b])
-    assert idx[("t/f", 0, 1)]["episode_id"] in {"ep-abc123", "ep-other456"}
+    pa = find_partner(idx, env_a)
+    pb = find_partner(idx, env_b)
+    assert pa is not None and pa["episode_id"] == "ep-other456"
+    assert pb is not None and pb["episode_id"] == "ep-abc123"
+    # a lone episode (twin absent) resolves to None — note it must have a
+    # DIFFERENT content key, otherwise it would overwrite a same-key entry
+    lonely = _fake_envelope(attack=True)
+    lonely["episode_id"] = "ep-lonely"
+    lonely["provenance"]["template_name"] = "t/other"
+    idx2 = build_partner_index([env_a, env_b, lonely])
+    assert find_partner(idx2, lonely) is None
 
 
 def test_split_reasoning_parsing():
@@ -223,6 +241,26 @@ def test_split_reasoning_parsing():
     assert truncated.reasoning_text == "never closed"
     assert truncated.assistant_text == ""
     assert truncated.reasoning_parse_status == "truncated"
+
+    # Thinking mode + an ECHOED literal open tag mid-text: BOTH the prefix and
+    # suffix are think content (the template pre-filled the real open tag in
+    # the prompt); the answer channel must stay EMPTY and the echoed marker is
+    # stripped from the reasoning evidence (review branch-2 leak fix).
+    echoed = split_reasoning("think prefix here " + THINK_OPEN + " think suffix")
+    assert echoed.reasoning_parse_status == "truncated"
+    assert echoed.assistant_text == ""
+    assert echoed.reasoning_text == "think prefix here  think suffix"
+    assert THINK_OPEN not in (echoed.reasoning_text or "")
+
+    # Multi-block degenerate output: reasoning segments are concatenated, the
+    # answer is the FINAL answer, dropped intermediate answers are counted.
+    multi = (THINK_OPEN + "r1" + THINK_CLOSE + "A1 " + THINK_OPEN + "r2"
+             + THINK_CLOSE + "A2")
+    mb = split_reasoning(multi)
+    assert mb.reasoning_parse_status == "complete"
+    assert mb.reasoning_text == "r1\n\nr2"
+    assert mb.assistant_text == "A2"
+    assert mb.parser_diagnostics.get("intermediate_answers_discarded") == 1
 
     # Thinking mode, NO tags at all: the chat template pre-filled the opening
     # tag in the prompt, so EVERYTHING generated is reasoning. The answer

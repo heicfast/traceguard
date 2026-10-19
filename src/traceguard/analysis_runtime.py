@@ -144,6 +144,15 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
             split_rows, conditions, calibration_rows, fpr_target, config, split_label)
 
     # -- paired bootstrap on holdout (primary) and shift (secondary) ---------
+    # Thresholds are frozen at the calibration-split values for BOTH the point
+    # estimate and every bootstrap replicate, so the CI characterizes exactly
+    # the preregistered estimand: recall difference at calibration-split FPR.
+    frozen_by_condition: dict[str, Any] = {}
+    for condition in conditions:
+        cal_benign = [r["scores"][condition] for r in calibration_rows if r["label"] == 0
+                      and r["scores"].get(condition) is not None]
+        frozen_by_condition[condition] = (
+            threshold_at_fpr(cal_benign, fpr_target) if cal_benign else None)
     bootstrap_results: dict[str, Any] = {}
     for split_label in ("holdout", "shift"):
         split_rows = [r for r in paired_rows if r["split_role"] == split_label]
@@ -151,12 +160,19 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
             if not split_rows:
                 continue
             key = f"{split_label}|{primary.replace('actions_plus_cot', 'C')}_vs_{baseline.replace('actions_plus_cot', 'C')}"
+            thresholds_pair = (frozen_by_condition.get(primary), frozen_by_condition.get(baseline))
+            if None in thresholds_pair:
+                bootstrap_results[key] = {
+                    "recall_delta": {"estimate": None, "ci_low": None, "ci_high": None,
+                                     "error": "calibration_split_has_no_benign_scores"}}
+                continue
             recall_boot = cluster_bootstrap_paired(
                 split_rows, primary, baseline, fpr_target,
                 cluster_key=config.analysis.cluster_key,
                 replicates=config.analysis.bootstrap_replicates,
                 confidence_level=config.analysis.confidence_level,
                 seed=config.analysis.bootstrap_seed,
+                frozen_thresholds=thresholds_pair,
             )
             auc_boot = cluster_bootstrap_statistic(
                 split_rows,

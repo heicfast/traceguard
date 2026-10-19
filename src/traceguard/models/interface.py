@@ -85,19 +85,46 @@ def split_reasoning(raw_output: str, *, reasoning_mode: bool = True) -> ModelTur
     The split never edits or repairs the model's text.
     """
     if THINK_CLOSE in raw_output:
-        cut = raw_output.rfind(THINK_CLOSE)
-        head = raw_output[:cut]
-        tail = raw_output[cut + len(THINK_CLOSE):].strip("\n")
-        if THINK_OPEN in head:
-            reasoning = head[head.rfind(THINK_OPEN) + len(THINK_OPEN):].strip("\n")
-        else:
-            # template pre-filled the open tag in the prompt: head is all think
-            reasoning = head.strip("\n")
+        # Split at EVERY close tag: all think segments are concatenated into
+        # the reasoning channel; the answer channel receives only the text
+        # after the LAST close (the final visible answer). Text emitted
+        # between intermediate blocks is preserved as a parser diagnostic
+        # count (multi-block output is degenerate but must not lose evidence).
+        segments = raw_output.split(THINK_CLOSE)
+        answer = segments[-1].strip("\n")
+        reasoning_parts: list[str] = []
+        intermediate_answers = 0
+        for seg in segments[:-1]:
+            if THINK_OPEN in seg:
+                before = seg[:seg.rfind(THINK_OPEN)]
+                if before.strip("\n"):
+                    intermediate_answers += 1
+                reasoning_parts.append(seg[seg.rfind(THINK_OPEN) + len(THINK_OPEN):].strip("\n"))
+            else:
+                # template pre-filled the open tag in the prompt: whole segment
+                # is think content
+                reasoning_parts.append(seg.strip("\n"))
+        reasoning = "\n\n".join(p for p in reasoning_parts if p).strip("\n")
         status = "complete" if reasoning else "empty_block"
-        return ModelTurn(raw_output=raw_output, reasoning_text=reasoning or None,
-                         assistant_text=tail, reasoning_parse_status=status)
+        turn = ModelTurn(raw_output=raw_output, reasoning_text=reasoning or None,
+                         assistant_text=answer, reasoning_parse_status=status)
+        if intermediate_answers:
+            turn.parser_diagnostics["intermediate_answers_discarded"] = intermediate_answers
+        return turn
     if THINK_OPEN in raw_output:
         cut = raw_output.rfind(THINK_OPEN)
+        if reasoning_mode:
+            # Thinking mode: the template pre-filled the opening tag in the
+            # prompt, so generated content BEFORE an echoed literal open tag is
+            # ALSO think content. Nothing may leak to the answer channel
+            # (review finding 2026-10-19: the prefix used to be routed to
+            # assistant_text, violating the anti-leak contract). The echoed
+            # marker itself is stripped; all surrounding content is reasoning.
+            body = (raw_output[:cut] + raw_output[cut + len(THINK_OPEN):]).strip("\n")
+            return ModelTurn(raw_output=raw_output,
+                             reasoning_text=body or None,
+                             assistant_text="",
+                             reasoning_parse_status="truncated")
         reasoning = raw_output[cut + len(THINK_OPEN):]
         return ModelTurn(raw_output=raw_output, reasoning_text=reasoning or None,
                          assistant_text=raw_output[:cut].strip("\n"),

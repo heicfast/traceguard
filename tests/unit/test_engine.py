@@ -281,4 +281,4 @@ def test_grader_final_state_defense_in_depth(base_objects, invariants):
 
 
 def test_engine_version_recorded():
-    assert ENGINE_VERSION == "1.0.1"
+    assert ENGINE_VERSION == "1.0.2"

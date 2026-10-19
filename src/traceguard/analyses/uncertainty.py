@@ -31,13 +31,19 @@ def cluster_bootstrap_paired(
     confidence_level: float = 0.95,
     seed: int = 20261019,
     split_filter: str | None = None,
+    frozen_thresholds: tuple[float, float] | None = None,
 ) -> dict[str, Any]:
     """Bootstrap the paired recall difference at a calibrated FPR.
 
-    Thresholds are recalibrated INSIDE every bootstrap replicate on its benign
-    sample (only if the replicate contains benign rows; else that replicate
-    contributes NaN and is dropped with an explicit count). Returns point
-    estimate, percentile CI, and diagnostics.
+    ``frozen_thresholds`` (primary, baseline) pins the decision thresholds to
+    the pre-registered calibration-split values so that every replicate — and
+    the CI as a whole — characterizes THE SAME estimand as the point estimate
+    (review finding 2026-10-19: recalibrating thresholds inside each replicate
+    on the evaluation split's own benign rows characterized a different,
+    within-replicate-recalibrated quantity). When ``frozen_thresholds`` is
+    None, the legacy within-replicate recalibration is retained for backwards
+    compatibility and the result is labeled accordingly. Replicates without
+    benign rows under frozen thresholds still contribute NaN and are counted.
     """
     if split_filter:
         rows = [r for r in rows if r["split_role"] == split_filter]
@@ -51,10 +57,15 @@ def cluster_bootstrap_paired(
     def compute_delta(sample_rows: list[dict[str, Any]]) -> dict[str, Any]:
         benign = [r for r in sample_rows if r["label"] == 0]
         attacks = [r for r in sample_rows if r["label"] == 1]
-        if not benign or not attacks:
+        if not attacks:
             return {"delta": None, "recall_primary": None, "recall_baseline": None}
-        t_p = threshold_at_fpr([r["scores"][condition_primary] for r in benign], fpr_target)
-        t_b = threshold_at_fpr([r["scores"][condition_baseline] for r in benign], fpr_target)
+        if frozen_thresholds is not None:
+            t_p, t_b = frozen_thresholds
+        else:
+            if not benign:
+                return {"delta": None, "recall_primary": None, "recall_baseline": None}
+            t_p = threshold_at_fpr([r["scores"][condition_primary] for r in benign], fpr_target)
+            t_b = threshold_at_fpr([r["scores"][condition_baseline] for r in benign], fpr_target)
         rec_p = sum(1 for r in attacks if r["scores"][condition_primary] >= t_p) / len(attacks)
         rec_b = sum(1 for r in attacks if r["scores"][condition_baseline] >= t_b) / len(attacks)
         return {"delta": rec_p - rec_b, "recall_primary": rec_p, "recall_baseline": rec_b}
@@ -92,7 +103,10 @@ def cluster_bootstrap_paired(
         "n_clusters": len(keys),
         "n_rows": len(rows),
         "seed": seed,
-        "method": "percentile_cluster_bootstrap",
+        "method": ("percentile_cluster_bootstrap_frozen_thresholds"
+                   if frozen_thresholds is not None
+                   else "percentile_cluster_bootstrap_recalibrated"),
+        "frozen_thresholds": list(frozen_thresholds) if frozen_thresholds else None,
     }
 
 

@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "c21e33ed2d057a4e05db085edb97ad388720c254"
+TRACEGUARD_COMMIT = "7e6fcc2a42e0dff5c78832f6dd263e5ec7b282d9"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "gpu_smoke"        # gpu_smoke | pilot | confirmatory | online
 CONFIG = "configs/gpu_smoke.yaml"
@@ -86,6 +86,8 @@ def main() -> int:
     inst = run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e",
                 f"{REPO_DIR}[analysis]"], check=False)
     manifest["pip_editable_rc"] = inst.returncode
+    gate(inst.returncode == 0,
+         f"pip install -e rc=0 (stderr: {inst.stderr[-200:]})", manifest)
     import importlib
 
     import transformers

@@ -13,7 +13,7 @@ from typing import Any
 
 from .config import load_config
 from .generation_runtime import compute_run_id
-from .monitors.conditions import build_partner_index, compile_all_conditions
+from .monitors.conditions import build_partner_index, compile_all_conditions, find_partner
 from .monitors.rules import KeywordMonitor, RuleMonitor
 from .traces.storage import RunStore
 
@@ -41,7 +41,14 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
             monitors.append(DETERMINISTIC_MONITORS[name]())
         elif name.startswith("llm"):
             from .models.qwen import QwenHFProvider
-            provider = QwenHFProvider(model_id=config.monitor.model_id)
+            # Pin the monitor checkpoint to the frozen config revision. A
+            # resumable monitor run must never silently mix two monitor
+            # checkpoints across pushes (review finding 2026-10-19).
+            monitor_revision = config.monitor.model_revision
+            provider = QwenHFProvider(
+                model_id=config.monitor.model_id,
+                revision=None if monitor_revision.startswith("PIN") else monitor_revision,
+            )
             from .monitors.llm import LLMMonitor
             monitor = LLMMonitor(provider, settings_overrides={
                 "max_new_tokens": 256,
@@ -62,12 +69,21 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                 ep = env["episode_id"]
                 if ep in existing:
                     continue
-                partner = partner_index.get(_partner_key(env))
-                if partner is not None and partner["episode_id"] == ep:
-                    partner = None
+                partner = find_partner(partner_index, env)
+                needs_partner = condition == "actions_plus_shuffled_cot"
+                if needs_partner and partner is None:
+                    failures.append(
+                        f"MISSING PARTNER {ep}|{condition}: no opposite-policy twin "
+                        f"in this run — E requires complete honest/attack pairs")
+                    continue
                 hidden = privileged.get(ep, {}).get("hidden_instruction")
+                partner_hidden = (
+                    privileged.get(partner["episode_id"], {}).get("hidden_instruction")
+                    if partner is not None else None)
                 try:
-                    obs_all = compile_all_conditions(env, [condition], partner, hidden)
+                    obs_all = compile_all_conditions(
+                        env, [condition], partner, hidden,
+                        partner_hidden_instruction=partner_hidden)
                     obs = obs_all[condition]
                     score = monitor.score(obs)
                     batch.append(score.to_payload())
@@ -89,11 +105,6 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
         "scored": scored_totals,
         "failures": failures[:20],
     }
-
-
-def _partner_key(env: dict) -> tuple:
-    from .monitors.conditions import episode_partner_key
-    return episode_partner_key(env)
 
 
 def _stage_from_manifest(store: RunStore) -> str:

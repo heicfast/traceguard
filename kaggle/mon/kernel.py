@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "c21e33ed2d057a4e05db085edb97ad388720c254"
+TRACEGUARD_COMMIT = "PIN_TO_GEN_KERNEL_COMMIT"  # must equal the generation kernel's pinned commit
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1"]
@@ -60,6 +60,24 @@ def main() -> int:
     config_payload = manifest_data.get("config")
     if not config_payload:
         raise SystemExit("run manifest carries no config; cannot reproduce frozen settings")
+
+    # ---- REVISION CONSISTENCY GATE -------------------------------------------
+    # The episodes embed task instances from the code registry at generation
+    # time; scoring them with a different code revision silently corrupts
+    # every view (e.g. r1 vs r2 goal wording). The monitor code revision MUST
+    # match the generation code revision recorded in the run manifest.
+    gen_code_revision = config_payload.get("provenance", {}).get("code_revision")
+    if not gen_code_revision or str(gen_code_revision).startswith("PIN"):
+        raise SystemExit(
+            f"generation manifest has no resolved code_revision (got {gen_code_revision!r}); "
+            f"refusing to score with unverifiable template registry state")
+    if gen_code_revision != TRACEGUARD_COMMIT:
+        raise SystemExit(
+            f"code revision mismatch: generation ran {gen_code_revision[:10]} but this "
+            f"monitor kernel is pinned to {TRACEGUARD_COMMIT[:10]}; repin the monitor "
+            f"kernel to the generation commit and re-push")
+    manifest["gen_code_revision"] = gen_code_revision
+
     import yaml
     config_yaml = "/tmp/traceguard-config-from-manifest.yaml"
     Path(config_yaml).write_text(yaml.safe_dump(config_payload, sort_keys=True), encoding="utf-8")

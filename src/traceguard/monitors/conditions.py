@@ -25,12 +25,27 @@ def episode_partner_key(envelope: dict[str, Any]) -> tuple[str, int, int]:
     return (prov["template_name"], prov["instance_index"], envelope["seed"])
 
 
-def build_partner_index(envelopes: list[dict[str, Any]]) -> dict[tuple[str, int, int], dict[str, Any]]:
-    """Map each episode's partner key to the envelope of its policy twin."""
-    index: dict[tuple[str, int, int], dict[str, Any]] = {}
+def build_partner_index(
+        envelopes: list[dict[str, Any]]) -> dict[tuple[str, int, int, str], dict[str, Any]]:
+    """Map (partner_key, policy_mode) -> envelope for the OPPOSITE-mode lookup.
+
+    Keying by policy mode is what makes condition E symmetric: an episode's
+    shuffle partner is BY DEFINITION its policy twin, and the lookup can never
+    return the episode itself. (Review finding 2026-10-19: the previous
+    last-write-wins index without the policy component silently produced
+    partner=None for one twin, making attack-side E degenerate to condition A.)
+    """
+    index: dict[tuple[str, int, int, str], dict[str, Any]] = {}
     for env in envelopes:
-        index[episode_partner_key(env)] = env
+        index[episode_partner_key(env) + (env["policy_mode"],)] = env
     return index
+
+
+def find_partner(index: dict[tuple[str, int, int, str], dict[str, Any]],
+                 envelope: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the policy twin of ``envelope`` from the index (never itself)."""
+    opposite = "attack" if envelope["policy_mode"] == "honest" else "honest"
+    return index.get(episode_partner_key(envelope) + (opposite,))
 
 
 def load_task_instance_for(envelope: dict[str, Any]) -> TaskInstance:
@@ -44,6 +59,7 @@ def compile_all_conditions(
     partner_envelope: dict[str, Any] | None,
     hidden_instruction: str | None,
     *,
+    partner_hidden_instruction: str | None = None,
     cutoff_event_index: int | None = None,
 ) -> dict[str, MonitorObservation]:
     """Compile + cleanliness-check every requested condition for one episode."""
@@ -59,6 +75,7 @@ def compile_all_conditions(
             public_policy=task.public_policy_text(),
             condition=condition,
             hidden_instruction=hidden_instruction,
+            partner_hidden_instruction=partner_hidden_instruction,
             cutoff_event_index=cutoff_event_index,
             **kwargs,
         )
@@ -68,5 +85,5 @@ def compile_all_conditions(
 
 __all__ = [
     "compile_all_conditions", "build_partner_index", "episode_partner_key",
-    "load_task_instance_for",
+    "find_partner", "load_task_instance_for",
 ]
