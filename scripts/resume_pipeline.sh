@@ -1,6 +1,11 @@
 #!/usr/bin/env env bash
-# TRACEGUARD pipeline resume: re-push queued/cancelled GPU kernels and drive
-# the full pilot sequence. Run this when Kaggle GPU quota is available again.
+# TRACEGUARD pipeline resume: push GPU kernels and drive the full pilot
+# sequence. Kaggle queue admission is ERRATIC (instant or hours) — that is
+# normal. CANCELLED usually means the OWNER cancelled a queued version to
+# restart it interactively (interactive starts run immediately); it is NOT a
+# quota signal. Never re-push blindly: pushing a new version kills any run the
+# owner may have started manually — always check status first and re-check
+# after a CANCELLED observation before acting (SOP-002 section 3.1).
 #
 #   bash scripts/resume_pipeline.sh status   # just poll kernel states
 #   bash scripts/resume_pipeline.sh push     # re-push smoke + shard0
@@ -34,43 +39,54 @@ push_all() {
 
 collect() {
   # smoke
-  mkdir -p "$DL/gpu_smoke_v4"
-  $KG kernels output "$GEN" -p "$DL/gpu_smoke_v4" && \
+  mkdir -p "$DL/gpu_smoke_v6"
+  $KG kernels output "$GEN" -p "$DL/gpu_smoke_v6" -o && \
     python3 "$HERE/scripts/audit_episodes.py" \
-      --run-dir "$DL/gpu_smoke_v4/traceguard-output/gpu_smoke/run" && \
+      --run-dir "$DL/gpu_smoke_v6/traceguard-output/gpu_smoke/run" && \
     python3 "$HERE/scripts/pilot_gate.py" \
-      --run-dir "$DL/gpu_smoke_v4/traceguard-output/gpu_smoke/run"
+      --run-dir "$DL/gpu_smoke_v6/traceguard-output/gpu_smoke/run"
   # pilot shard 0
   mkdir -p "$DL/pilot_shard0"
-  $KG kernels output "$SHARD0" -p "$DL/pilot_shard0"
+  $KG kernels output "$SHARD0" -p "$DL/pilot_shard0" -o
+}
+
+# Poll one kernel until COMPLETE. On CANCELLED: the owner usually cancelled a
+# queued version to restart it interactively. Wait, re-check, and only re-push
+# (which would kill an owner's manual run) after the kernel stays cancelled for
+# several consecutive checks.
+poll_kernel() {
+  local name="$1" dir="$2" cancel_streak=0
+  while true; do
+    s=$($KG kernels status "$name" 2>&1)
+    echo "  $(date -u +%H:%M:%S) [$name] $s"
+    case "$s" in
+      *COMPLETE*) return 0 ;;
+      *ERROR*) return 1 ;;
+      *CANCEL*)
+        cancel_streak=$((cancel_streak + 1))
+        if [ "$cancel_streak" -ge 3 ]; then
+          echo "[$name] still CANCELLED after 3 checks (~6 min) — re-pushing $dir"
+          ( cd "$HERE/$dir" && $KG kernels push -p . ) || return 1
+          cancel_streak=0
+        else
+          echo "[$name] CANCELLED — likely owner interactive restart; re-checking in 2 min"
+          sleep 120
+        fi
+        ;;
+    esac
+    sleep 300
+  done
 }
 
 pilot() {
-  push_all
-  echo "Polling shard 0 until COMPLETE (GPU queue may take hours)..."
-  while true; do
-    s=$($KG kernels status "$SHARD0" 2>&1)
-    echo "  $(date -u +%H:%M:%S) $s"
-    case "$s" in
-      *COMPLETE*) break ;;
-      *CANCEL*) echo "CANCELLED — quota likely exhausted; retry later with 'pilot'"; exit 2 ;;
-    esac
-    sleep 300
-  done
-  collect
-  # shard 1 (a slot is free once shard 0 completes)
+  # both shards in parallel (2 concurrent GPU sessions allowed)
+  ( cd "$HERE/kaggle/gen_pilot_shard0" && $KG kernels push -p . )
   ( cd "$HERE/kaggle/gen_pilot_shard1" && $KG kernels push -p . )
-  while true; do
-    s=$($KG kernels status "$SHARD1" 2>&1)
-    echo "  $(date -u +%H:%M:%S) $s"
-    case "$s" in
-      *COMPLETE*) break ;;
-      *CANCEL*) echo "CANCELLED — quota likely exhausted; retry later with 'pilot'"; exit 2 ;;
-    esac
-    sleep 300
-  done
-  mkdir -p "$DL/pilot_shard1"
-  $KG kernels output "$SHARD1" -p "$DL/pilot_shard1"
+  poll_kernel "$SHARD0" kaggle/gen_pilot_shard0
+  poll_kernel "$SHARD1" kaggle/gen_pilot_shard1
+  mkdir -p "$DL/pilot_shard0" "$DL/pilot_shard1"
+  $KG kernels output "$SHARD0" -p "$DL/pilot_shard0" -o
+  $KG kernels output "$SHARD1" -p "$DL/pilot_shard1" -o
   # merge + verify
   python3 "$HERE/scripts/merge_shards.py" \
     --shard-dir "$DL/pilot_shard0/traceguard-output/pilot/run" \
@@ -86,17 +102,9 @@ pilot() {
   ( cd "$DL/pilot_dataset" && $KG datasets create -p . )
   # monitor kernel (scores all conditions; ~3h GPU)
   ( cd "$HERE/kaggle/mon" && $KG kernels push -p . )
-  while true; do
-    s=$($KG kernels status "$MON" 2>&1)
-    echo "  $(date -u +%H:%M:%S) $s"
-    case "$s" in
-      *COMPLETE*) break ;;
-      *CANCEL*) echo "CANCELLED — quota likely exhausted; retry later with 'pilot'"; exit 2 ;;
-    esac
-    sleep 300
-  done
+  poll_kernel "$MON" kaggle/mon
   mkdir -p "$DL/pilot_mon"
-  $KG kernels output "$MON" -p "$DL/pilot_mon"
+  $KG kernels output "$MON" -p "$DL/pilot_mon" -o
   # analysis (CPU)
   python3 "$HERE/scripts/reproduce_run.py" \
     --run-dir "$DL/pilot_merged/run" --monitor llm_qwen_hf || \
