@@ -51,3 +51,16 @@ is append-only.
 - **Repair:** confirmatory execution is now blocked below 40 independent benign
   calibration-template clusters; AUROC remains a pilot/exploratory diagnostic.
 - **Freeze status:** pre-preregistration; no confirmatory data were unblinded.
+
+### 2026-10-19 — Transformers 5.x generation RNG compatibility
+
+- **Observed:** Kaggle preflight on merged commit `aac912e6` and Transformers
+  5.16.1 rejected the adapter's `generator` keyword before sampling.
+- **Impact:** no model output was generated and no episode data were affected.
+- **Repair:** generation now runs inside a seeded `torch.random.fork_rng` scope,
+  which restores the worker RNG state afterward; the generation parameters and
+  effective seed remain unchanged and are still saved in raw evidence.
+- **Verification:** a dependency-free adapter regression asserts that no
+  unsupported keyword reaches `model.generate`, seeding occurs inside the
+  isolated scope, and scope exit restores the prior RNG context.
+- **Freeze status:** pre-pilot rerun; no confirmatory data were unblinded.

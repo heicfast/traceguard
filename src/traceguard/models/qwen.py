@@ -33,6 +33,8 @@ from __future__ import annotations
 import os
 import platform
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any
 
@@ -40,6 +42,27 @@ from ..ids import sha256_text
 from .interface import GenerationSettings, ModelTurn, split_reasoning
 
 QWEN_CLOSE_THINK_TOKEN_ID = 151668
+
+
+@contextmanager
+def _isolated_generation_rng(torch: Any, device: Any, seed: int) -> Iterator[None]:
+    """Seed one generation call without leaking mutations to process RNG state.
+
+    Transformers 5.x validates unknown ``generate`` kwargs against the model
+    forward signature and rejects ``generator=``. Sampling still consumes the
+    active PyTorch RNG, so use PyTorch's supported save/seed/restore scope.
+    TRACEGUARD runs generations sequentially within each isolated GPU worker;
+    this process-global scope is therefore deterministic and race-free.
+    """
+    devices: list[int] = []
+    if getattr(device, "type", None) == "cuda":
+        # torch.manual_seed seeds every CUDA device. Save/restore all visible
+        # CUDA generators as well, so a multi-GPU preflight cannot perturb a
+        # sibling device even before workers isolate CUDA_VISIBLE_DEVICES.
+        devices = list(range(torch.cuda.device_count()))
+    with torch.random.fork_rng(devices=devices, enabled=True):
+        torch.manual_seed(seed)
+        yield
 
 
 class QwenHFProvider:
@@ -127,14 +150,11 @@ class QwenHFProvider:
         )
         inputs = self.tokenizer([prompt_text], return_tensors="pt").to(self.model.device)
         effective_seed = (self.base_seed + settings.seed * 7919) % (2**31)
-        generator = torch.Generator(device=inputs["input_ids"].device)
-        generator.manual_seed(effective_seed)
         gen_kwargs: dict[str, Any] = {
             "max_new_tokens": settings.max_new_tokens,
             "do_sample": settings.temperature > 0,
             "pad_token_id": self.tokenizer.pad_token_id
             or self.tokenizer.eos_token_id,
-            "generator": generator,
         }
         if settings.temperature > 0:
             gen_kwargs.update({
@@ -144,7 +164,10 @@ class QwenHFProvider:
             })
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        with torch.inference_mode():
+        with (
+            _isolated_generation_rng(torch, inputs["input_ids"].device, effective_seed),
+            torch.inference_mode(),
+        ):
             output_ids = self.model.generate(**inputs, **gen_kwargs)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -204,6 +227,7 @@ class QwenHFProvider:
             "device_map": self.device_map,
             "dtype_policy": str(self.applied_dtype),
             "deterministic_algorithms_enabled": torch.are_deterministic_algorithms_enabled(),
+            "rng_strategy": "torch.random.fork_rng+torch.manual_seed",
         }
         if torch.cuda.is_available():
             device_index = inputs["input_ids"].device.index or 0
@@ -213,9 +237,7 @@ class QwenHFProvider:
                 "capability": list(torch.cuda.get_device_capability(device_index)),
                 "total_memory_bytes": props.total_memory,
             }
-        serializable_gen_kwargs = {
-            key: value for key, value in gen_kwargs.items() if key != "generator"
-        }
+        serializable_gen_kwargs = dict(gen_kwargs)
         serializable_gen_kwargs["seed"] = effective_seed
         return ModelTurn(
             raw_output=decoded_output,
@@ -279,4 +301,8 @@ def build_provider_from_config(config, seed: int = 0):
     )
 
 
-__all__ = ["QwenHFProvider", "build_provider_from_config", "QWEN_CLOSE_THINK_TOKEN_ID"]
+__all__ = [
+    "QwenHFProvider",
+    "build_provider_from_config",
+    "QWEN_CLOSE_THINK_TOKEN_ID",
+]

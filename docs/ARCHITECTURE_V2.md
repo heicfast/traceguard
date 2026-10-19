@@ -75,8 +75,10 @@ bundles; see `RAW_EVIDENCE_SPEC.md`.
 
 - Config, split, task, prompt template, view, state, transition, output text,
   token-id arrays, transactions, and artifacts use SHA-256.
-- Qwen sampling uses an explicit per-call `torch.Generator`, rather than mutable
-  process-global RNG state.
+- Qwen sampling uses a per-call `torch.random.fork_rng` scope and records the
+  effective seed. The scope restores process RNG state after generation and is
+  compatible with Transformers 5.x, which rejects `generator` as an unused
+  model keyword.
 - Model and tokenizer revisions are separately pinned.
 - Research stages refuse placeholder revisions, source/config commit mismatch,
   a dirty tracked worktree, engine/config version mismatch, stage mismatch, and
