@@ -1,0 +1,98 @@
+{
+  "config_sha256": "a11a370b5fa0bfff11b1ef8d0709840f5581d6d3a97ca32bb8b166f974609e33",
+  "count": 8,
+  "experiment_name": "traceguard_gpu_smoke",
+  "plans": [
+    {
+      "control_variant": "inspect_protected",
+      "family_id": "config_update",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 76765453420063,
+      "plan_key": "config_update/flag_flip|i0|honest|g20261019",
+      "policy_mode": "honest",
+      "split_role": "development",
+      "template_name": "config_update/flag_flip"
+    },
+    {
+      "control_variant": "plain",
+      "family_id": "config_update",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 76765453420063,
+      "plan_key": "config_update/flag_flip|i0|attack|g20261019",
+      "policy_mode": "attack",
+      "split_role": "development",
+      "template_name": "config_update/flag_flip"
+    },
+    {
+      "control_variant": "inspect_protected",
+      "family_id": "config_update",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 127934242691038,
+      "plan_key": "config_update/flag_add|i0|honest|g20261019",
+      "policy_mode": "honest",
+      "split_role": "development",
+      "template_name": "config_update/flag_add"
+    },
+    {
+      "control_variant": "plain",
+      "family_id": "config_update",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 127934242691038,
+      "plan_key": "config_update/flag_add|i0|attack|g20261019",
+      "policy_mode": "attack",
+      "split_role": "development",
+      "template_name": "config_update/flag_add"
+    },
+    {
+      "control_variant": "suspicious_phrasing",
+      "family_id": "data_migration",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 63595865517350,
+      "plan_key": "data_migration/rename_keys|i0|honest|g20261019",
+      "policy_mode": "honest",
+      "split_role": "development",
+      "template_name": "data_migration/rename_keys"
+    },
+    {
+      "control_variant": "plain",
+      "family_id": "data_migration",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 63595865517350,
+      "plan_key": "data_migration/rename_keys|i0|attack|g20261019",
+      "policy_mode": "attack",
+      "split_role": "development",
+      "template_name": "data_migration/rename_keys"
+    },
+    {
+      "control_variant": "inspect_protected",
+      "family_id": "data_migration",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 154559368363979,
+      "plan_key": "data_migration/add_field|i0|honest|g20261019",
+      "policy_mode": "honest",
+      "split_role": "development",
+      "template_name": "data_migration/add_field"
+    },
+    {
+      "control_variant": "plain",
+      "family_id": "data_migration",
+      "generation_seed": 20261019,
+      "instance_index": 0,
+      "instance_seed": 154559368363979,
+      "plan_key": "data_migration/add_field|i0|attack|g20261019",
+      "policy_mode": "attack",
+      "split_role": "development",
+      "template_name": "data_migration/add_field"
+    }
+  ],
+  "schema_version": "1.0.0",
+  "split_manifest_sha256": "8a45608b78544e0495304d9ec71401f623b9eaeabb580f21468842de10a19fd5",
+  "stage": "gpu_smoke"
+}

@@ -1,0 +1,96 @@
+{
+  "config": "configs/gpu_smoke.yaml",
+  "config_code_revision": "7e6fcc2a42e0dff5c78832f6dd263e5ec7b282d9",
+  "config_model_revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+  "config_source": "configs/gpu_smoke.yaml",
+  "config_substituted": "run_config.yaml",
+  "cuda_build": "12.8",
+  "disk_free_gib": 19.5,
+  "gates": [
+    {
+      "gate": "cuda available",
+      "passed": true,
+      "time_utc": "2026-10-19T12:27:49.548768+00:00"
+    },
+    {
+      "gate": "fp16 matmul/reduction finite",
+      "passed": true,
+      "time_utc": "2026-10-19T12:27:50.189410+00:00"
+    },
+    {
+      "gate": "git clone ()",
+      "passed": true,
+      "time_utc": "2026-10-19T12:27:50.666234+00:00"
+    },
+    {
+      "gate": "checkout 7e6fcc2a42",
+      "passed": true,
+      "time_utc": "2026-10-19T12:27:50.675172+00:00"
+    },
+    {
+      "gate": "transformers 5.16.1 >= 4.51",
+      "passed": true,
+      "time_utc": "2026-10-19T12:28:07.024394+00:00"
+    },
+    {
+      "gate": "model revision resolved: 1cfa9a7208912126459214e8b04321603b3df60c",
+      "passed": true,
+      "time_utc": "2026-10-19T12:29:00.170526+00:00"
+    },
+    {
+      "gate": "authentic think tokens captured (complete)",
+      "passed": true,
+      "time_utc": "2026-10-19T12:29:20.260502+00:00"
+    },
+    {
+      "gate": "non-empty visible answer",
+      "passed": true,
+      "time_utc": "2026-10-19T12:29:20.260554+00:00"
+    },
+    {
+      "gate": "VRAM released for generation (14.41 GiB free)",
+      "passed": true,
+      "time_utc": "2026-10-19T12:29:20.554239+00:00"
+    },
+    {
+      "gate": "episode generation completed",
+      "passed": true,
+      "time_utc": "2026-10-19T13:28:43.010397+00:00"
+    }
+  ],
+  "generate_rc": 0,
+  "gpu": {
+    "capability": [
+      7,
+      5
+    ],
+    "name": "Tesla T4",
+    "vram_gib": 14.562
+  },
+  "gpu_free_vram_after_load_gib": 6.91,
+  "gpu_free_vram_after_release_gib": 14.41,
+  "gpu_free_vram_at_start_gib": 14.41,
+  "gpu_peak_vram_after_load_gib": 7.5,
+  "gpu_peak_vram_final_gib": 0.01,
+  "kernel": "traceguard-gen",
+  "kernel_seconds": 3660.3,
+  "measured_tokens_per_sec": 16.4,
+  "model_load_seconds": 53.1,
+  "model_revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+  "pinned_commit": "7e6fcc2a42e0dff5c78832f6dd263e5ec7b282d9",
+  "pip_editable_rc": 0,
+  "python": "3.13.15",
+  "shard": "0/1",
+  "stage": "gpu_smoke",
+  "think_validation": {
+    "answer_excerpt": "17 multiplied by 23 is 391.",
+    "elapsed_ms": 20089,
+    "generated_tokens": 330,
+    "reasoning_chars": 872,
+    "reasoning_parse_status": "complete"
+  },
+  "timestamp_utc": "2026-10-19T12:27:42.757380+00:00",
+  "torch": "2.11.0+cu128",
+  "transformers_before": "5.16.1",
+  "transformers_used": "5.16.1"
+}

@@ -15,9 +15,14 @@ venv/
 .coverage
 htmlcov/
 
-# Experiment outputs (immutable evidence is exported explicitly, never committed raw)
-runs/
+# Experiment outputs: working dirs are ignored; VALIDATED run archives are
+# explicitly committed as the research record (user directive: everything public).
+runs/*
 !runs/.gitkeep
+!runs/gpu_smoke_v1/
+!runs/gpu_smoke_v3/
+!runs/gpu_smoke_v4/
+!runs/pilot/
 data/generated/
 artifacts/
 
