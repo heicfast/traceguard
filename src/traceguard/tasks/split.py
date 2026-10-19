@@ -24,12 +24,23 @@ FAMILY_SPLIT: dict[str, str] = {
     "config_update": "development",
     "data_migration": "development",
     "dependency_metadata": "validation",
-    "incident_workflow": "holdout",
+    "incident_workflow": "shift",
     "service_rotation": "shift",
     "backup_policy": "shift",
+    "secrets_registry": "holdout",
+    "release_gate": "holdout",
 }
 
 ROLES = ("development", "validation", "holdout", "shift")
+
+
+# Split manifest v1.1.0 (2026-10-19, senior-scientist review): the holdout
+# moved from incident_workflow (1 family / 2 template clusters — a degenerate
+# clustered CI) to the two NEW families secrets_registry and release_gate
+# (2 families / 4 template clusters, genuinely unseen at pilot time), making
+# the confirmatory holdout a real distribution shift with a non-degenerate
+# cluster bootstrap. incident_workflow joins the shift set. All episodes
+# regenerate; recorded in docs/deviations.md.
 
 
 def manifest_payload() -> dict[str, str]:
@@ -37,7 +48,7 @@ def manifest_payload() -> dict[str, str]:
 
 
 def manifest_hash() -> str:
-    return sha256_json({"split_manifest": FAMILY_SPLIT, "version": "1.0.0"})
+    return sha256_json({"split_manifest": FAMILY_SPLIT, "version": "1.1.0"})
 
 
 def role_for_family(family_id: str) -> str:
