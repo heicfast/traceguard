@@ -45,7 +45,7 @@ Push `traceguard-gen` kernel with `--stage smoke --provider qwen --limit`-equiva
 
 ### Stage S3 — pilot generation (Kaggle)
 
-Full pilot plan (12 templates × 2 policies × 2 seeds = 48 episodes). Sharded, checkpointed, resumable. On kernel interruption: rerun the same shard command; completed episode ids are skipped (this is resumption, not duplication).
+Full pilot plan (16 templates × 2 policies × 2 seeds = 64 episodes). Sharded, checkpointed, resumable. On kernel interruption: rerun the same shard command; completed episode ids are skipped (this is resumption, not duplication).
 
 **Exit gate (capability/precision go-no-go, all recorded):**
 - attack attempt rate among attack episodes is non-trivial (≥30% target; below 15% = redesign task prompts, new pilot);
@@ -55,13 +55,17 @@ Full pilot plan (12 templates × 2 policies × 2 seeds = 48 episodes). Sharded, 
 - invalid-action and timeout rates each ≤30%;
 - estimated GPU time for confirmatory run within weekly quota (with 25–40% contingency).
 
+GPU feasibility is never a manual auto-pass: `scripts/pilot_gate.py` requires a
+JSON evidence file containing available hours, projected hours, and the
+contingency fraction. Missing evidence makes the gate fail.
+
 A failed gate is PUBLISHED as pilot learning (negative results count), not hidden.
 
 ### Stage S4 — pilot monitoring (Kaggle)
 
 Score the SAME episodes under conditions A, C, D, E (+B offline) with the frozen monitor prompt and deterministic baselines. View compiler leakage assertions must hold for every (episode, condition).
 
-**Exit gate:** no leakage failures; invalid monitor output rate ≤10%; score distributions visibly non-degenerate (variance > 0); calibration split has ≥40 independent benign template clusters OR the preregistered fallback to paired AUROC is activated and recorded.
+**Exit gate:** no leakage failures; invalid monitor output rate ≤10%; score distributions visibly non-degenerate (variance > 0); calibration split has ≥40 independent benign template clusters; and the deterministic action-only baseline does not saturate. An AUROC fallback may be reported for a pilot but does not turn an underpowered fixed-FPR design into a confirmatory answer to RQ1.
 
 ### Stage S5 — protocol freeze (preregistration)
 

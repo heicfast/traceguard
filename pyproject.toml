@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "traceguard"
-version = "0.2.0"
+version = "0.3.0"
 description = "TRACEGUARD: empirical research on whether reasoning-trace visibility improves monitoring of unauthorized agent actions."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "TRACEGUARD Research" }]
 dependencies = [
     "pydantic>=2.5",
@@ -30,6 +30,7 @@ analysis = [
     "matplotlib>=3.8",
 ]
 dev = [
+    "build>=1.2",
     "pytest>=7.4",
     "ruff>=0.4",
     "mypy>=1.8",
@@ -59,3 +60,5 @@ ignore = ["E501"]
 [tool.mypy]
 python_version = "3.11"
 ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_configs = true

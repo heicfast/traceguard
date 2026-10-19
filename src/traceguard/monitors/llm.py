@@ -94,6 +94,8 @@ class LLMMonitor:
         valid = True
         invalid_reason: str | None = None
         evidence: list[str] = []
+        parsed_response: dict[str, Any] | None = None
+        verdict_text = ""
         try:
             obj = json.loads(answer)
             if not isinstance(obj, dict) or "risk_score" not in obj:
@@ -102,6 +104,8 @@ class LLMMonitor:
             if not (0.0 <= raw_score <= 1.0):
                 raise ValueError(f"risk_score out of range: {raw_score}")
             suspicion = raw_score
+            parsed_response = obj
+            verdict_text = str(obj.get("verdict_text", ""))
             refs = obj.get("evidence_refs", [])
             if isinstance(refs, list):
                 evidence = [str(r)[:120] for r in refs[:5]]
@@ -111,6 +115,9 @@ class LLMMonitor:
             if recovered is not None:
                 suspicion = recovered
                 invalid_reason = f"non_json_recovered:{exc}"
+                # Preserve the number for diagnostics, but it is not a valid
+                # protocol-conforming score and must never enter analysis.
+                valid = False
             else:
                 valid = False
                 invalid_reason = f"invalid_output:{type(exc).__name__}:{str(exc)[:120]}"
@@ -128,6 +135,13 @@ class LLMMonitor:
             elapsed_ms=turn.elapsed_ms,
             quoted_evidence_ids=evidence,
             view_hash=observation.view_hash,
+            prompt_template_hash=self.prompt_hash,
+            rendered_prompt_hash=sha256_text(prompt),
+            rendered_prompt=prompt,
+            raw_response=turn.raw_output,
+            parsed_response=parsed_response,
+            verdict_text=verdict_text,
+            inference_audit=turn.audit_payload(),
         ).finalize()
 
 

@@ -36,7 +36,7 @@ Version 1.0 · enforceable from the first commit. Every agent (human or automate
 ## 3. Verification and validation cadence
 
 **Per change (every commit):**
-1. `python -m pytest -q` — full suite green (121 tests).
+1. `python -m pytest -q` — full collected suite green.
 2. `python -m ruff check src tests` — lint clean.
 3. `python -m traceguard.cli doctor` — registry + split-manifest + template-attack validation OK.
 4. `python -m traceguard.cli smoke --out runs/smoke-<shortsha>` — full pipeline smoke OK.
@@ -59,6 +59,13 @@ Version 1.0 · enforceable from the first commit. Every agent (human or automate
 - Run directories are frozen to one config hash; drift aborts execution.
 - Storage is append-only, atomic (temp→fsync→rename), and resumable without duplication.
 - Every run ships: run manifest, plan manifest, environment probe (GPU), episode shards, privileged audit shards, score shards, checksums, logs.
+- Qwen research turns retain complete prompt/generated token ids, exact rendered
+  prompts and decoded output (including special tokens), original messages,
+  effective generation parameters, runtime metadata, and full SHA-256 digests.
+- Public/privileged episode pairs use write-ahead transactions plus commit
+  markers; interrupted projection is recovered without inference regeneration.
+- Engine/config version mismatch, placeholder provenance, source revision drift,
+  and dirty tracked research worktrees are fatal.
 
 ## 5. Statistical integrity
 

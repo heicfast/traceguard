@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from ..ids import sha256_json, sha256_text
+
 # Qwen3 think-tag delimiters. Built from chr() so that no content filter can
 # rewrite the literals (a previous session's files had these tags silently
 # replaced with an unrelated marker string — see docs/deviations.md).
@@ -55,10 +57,57 @@ class ModelTurn:
     model_revision: str = ""
     elapsed_ms: float = 0.0
     parser_diagnostics: dict[str, Any] = field(default_factory=dict)
+    # Canonical raw-evidence fields. Token ids are the lossless record; decoded
+    # strings are retained as convenient, independently hashable projections.
+    raw_output_with_special_tokens: str = ""
+    generated_token_ids: list[int] = field(default_factory=list)
+    prompt_token_ids: list[int] = field(default_factory=list)
+    rendered_prompt: str = ""
+    input_messages: list[dict[str, str]] = field(default_factory=list)
+    generation_parameters: dict[str, Any] = field(default_factory=dict)
+    runtime_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def trace_available(self) -> bool:
         return self.reasoning_text is not None and len(self.reasoning_text.strip()) > 0
+
+    def audit_payload(self) -> dict[str, Any]:
+        """Return the complete, privileged inference record.
+
+        Nothing in this payload is sent to a monitor. Full prompt text and
+        messages may contain the hidden attack instruction, so this record is
+        deliberately written only to the privileged evidence store.
+        """
+        return {
+            "raw_output": self.raw_output,
+            "raw_output_with_special_tokens": self.raw_output_with_special_tokens,
+            "raw_output_utf8_sha256": sha256_text(self.raw_output),
+            "raw_output_with_special_tokens_utf8_sha256": sha256_text(
+                self.raw_output_with_special_tokens
+            ),
+            "reasoning_text": self.reasoning_text,
+            "reasoning_utf8_sha256": (
+                sha256_text(self.reasoning_text) if self.reasoning_text is not None else None
+            ),
+            "assistant_text": self.assistant_text,
+            "assistant_utf8_sha256": sha256_text(self.assistant_text),
+            "reasoning_parse_status": self.reasoning_parse_status,
+            "stop_reason": self.stop_reason,
+            "token_usage": self.token_usage,
+            "model_revision": self.model_revision,
+            "elapsed_ms": self.elapsed_ms,
+            "parser_diagnostics": self.parser_diagnostics,
+            "rendered_prompt": self.rendered_prompt,
+            "rendered_prompt_utf8_sha256": sha256_text(self.rendered_prompt),
+            "input_messages": self.input_messages,
+            "input_messages_sha256": sha256_json(self.input_messages),
+            "prompt_token_ids": self.prompt_token_ids,
+            "prompt_token_ids_sha256": sha256_json(self.prompt_token_ids),
+            "generated_token_ids": self.generated_token_ids,
+            "generated_token_ids_sha256": sha256_json(self.generated_token_ids),
+            "generation_parameters": self.generation_parameters,
+            "runtime_metadata": self.runtime_metadata,
+        }
 
 
 def split_reasoning(raw_output: str, *, reasoning_mode: bool = True) -> ModelTurn:

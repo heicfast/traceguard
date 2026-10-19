@@ -21,6 +21,7 @@ records; never overwrite. Nothing is ever silently dropped or duplicated.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import tempfile
@@ -28,7 +29,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from ..ids import sha256_json, sha256_text
+from ..ids import sha256_json
 
 
 def atomic_write_text(path: str | Path, text: str) -> None:
@@ -42,6 +43,14 @@ def atomic_write_text(path: str | Path, text: str) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(tmp_name, path)
+        # The file fsync above protects bytes; fsync the parent as well so the
+        # rename itself survives a sudden notebook/VM loss on POSIX filesystems.
+        if os.name == "posix":
+            dir_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(tmp_name)
@@ -89,8 +98,10 @@ class RunStore:
         self.scores_dir = self.run_dir / "monitor_scores"
         self.log_dir = self.run_dir / "logs"
         self.artifact_dir = self.run_dir / "artifacts"
+        self.transaction_dir = self.run_dir / "transactions"
+        self.commit_dir = self.run_dir / "commits"
         for d in (self.episode_dir, self.privileged_dir, self.scores_dir,
-                  self.log_dir, self.artifact_dir):
+                  self.log_dir, self.artifact_dir, self.transaction_dir, self.commit_dir):
             d.mkdir(parents=True, exist_ok=True)
 
     # -- manifests ----------------------------------------------------------
@@ -124,19 +135,98 @@ class RunStore:
     def record_episode(self, envelope: dict[str, Any], privileged: dict[str, Any],
                        episode_shard: str = "shard-00001.jsonl",
                        privileged_shard: str = "shard-00001.jsonl") -> None:
+        """Durably commit the public/privileged pair as one recoverable unit.
+
+        JSONL files cannot be atomically updated together. The write-ahead
+        transaction is therefore canonical until a final commit marker exists;
+        recovery can safely finish any projection interrupted by a Kaggle VM
+        termination without regenerating model output.
+        """
         ep_id = envelope["episode_id"]
         if ep_id in self.completed_episode_ids():
             raise ValueError(f"episode {ep_id} already recorded (would duplicate)")
-        ep_writer = JsonlShardWriter(self.episode_dir / episode_shard)
-        ep_writer.append(envelope)
-        ep_writer.flush()
-        pr_writer = JsonlShardWriter(self.privileged_dir / privileged_shard)
-        pr_writer.append(privileged)
-        pr_writer.flush()
-        with open(self.run_dir / "completed_episode_ids.txt", "a", encoding="utf-8") as handle:
-            handle.write(ep_id + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        if privileged.get("episode_id") != ep_id:
+            raise ValueError("envelope/privileged episode_id mismatch")
+        transaction = {
+            "schema_version": "1.0.0",
+            "episode_id": ep_id,
+            "episode_shard": episode_shard,
+            "privileged_shard": privileged_shard,
+            "envelope_sha256": sha256_json(envelope),
+            "privileged_sha256": sha256_json(privileged),
+            "envelope": envelope,
+            "privileged": privileged,
+        }
+        tx_path = self.transaction_dir / f"{ep_id}.json"
+        if tx_path.exists():
+            existing = json.loads(tx_path.read_text(encoding="utf-8"))
+            if sha256_json(existing) != sha256_json(transaction):
+                raise ValueError(f"transaction collision for {ep_id}")
+        else:
+            atomic_write_json(tx_path, transaction)
+        self._project_transaction(transaction)
+
+    def _project_transaction(self, transaction: dict[str, Any]) -> None:
+        ep_id = transaction["episode_id"]
+        self._ensure_jsonl_record(
+            self.episode_dir / transaction["episode_shard"],
+            transaction["envelope"],
+            transaction["envelope_sha256"],
+        )
+        self._ensure_jsonl_record(
+            self.privileged_dir / transaction["privileged_shard"],
+            transaction["privileged"],
+            transaction["privileged_sha256"],
+        )
+        ledger_ids = self.completed_episode_ids()
+        ledger_ids.add(ep_id)
+        atomic_write_text(
+            self.run_dir / "completed_episode_ids.txt",
+            "".join(f"{item}\n" for item in sorted(ledger_ids)),
+        )
+        atomic_write_json(
+            self.commit_dir / f"{ep_id}.json",
+            {
+                "schema_version": "1.0.0",
+                "episode_id": ep_id,
+                "transaction_sha256": sha256_json(transaction),
+                "envelope_sha256": transaction["envelope_sha256"],
+                "privileged_sha256": transaction["privileged_sha256"],
+            },
+        )
+
+    @staticmethod
+    def _ensure_jsonl_record(path: Path, payload: dict[str, Any], digest: str) -> None:
+        writer = JsonlShardWriter(path)
+        matches = [
+            json.loads(line) for line in writer.records
+            if json.loads(line).get("episode_id") == payload["episode_id"]
+        ]
+        if len(matches) > 1:
+            raise ValueError(f"duplicate episode {payload['episode_id']} in {path}")
+        if matches:
+            if sha256_json(matches[0]) != digest:
+                raise ValueError(f"conflicting episode {payload['episode_id']} in {path}")
+            return
+        writer.append(payload)
+        writer.flush()
+
+    def recover_transactions(self) -> dict[str, int]:
+        """Finish prepared episode commits without rerunning inference."""
+        recovered = 0
+        verified = 0
+        for tx_path in sorted(self.transaction_dir.glob("*.json")):
+            transaction = json.loads(tx_path.read_text(encoding="utf-8"))
+            commit_path = self.commit_dir / tx_path.name
+            if commit_path.exists():
+                commit = json.loads(commit_path.read_text(encoding="utf-8"))
+                if commit.get("transaction_sha256") != sha256_json(transaction):
+                    raise ValueError(f"commit hash mismatch for {transaction.get('episode_id')}")
+                verified += 1
+                continue
+            self._project_transaction(transaction)
+            recovered += 1
+        return {"recovered": recovered, "verified_commits": verified}
 
     # -- monitor scores ------------------------------------------------------
     def score_shard_path(self, monitor_name: str, condition: str, shard: int) -> Path:
@@ -155,9 +245,7 @@ class RunStore:
         lines: list[str] = []
         for path in sorted(self.run_dir.rglob("*")):
             if path.is_file() and path.name != "checksums.sha256":
-                digest = sha256_text(path.read_text(encoding="utf-8", errors="replace")
-                                     if path.suffix in (".jsonl", ".json", ".txt", ".log", ".md")
-                                     else str(path))
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
                 lines.append(f"{digest}  {path.relative_to(self.run_dir)}")
         out = self.artifact_dir / "checksums.sha256"
         atomic_write_text(out, "\n".join(lines) + ("\n" if lines else ""))
