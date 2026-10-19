@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..agents.policy import build_messages, tool_result_message
 from ..config import ExperimentConfig
 from ..ids import episode_id as make_episode_id
 from ..models.interface import GenerationSettings, extract_first_json_object
@@ -25,7 +26,6 @@ from ..sandbox.engine import step as engine_step
 from ..tasks.generator import EpisodePlan
 from ..tasks.specs import TaskInstance
 from ..traces.views import compile_view_checked
-from .policy import build_messages, tool_result_message
 
 
 class OnlineOutcome:
