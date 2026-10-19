@@ -1,0 +1,24 @@
+{
+  "available_gpu_hours": 25.0,
+  "projected_gpu_hours": 10.0,
+  "contingency_fraction": 0.30,
+  "basis": {
+    "measured_from": "gpu_smoke v6 run traceguard_gpu_smoke:gpu_smoke:b809551ea30b at pinned commit 32a6bc0 (2026-10-20)",
+    "owner_confirmation": "owner stated 25+ GPU hours available on 2026-10-20; 25.0 used as the conservative floor",
+    "kernel_seconds_total": 3209.8,
+    "generation_seconds_for_8_episodes_dual_t4": 3080,
+    "measured_tokens_per_sec": 17.0,
+    "per_episode_session_minutes_dual_t4": 6.4,
+    "committed_spend_assessed_by_this_gate": {
+      "pilot_generation_hours_64_episodes": 6.8,
+      "pilot_monitoring_hours_64_episodes_x_4_conditions": 3.2,
+      "total": 10.0
+    }
+  },
+  "confirmatory_projection_predeclared_for_s5": {
+    "provisional_scale_episodes": 216,
+    "generation_hours_at_measured_rate": 23.0,
+    "monitoring_hours_estimate": 5.0,
+    "note": "The provisional 216-episode confirmatory scale projects ~28h total, which EXCEEDS the 25h currently available and one 30h/week rolling window with 25-40% contingency. Per the predeclared rule (SOP-002 section 8), the S5 preregistration MUST set the confirmatory scale to fit a rolling weekly window (or split generation across windows, or reduce secondary conditions FIRST - never the primary comparison). Fixed-FPR confirmatory is additionally blocked below 40 benign calibration-template clusters pending calibration-template expansion. This projection informs S5 planning and is recorded in docs/deviations.md before the pilot launch."
+  }
+}

@@ -23,6 +23,7 @@ runs/*
 !runs/gpu_smoke_v3/
 !runs/gpu_smoke_v4/
 !runs/pilot/
+!runs/gpu_feasibility/
 data/generated/
 artifacts/
 

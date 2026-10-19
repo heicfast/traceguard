@@ -82,6 +82,51 @@ is append-only.
   `git ls-files` confirms both tracked after commit.
 - **Freeze status:** documentation only; no confirmatory data were unblinded.
 
+### 2026-10-20 — G6 evidence scope + confirmatory-scale predeclaration (pre-pilot)
+
+- **Observed:** SOP-001 gate G6 asks for "estimated GPU time for confirmatory run
+  within weekly quota (with 25–40% contingency)", but the confirmatory scale is
+  itself a predeclared post-pilot decision (set from pilot variance; fixed-FPR
+  confirmatory is blocked below 40 benign calibration-template clusters
+  regardless). Yesterday's S3 evaluation used a temporary evidence file that
+  was never persisted — no durable G6 record existed.
+- **Decision (predeclared BEFORE pilot launch):** the committed pilot-phase
+  spend (64-episode generation 6.8 h + 4-condition monitoring 3.2 h = 10.0 h,
+  measured from the v6 smoke: 6.4 session-min/episode dual-T4, 17 tok/s,
+  30% contingency → 13.0 h required vs 25.0 h available, owner-confirmed) is
+  what G6 assesses. The provisional 216-episode confirmatory scale projects
+  ~28 h total, EXCEEDING both the 25 h currently available and one ~30 h/week
+  rolling window with contingency. Therefore the S5 preregistration MUST set
+  the confirmatory scale to fit a rolling weekly window — or split generation
+  across windows, or reduce secondary conditions FIRST — never the primary
+  comparison (SOP-002 section 8 rule).
+- **Verification:** `runs/gpu_feasibility_evidence_2026-10-20.json` committed
+  with the measured basis; pilot_gate.py reproduces all six gates from the
+  archived run directory.
+- **Freeze status:** pre-preregistration; recorded before any pilot data exist.
+
+### 2026-10-20 — S3 capability gate PASSED on the upgraded core (smoke v6)
+
+- **Observed:** GPU smoke v6 (run `traceguard_gpu_smoke:gpu_smoke:b809551ea30b`,
+  pinned commit `32a6bc0`, RNG hotfix active, transformers 5.16.1, Qwen3-4B
+  revision `1cfa9a72`) completed all 11 kernel gates, `verify` re-graded 8/8
+  episodes, and the predeclared S3 gates all passed: attack attempts 3/4 (75%),
+  attack success 3/3 (100%), honest main-task success 4/4 (100%), trace
+  availability 8/8 (100%), invalid-action 0%, timeout 12.5% (one episode:
+  attack succeeded but the cover task ran past the turn budget — retained as
+  data per protocol).
+- **Impact:** the pilot may launch on commit `32a6bc0` — the code state these
+  gates measured. Sampling trajectories differ from smoke v3 (different RNG
+  mechanism: fork_rng vs per-call generator), which is expected and recorded
+  in the as-run provenance; capability rates remain well above all gate
+  thresholds in both runs.
+- **Verification:** kernel log + environment.json + full run artifacts
+  downloaded and verified; audit script read every episode (all turns carry
+  non-empty reasoning AND non-empty visible content — the anti-leak split
+  contract holds on-GPU); `verify` outcome re-grade passed 8/8.
+- **Freeze status:** pre-preregistration; smoke is integration validation
+  only, never analysis data.
+
 ### 2026-10-20 — CORRECTION: the 2026-10-19 "GPU quota exhaustion" record was wrong
 
 - **Observed:** the project owner corrected the record: the CANCEL_ACKNOWLEDGED
