@@ -56,10 +56,20 @@ class QwenHFProvider:
         self.device_map = device_map or {"": 0}
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
         self.model_revision = self._resolve_revision(model_id, revision)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_id, revision=revision, torch_dtype=torch_dtype,
-            device_map=self.device_map,
-        )
+        # transformers v5 renamed `torch_dtype` to `dtype`; support both.
+        import transformers
+        dtype_value = torch_dtype
+        if dtype_value == "float16":
+            dtype_value = torch.float16
+        elif dtype_value == "bfloat16":
+            dtype_value = torch.bfloat16
+        major = int(transformers.__version__.split(".")[0])
+        load_kwargs = {"revision": revision, "device_map": self.device_map}
+        if major >= 5:
+            load_kwargs["dtype"] = dtype_value
+        else:
+            load_kwargs["torch_dtype"] = dtype_value
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
         self.model.eval()
         self.base_seed = int(seed)
 
@@ -149,11 +159,22 @@ class QwenHFProvider:
 
 def build_provider_from_config(config, seed: int = 0):
     """Factory used by GPU runtimes; returns a loaded provider instance."""
+    import json
+
     agent_cfg = config.agent
+    device_map = {"": 0}
+    raw_map = os.environ.get("TRACEGUARD_DEVICE_MAP", "").strip()
+    if raw_map:
+        try:
+            device_map = json.loads(raw_map)
+            if not isinstance(device_map, dict):
+                device_map = {"": 0}
+        except json.JSONDecodeError:
+            device_map = {"": 0}
     return QwenHFProvider(
         model_id=agent_cfg.model_id,
         revision=None if agent_cfg.model_revision.startswith("PIN") else agent_cfg.model_revision,
-        device_map=os.environ.get("TRACEGUARD_DEVICE_MAP", '{"": 0}').replace("'", '"'),
+        device_map=device_map,
         torch_dtype=os.environ.get("TRACEGUARD_TORCH_DTYPE", "auto"),
         seed=seed,
     )

@@ -24,6 +24,7 @@ SHARD_COUNT = 1
 TORCH_DTYPE = "float16"    # T4 (sm_75): no native bf16 -> force fp16
 
 OUT = Path("/kaggle/working/traceguard-output")
+REPO_DIR = Path("/tmp/traceguard")  # cloned repo stays OUT of the output upload
 
 
 def run(cmd, **kw):
@@ -76,14 +77,14 @@ def main() -> int:
     print(json.dumps(manifest["gpu"]), flush=True)
 
     # ---- repo clone at pinned commit ------------------------------------------
-    r = run(["git", "clone", "-q", REPO_URL, "traceguard"])
+    r = run(["git", "clone", "-q", REPO_URL, str(REPO_DIR)])
     gate(r.returncode == 0, f"git clone ({r.stderr[:200]})", manifest)
-    r = run(["git", "-C", "traceguard", "checkout", TRACEGUARD_COMMIT])
+    r = run(["git", "-C", str(REPO_DIR), "checkout", TRACEGUARD_COMMIT])
     gate(r.returncode == 0, f"checkout {TRACEGUARD_COMMIT[:10]}", manifest)
 
     # ---- install: never reinstall torch; force transformers>=4.51 (qwen3) ------
     inst = run([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e",
-                "traceguard[analysis]"], check=False)
+                f"{REPO_DIR}[analysis]"], check=False)
     manifest["pip_editable_rc"] = inst.returncode
     import importlib
 
@@ -103,7 +104,7 @@ def main() -> int:
     # ---- model load + authentic think-token validation -------------------------
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
     os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
-    sys.path.insert(0, "/kaggle/working/traceguard/src")
+    sys.path.insert(0, str(REPO_DIR / "src"))
     t0 = time.time()
     from traceguard.models.qwen import QwenHFProvider
     provider = QwenHFProvider(model_id="Qwen/Qwen3-4B")
@@ -138,6 +139,19 @@ def main() -> int:
     toks = turn.token_usage.get("generated_tokens", 0)
     manifest["measured_tokens_per_sec"] = round(toks / secs, 1) if secs > 0 else None
 
+    # ---- RELEASE the validation model before the generation subprocess loads
+    # its own copy (two resident 8GB copies would OOM a single T4). -----------
+    import gc
+    validation_probe = manifest["think_validation"]
+    del provider, turn
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    free_bytes, _total3 = torch.cuda.mem_get_info()
+    manifest["gpu_free_vram_after_release_gib"] = round(free_bytes / 2**30, 2)
+    gate(free_bytes / 2**30 > 12.0, f"VRAM released for generation ({manifest['gpu_free_vram_after_release_gib']} GiB free)",
+         manifest)
+
     # ---- write environment snapshot ---------------------------------------------
     (OUT / STAGE).mkdir(parents=True, exist_ok=True)
     (OUT / STAGE / "environment.json").write_text(
@@ -148,7 +162,7 @@ def main() -> int:
                "--config", CONFIG, "--run-dir", str(OUT / STAGE / "run"),
                "--stage", STAGE, "--shard", str(SHARD), "--shard-count", str(SHARD_COUNT),
                "--provider", "qwen"]
-    proc = subprocess.run(gen_cmd, cwd="traceguard")
+    proc = subprocess.run(gen_cmd, cwd=str(REPO_DIR))
     gen_ok = proc.returncode == 0
     manifest["generate_rc"] = proc.returncode
     (OUT / STAGE / "environment.json").write_text(

@@ -1,5 +1,5 @@
 {
-  "id": "umar0x/traceguard-preflight",
+  "id": "umar0x/traceguard-gpu-preflight",
   "title": "TRACEGUARD GPU Preflight",
   "code_file": "kernel.py",
   "language": "python",
