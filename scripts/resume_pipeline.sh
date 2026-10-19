@@ -23,7 +23,7 @@ KG="kaggle"
 GEN="umar0x/traceguard-episode-generation"
 SHARD0="umar0x/traceguard-pilot-generation-shard-0"
 SHARD1="umar0x/traceguard-pilot-generation-shard-1"
-MON="umar0x/traceguard-mon"
+MON="umar0x/traceguard-monitor-scoring"
 DL="/home/z/my-project/downloads"
 
 status() {
