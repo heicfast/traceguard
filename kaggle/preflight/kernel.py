@@ -11,7 +11,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "e6c2cc7998906096cf73b7a530058ff8ce552f3d"
+TRACEGUARD_COMMIT = "c21e33ed2d057a4e05db085edb97ad388720c254"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 OUT = Path("/kaggle/working/traceguard-preflight")
 
