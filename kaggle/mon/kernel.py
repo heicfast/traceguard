@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "4b9caa0d1f236a0fb2f4a7f6196c62afd6aeec38"  # must equal the generation kernel's pinned commit
+TRACEGUARD_COMMIT = "dae641656f48d8f146eac2bf5025690360165142"  # must equal the generation kernel's pinned commit
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1"]
