@@ -31,11 +31,12 @@ Version 1.0 · enforceable from the first commit. Every agent (human or automate
 | NH-5 | Documentation must not describe features as "working" that fail tests; status tables must reflect the actual test/gate state. | README status table tracks CI outputs |
 | NH-6 | External claims about prior work must cite a primary source (paper, post, repo) — no invented findings. | `docs/prior_art_matrix.md` with links |
 | NH-7 | An agent that cannot verify a fact must either verify it (test, run, fetch) or mark it UNVERIFIED in the worklog. | worklog reviews |
+| NH-8 | TOOL-CHANNEL ARTIFACTS: agent tooling display layers may silently rewrite or elide bracket-like and tag-like text (observed: `[h...` sequences eaten in displayed output; a content filter rewrote think-tag literals in Write-authored source files in a prior session). Therefore (a) NO verification may rely on visual inspection of bracketed content — every check must be a programmatic assertion; (b) files carrying tag-like literals must be built from `chr()` fragments or verified byte-exact after write; (c) source literals are guarded by tests (e.g. `test_think_tag_constants_byte_exact`). | codepoint-level checks; canary writes; byte-exact regression tests |
 
 ## 3. Verification and validation cadence
 
 **Per change (every commit):**
-1. `python -m pytest -q` — full suite green (95 tests).
+1. `python -m pytest -q` — full suite green (121 tests).
 2. `python -m ruff check src tests` — lint clean.
 3. `python -m traceguard.cli doctor` — registry + split-manifest + template-attack validation OK.
 4. `python -m traceguard.cli smoke --out runs/smoke-<shortsha>` — full pipeline smoke OK.
