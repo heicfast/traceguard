@@ -1,0 +1,38 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test / tooling artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Experiment outputs (immutable evidence is exported explicitly, never committed raw)
+runs/
+!runs/.gitkeep
+data/generated/
+artifacts/
+
+# Secrets — never commit
+.secrets/
+*.token
+*KAGGLE*
+kaggle.json
+access_token
+.env
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Large model caches
+models_cache/

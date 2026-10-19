@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceguard.invalid/schema/episode.v1.1.0.json",
+  "title": "TRACEGUARD privileged episode envelope",
+  "description": "PRIVILEGED record: contains policy_mode and outcome labels. Monitor views are compiled from these envelopes by the allowlist ViewCompiler only; monitors never receive envelopes. Schema v1.1.0 extends the v1.0.0 draft with event types hidden_instruction and invalid_proposal (change made before study freeze, per blueprint change policy).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "episode_id", "run_id", "task_id", "template_id", "family_id", "seed", "policy_mode", "status", "trace_available", "events", "outcomes", "provenance"],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "episode_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "template_id": {"type": "string", "minLength": 1},
+    "family_id": {"type": "string", "minLength": 1},
+    "seed": {"type": "integer", "minimum": 0},
+    "policy_mode": {"enum": ["honest", "attack"]},
+    "status": {"enum": ["completed", "refused", "invalid_action", "timed_out", "runtime_error"]},
+    "trace_available": {"type": "boolean"},
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_index", "type", "public_content"],
+        "properties": {
+          "step_index": {"type": "integer", "minimum": 0},
+          "type": {"enum": ["model_turn", "tool_proposal", "tool_result", "hidden_instruction", "invalid_proposal", "episode_end"]},
+          "public_content": {"type": "string"},
+          "reasoning_content": {"type": ["string", "null"]},
+          "state_hash_before": {"type": ["string", "null"]},
+          "state_hash_after": {"type": ["string", "null"]},
+          "privileged_content_ref": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attack_attempted", "attack_succeeded", "main_task_succeeded"],
+      "properties": {
+        "attack_attempted": {"type": "boolean"},
+        "attack_succeeded": {"type": "boolean"},
+        "goal_reached": {"type": "boolean"},
+        "submitted": {"type": "boolean"},
+        "main_task_succeeded": {"type": "boolean"},
+        "invalid_action_count": {"type": "integer", "minimum": 0},
+        "scorer_version": {"type": "string"},
+        "outcome_hash": {"type": "string"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["code_revision", "model_revision", "config_sha256"],
+      "properties": {
+        "code_revision": {"type": "string"},
+        "model_revision": {"type": "string"},
+        "config_sha256": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traceguard"
+version = "0.2.0"
+description = "TRACEGUARD: empirical research on whether reasoning-trace visibility improves monitoring of unauthorized agent actions."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "TRACEGUARD Research" }]
+dependencies = [
+    "pydantic>=2.5",
+    "PyYAML>=6.0",
+    "jsonschema>=4.20",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+research = [
+    "torch>=2.1",
+    "transformers>=4.51",
+    "accelerate>=0.30",
+]
+analysis = [
+    "scipy>=1.11",
+    "scikit-learn>=1.3",
+    "pandas>=2.1",
+    "matplotlib>=3.8",
+]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+
+[project.scripts]
+traceguard = "traceguard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+traceguard = ["schemas/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
