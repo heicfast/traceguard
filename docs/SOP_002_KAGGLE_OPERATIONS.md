@@ -38,6 +38,24 @@ python -m traceguard.cli verify --run-dir downloads/<name>/traceguard-output/<ru
 
 Poll cadence: every 3–5 minutes, max 4 hours per poll cycle; record final status + failure message in the worklog. Interruptions and errors are recorded, never retried blindly more than twice (see QUALITY_MANUAL failure ladder).
 
+### 3.1 Queue behavior and manual starts (owner-confirmed facts, 2026-10-20)
+
+- Kaggle kernel queue admission is **erratic**: the same push flow sometimes
+  starts instantly and sometimes sits for hours. This is normal Kaggle behavior,
+  NOT a quota or account problem.
+- The project owner may **manually cancel a queued kernel and start it
+  interactively** (interactive starts run immediately). Therefore:
+  - `CANCEL_ACKNOWLEDGED` on a pushed kernel means "owner intervention" by
+    default. Do NOT diagnose quota exhaustion from cancellations.
+  - Before re-pushing a kernel, ALWAYS check current statuses of ALL kernels
+    first (max 2 concurrent GPU sessions; the owner may already be running a
+    kernel manually).
+- Standing rule when a push sits queued too long (~20-30+ min): cancel and
+  re-push, or let the owner start it interactively. Re-push works.
+- GPU allowance is ample (owner-confirmed 25+ hours available as of
+  2026-10-20). Never assert quota exhaustion without positive evidence
+  (NH-7 applies to infrastructure claims too).
+
 ## 4. GPU preflight kernel (`traceguard-preflight`)
 
 Purpose: hardware + torch sanity with REAL tensor operations (not just `torch.cuda.is_available()`), BEFORE downloading model weights.

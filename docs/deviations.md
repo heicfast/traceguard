@@ -81,3 +81,30 @@ is append-only.
 - **Verification:** `git check-ignore` exits 1 (not ignored) for both paths;
   `git ls-files` confirms both tracked after commit.
 - **Freeze status:** documentation only; no confirmatory data were unblinded.
+
+### 2026-10-20 — CORRECTION: the 2026-10-19 "GPU quota exhaustion" record was wrong
+
+- **Observed:** the project owner corrected the record: the CANCEL_ACKNOWLEDGED
+  kernel states were the owner MANUALLY cancelling queued kernels in order to
+  restart them interactively (interactive starts run immediately; the pushed
+  versions sat in an erratic queue). GPU allowance was never exhausted —
+  25+ GPU hours remained available throughout.
+- **Impact on the earlier record:** the 2026-10-19 table row describing an
+  "auto-canceled by Kaggle / allowance drained" event and the diagnosis ladder
+  built on it were UNVERIFIED inference presented as fact — a violation of
+  quality-manual rule NH-7 (unverifiable claims must be marked UNVERIFIED, not
+  asserted). The real explanations for the observed states were: (a) the
+  shard-0 ERROR was a genuine software failure (transformers 5.16.1 rejecting
+  `generator=`), fixed by the 2026-10-19 RNG hotfix; (b) the cancellations were
+  owner interventions, not infrastructure preemption.
+- **Repair:** (1) this correction supersedes the quota-exhaustion claim; (2)
+  SOP-002 now documents the real Kaggle queue behavior (erradic admission
+  latency; owner may manually start kernels; standing rule: if a push sits
+  queued for too long, cancel and re-push, or let the owner start it
+  interactively); (3) kernel-state diagnoses must distinguish CANCELLED (owner
+  action by default) from ERROR (software) from COMPLETE (evidence available).
+- **Verification:** 2026-10-20 GPU probe kernel run completed with Tesla T4,
+  fp16 matmul finite (probe JSON archived); owner-manually-run preflight also
+  completed; the account had 25+ GPU hours available per owner statement.
+- **Freeze status:** infrastructure operations only; no data or frozen
+  parameters affected.
