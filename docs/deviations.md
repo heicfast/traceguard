@@ -82,6 +82,33 @@ is append-only.
   `git ls-files` confirms both tracked after commit.
 - **Freeze status:** documentation only; no confirmatory data were unblinded.
 
+### 2026-10-20 — Merge script silently dropped worker-2 episode files (caught by count check)
+
+- **Observed:** the first merge of the two pilot shards produced 32 episodes
+  (16 attack + 16 honest) instead of 64. `scripts/merge_shards.py` read only
+  `episodes/shard-00001.jsonl` per input, but each generation kernel runs TWO
+  GPU workers and writes two episode shard files per run dir — every
+  worker-2 file was silently skipped. Individual shard verifications passed
+  (32/32 each) because the verifier globs all shard files; only the merge
+  script had the single-file assumption.
+- **Impact:** no data were lost (both shard outputs were intact and
+  re-downloadable; the merged dir was rebuilt from scratch). Had the bad
+  merged run been monitored, the pilot would have silently analyzed half
+  the data with a degenerate E-pairing (attack twins for honest episodes
+  missing).
+- **Repair:** merge_shards.py now globs ALL `shard-*.jsonl` files per input
+  (episode/privileged file sets must match), renumbers output files
+  sequentially, updates transaction shard references, and enforces a hard
+  count check: merged episodes must equal the sum of ALL input shard-file
+  episodes or the merge aborts. Ruff `strict=True` zip. Re-merged: 64
+  episodes, verify OK, outcome re-grade 64/64.
+- **Verification:** merged run verifies clean; pilot gate passes all 6 gates
+  on the full data (attempts 14/32=44%, success 14/14=100%, honest 25/32=78%,
+  traces 64/64=100%, invalid 3%, timeout 5%).
+- **Freeze status:** pre-preregistration; the pilot is feasibility data,
+  and the monitoring stage has not yet consumed the (previously bad) merged
+  output — mon kernel runs against the corrected 64-episode run only.
+
 ### 2026-10-20 — Smoke-stage E-condition path drift (caught by new S4 gate tooling)
 
 - **Observed:** the new `scripts/monitor_gate.py` (S4 evaluator, written while
