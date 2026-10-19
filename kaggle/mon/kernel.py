@@ -35,11 +35,13 @@ def main() -> int:
     }
 
     # ---- locate the generation run directory (kernel data source mount) -------
-    candidates = sorted(glob.glob("/kaggle/input/*/traceguard-output/*/run/run_manifest.json"))
-    candidates += sorted(glob.glob("/kaggle/input/traceguard-output/*/run/run_manifest.json"))
+    # Kaggle explodes uploaded dataset zips at the dataset root, so the run dir
+    # can appear at any depth under /kaggle/input/<dataset-slug>/... ; match
+    # ANY path ending in run/run_manifest.json (recursive).
+    candidates = sorted(glob.glob("/kaggle/input/**/run/run_manifest.json", recursive=True))
     if not candidates:
         print("NO RUN MANIFEST FOUND. /kaggle/input contents:", flush=True)
-        os.system("find /kaggle/input -maxdepth 4 -type d | head -50")
+        os.system("find /kaggle/input -maxdepth 5 -type d | head -50")
         raise SystemExit(1)
     run_dir = Path(candidates[0]).parent
     stage_dir = run_dir.parent.name
