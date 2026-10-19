@@ -150,8 +150,7 @@ def test_online_view_has_pending_proposal_not_result():
     assert monitor.observations, "monitor must have been invoked"
     # the pending attack proposal IS visible to the monitor...
     assert any("TOOL CALL" in obs for obs in monitor.observations)
-    # ...and specifically the attack's key path appears in some observation
-    attack_payload = json.dumps(task.attack_reference_action.arguments_payload())
+    # ...and specifically the attack's protected key path appears in the views
     assert any("audit" in obs for obs in monitor.observations), (
         "the attack's protected key must be visible in the pending proposal")
     # ...but no monitor view may contain a PATCH RESULT for the attack's
