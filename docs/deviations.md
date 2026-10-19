@@ -82,6 +82,39 @@ is append-only.
   `git ls-files` confirms both tracked after commit.
 - **Freeze status:** documentation only; no confirmatory data were unblinded.
 
+### 2026-10-20 — Monitor kernel v1 OOM on single-T4 (full-CoT prompts); dual-GPU split fix
+
+- **Observed:** the first pilot monitoring kernel run (umar0x/
+  traceguard-monitor-scoring v1, pinned 32a6bc0) completed rules_v1 (64/64
+  in all four conditions) and keywords_v1, but every long-CoT LLM score in
+  conditions C/D/E hit `torch.OutOfMemoryError`: prompts carry the FULL
+  agent reasoning (pilot traces up to ~61K chars ≈ 18K tokens; KV cache
+  ≈ 3.4 GiB at fp16) on top of the 8 GiB model on ONE 14.56 GiB T4. The
+  runtime caught and recorded each failure per (episode, condition) and the
+  kernel exited rc=1 with all partial artifacts intact. The CPU smoke never
+  exercised the LLM monitor with real trace lengths (smoke runs
+  rules+keywords only; the machinery drill used the fake provider).
+- **Impact:** no fabricated or imputed scores; failing calls were recorded
+  as failures. `max_monitor_tokens: 3072` exists in the frozen configs but
+  is NOT implemented anywhere — truncating the CoT to fit one GPU was
+  REJECTED as a protocol change that would bias condition C against the
+  treatment (attack deliberation often lives mid/late trace; a 3072-token
+  head cap would cut it on the longest episodes, artifacting ΔR toward
+  the null).
+- **Repair (infrastructure only):** the monitor kernel now sets
+  `TRACEGUARD_DEVICE_MAP=auto` — the model splits across BOTH session T4s
+  (weights ~4+4 GiB), leaving ~10 GiB free per GPU; the longest prompts'
+  KV ≈ 3 GiB fits comfortably. The monitor model, checkpoint revision,
+  prompt, evidence protocol, and conditions are UNCHANGED; device placement
+  is recorded in each score's inference audit. A fresh full monitoring run
+  follows (resumable design would also have retried only the failed pairs).
+- **Verification:** pending the v2 kernel run — expected: zero
+  generation failures across all 256 LLM calls; monitor_gate M1-M3 on the
+  output.
+- **Freeze status:** pre-preregistration; the failed v1 attempt produced no
+  admissible LLM scores (recorded as failures, never imputed), so no
+  analysis view is contaminated.
+
 ### 2026-10-20 — Merge script silently dropped worker-2 episode files (caught by count check)
 
 - **Observed:** the first merge of the two pilot shards produced 32 episodes

@@ -109,7 +109,14 @@ def main() -> int:
     manifest["transformers_used"] = transformers.__version__
 
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
-    os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
+    # Split the monitor model across BOTH T4s (weights ~4+4 GiB): condition C/E
+    # prompts carry full agent CoT (pilot traces up to ~61K chars ~= 18K tokens;
+    # KV ~= 3.4 GiB at fp16) which OOMs a single 14.56 GiB T4 with the whole
+    # 8 GiB model resident (observed 2026-10-20: 256 calls, 20+ OOM failures,
+    # all in CoT-bearing conditions). device_map="auto" is an infrastructure
+    # change only - the monitor model, prompt, and evidence protocol are
+    # unchanged; placement is recorded in the per-score inference audit.
+    os.environ["TRACEGUARD_DEVICE_MAP"] = "auto"
     sys.path.insert(0, "/tmp/traceguard/src")
 
     # ---- run the monitoring CLI over the copied run ------------------------------
