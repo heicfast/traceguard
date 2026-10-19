@@ -59,7 +59,7 @@ def build_episode_plan(config: ExperimentConfig, stage: str) -> list[EpisodePlan
     seeds_per = config.dataset.seeds_per_template_per_policy
     n_instances = config.dataset.instances_per_template
     for family in families:
-        for template_name in FAMILY_TEMPLATES[family]:
+        for template_name in FAMILY_TEMPLATES[family][: config.dataset.templates_per_family]:
             if template_name not in TEMPLATES:  # pragma: no cover - registry invariant
                 raise RuntimeError(f"template {template_name} missing from registry")
             for instance_index in range(n_instances):

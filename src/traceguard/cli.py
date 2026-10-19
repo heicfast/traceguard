@@ -164,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--config", required=True)
     p.add_argument("--run-dir", required=True)
     p.add_argument("--stage", default="pilot",
-                   choices=["smoke", "pilot", "confirmatory", "online"])
+                   choices=["smoke", "gpu_smoke", "pilot", "confirmatory", "online"])
     p.add_argument("--shard", type=int, default=0)
     p.add_argument("--shard-count", type=int, default=1)
     p.add_argument("--provider", default="auto",
