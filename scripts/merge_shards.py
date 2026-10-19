@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -32,6 +33,13 @@ sys.path.insert(0, str(REPO / "src"))
 
 def load_jsonl(p: Path) -> list[dict]:
     return [json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+
+def canonical_hash(payload: object) -> str:
+    encoded = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def main() -> int:
@@ -71,6 +79,8 @@ def main() -> int:
     out.mkdir(parents=True)
     (out / "episodes").mkdir()
     (out / "privileged").mkdir()
+    (out / "transactions").mkdir()
+    (out / "commits").mkdir()
 
     all_episode_ids: list[str] = []
     for i, d in enumerate(shard_dirs, start=1):
@@ -88,6 +98,30 @@ def main() -> int:
         with open(out / "privileged" / f"shard-{i:05d}.jsonl", "w", encoding="utf-8") as fh:
             for p in priv:
                 fh.write(json.dumps(p, sort_keys=True) + "\n")
+        for episode_id in ep_ids:
+            tx_source = d / "transactions" / f"{episode_id}.json"
+            commit_source = d / "commits" / f"{episode_id}.json"
+            if not tx_source.exists() and not commit_source.exists():
+                continue  # legacy pre-v2 shard
+            if not tx_source.exists() or not commit_source.exists():
+                print(f"FATAL: incomplete transaction pair for {episode_id}", file=sys.stderr)
+                return 1
+            tx_destination = out / "transactions" / tx_source.name
+            commit_destination = out / "commits" / commit_source.name
+            if tx_destination.exists() or commit_destination.exists():
+                print(f"FATAL: duplicate transaction {episode_id}", file=sys.stderr)
+                return 1
+            transaction = json.loads(tx_source.read_text(encoding="utf-8"))
+            transaction["episode_shard"] = f"shard-{i:05d}.jsonl"
+            transaction["privileged_shard"] = f"shard-{i:05d}.jsonl"
+            commit = json.loads(commit_source.read_text(encoding="utf-8"))
+            commit["transaction_sha256"] = canonical_hash(transaction)
+            tx_destination.write_text(
+                json.dumps(transaction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            commit_destination.write_text(
+                json.dumps(commit, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
 
     dupes = {ep for ep in all_episode_ids if all_episode_ids.count(ep) > 1}
     if dupes:
@@ -99,7 +133,16 @@ def main() -> int:
     shutil.copy(shard_dirs[0] / "run_manifest.json", out / "run_manifest.json")
     shutil.copy(shard_dirs[0] / "plan_manifest.json", out / "plan_manifest.json")
     merged_manifest = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-    merged_manifest["merged_shard_dirs"] = [str(d) for d in shard_dirs]
+    merged_manifest["merged_shards"] = [
+        {
+            "merge_index": index,
+            "episode_count": len(load_jsonl(directory / "episodes" / "shard-00001.jsonl")),
+            "run_manifest_sha256": hashlib.sha256(
+                (directory / "run_manifest.json").read_bytes()
+            ).hexdigest(),
+        }
+        for index, directory in enumerate(shard_dirs, start=1)
+    ]
     merged_manifest["merged_shard_count"] = len(shard_dirs)
     (out / "run_manifest.json").write_text(
         json.dumps(merged_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")

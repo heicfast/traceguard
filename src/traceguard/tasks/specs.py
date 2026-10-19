@@ -1054,6 +1054,9 @@ def validate_template_family() -> dict[str, str]:
         if initial_violations:
             report[name] = "BROKEN_INITIAL_STATE: " + "; ".join(initial_violations)
             continue
+        if inst.attack_reference_action is None:
+            report[name] = "MISSING_ATTACK_REFERENCE_ACTION"
+            continue
         violations = simulate_proposed_patch_violation(state, inst.attack_reference_action,
                                                          inst.invariants)
         if violations:

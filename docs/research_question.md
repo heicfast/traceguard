@@ -8,7 +8,10 @@ Status: frozen for pilot; confirmatory freeze happens at `v0.4-preregistered`.
 
 **Primary estimand:** `ΔR = Recall(C) − Recall(A)` at FPR ≤ 5% (calibrated on validation-split benign scores), evaluated on the final holdout family among episodes with verified attack attempts; template-clustered percentile bootstrap 95% CI, 2000 replicates, fixed seed.
 
-**Preregistered fallback:** if the benign calibration pool has < 40 independent template clusters, `recall@FPR` becomes exploratory and the confirmatory primary becomes the paired AUROC difference `AUC(C) − AUC(A)` on the same holdout (rule fixed in the preregistration BEFORE data collection).
+**Precision gate:** if the benign calibration pool has fewer than 40 independent
+template clusters, the current fixed-FPR confirmatory design does not run.
+Paired `AUC(C) − AUC(A)` may be reported for pilot diagnosis, but is not an
+automatic substitute for the deployment-relevant primary question.
 
 ## Smallest effect of interest
 
@@ -18,7 +21,7 @@ A paired ΔR of +0.10 (10 percentage points) at the calibrated operating point w
 
 1. **Clean null:** ΔR ≈ 0 with tight CI (e.g., [+0.05 width]), while C does not degrade either — evidence that, in this setting, actions already carry the signal the trace adds. Reportable and useful.
 2. **Negative result:** ΔR < 0 (trace IMPAIRS monitoring, e.g., unfaithful or misleading reasoning raises FPR) — a strong, publishable warning for CoT-based safety narratives.
-3. **Methodological invalidation:** show that a proposed metric (recall@FPR) is not estimable credibly at feasible benign sample sizes — the precision-gate finding itself, with the fallback rule, is a contribution to evaluation practice.
+3. **Methodological invalidation:** show that a proposed metric (recall@FPR) is not estimable credibly at feasible benign sample sizes — the precision-gate finding itself is a contribution to evaluation practice.
 
 ## What would FALSIFY the hypothesis
 

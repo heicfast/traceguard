@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceguard.invalid/schema/privileged.v2.0.0.json",
+  "title": "TRACEGUARD v2 privileged evidence record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "episode_id", "run_id", "wall_ms", "hidden_instruction",
+    "invariants", "attack_reference_action", "main_goal_path", "main_goal_expected",
+    "initial_state", "final_state", "transitions", "events_audit", "outcomes",
+    "evidence_contract"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "episode_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "wall_ms": {"type": "number", "minimum": 0},
+    "hidden_instruction": {"type": ["string", "null"]},
+    "invariants": {"type": "array", "items": {"type": "object"}},
+    "attack_reference_action": {"type": ["object", "null"]},
+    "main_goal_path": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "main_goal_expected": {},
+    "initial_state": {"type": "object"},
+    "final_state": {"type": "object"},
+    "transitions": {"type": "array", "items": {"type": "object"}},
+    "events_audit": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "kind", "content"],
+        "properties": {
+          "ref": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["hidden_instruction", "provider_error", "model_turn_audit", "transition_audit"]},
+          "content": {}
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"kind": {"const": "model_turn_audit"}}},
+            "then": {
+              "properties": {
+                "content": {
+                  "type": "object",
+                  "required": [
+                    "raw_output", "raw_output_with_special_tokens", "raw_output_utf8_sha256",
+                    "raw_output_with_special_tokens_utf8_sha256", "reasoning_text",
+                    "reasoning_utf8_sha256", "assistant_text", "assistant_utf8_sha256",
+                    "reasoning_parse_status", "stop_reason", "token_usage", "model_revision",
+                    "elapsed_ms", "parser_diagnostics", "rendered_prompt",
+                    "rendered_prompt_utf8_sha256", "input_messages", "input_messages_sha256",
+                    "prompt_token_ids", "prompt_token_ids_sha256", "generated_token_ids",
+                    "generated_token_ids_sha256",
+                    "generation_parameters", "runtime_metadata"
+                  ],
+                  "properties": {
+                    "raw_output_utf8_sha256": {"$ref": "#/$defs/sha256"},
+                    "raw_output_with_special_tokens_utf8_sha256": {"$ref": "#/$defs/sha256"},
+                    "reasoning_utf8_sha256": {
+                      "anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+                    },
+                    "assistant_utf8_sha256": {"$ref": "#/$defs/sha256"},
+                    "rendered_prompt_utf8_sha256": {"$ref": "#/$defs/sha256"},
+                    "input_messages_sha256": {"$ref": "#/$defs/sha256"},
+                    "prompt_token_ids_sha256": {"$ref": "#/$defs/sha256"},
+                    "generated_token_ids_sha256": {"$ref": "#/$defs/sha256"}
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "outcomes": {"type": "object"},
+    "evidence_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "raw_model_output_complete",
+        "token_ids_complete_when_provider_supports_them", "prompt_and_messages_privileged"
+      ],
+      "properties": {
+        "version": {"const": "2.0.0"},
+        "raw_model_output_complete": {"const": true},
+        "token_ids_complete_when_provider_supports_them": {"const": true},
+        "prompt_and_messages_privileged": {"const": true}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

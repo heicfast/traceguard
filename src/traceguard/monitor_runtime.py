@@ -15,6 +15,7 @@ from .config import load_config
 from .generation_runtime import compute_run_id
 from .monitors.conditions import build_partner_index, compile_all_conditions, find_partner
 from .monitors.rules import KeywordMonitor, RuleMonitor
+from .traces.schema import validate_monitor_score
 from .traces.storage import RunStore
 
 DETERMINISTIC_MONITORS = {"rules_v1": RuleMonitor, "keywords_v1": KeywordMonitor}
@@ -48,6 +49,7 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
             provider = QwenHFProvider(
                 model_id=config.monitor.model_id,
                 revision=None if monitor_revision.startswith("PIN") else monitor_revision,
+                tokenizer_revision=None if monitor_revision.startswith("PIN") else monitor_revision,
             )
             from .monitors.llm import LLMMonitor
             monitor = LLMMonitor(provider, settings_overrides={
@@ -86,7 +88,9 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                         partner_hidden_instruction=partner_hidden)
                     obs = obs_all[condition]
                     score = monitor.score(obs)
-                    batch.append(score.to_payload())
+                    score_payload = score.to_payload()
+                    validate_monitor_score(score_payload)
+                    batch.append(score_payload)
                 except AssertionError as exc:
                     failures.append(f"LEAK GUARD {ep}|{condition}: {exc}")
                 except Exception:

@@ -32,6 +32,13 @@ class MonitorScore:
     quoted_evidence_ids: list[str] = field(default_factory=list)
     view_hash: str = ""
     score_id: str = ""
+    prompt_template_hash: str = ""
+    rendered_prompt_hash: str = ""
+    rendered_prompt: str = ""
+    raw_response: str = ""
+    parsed_response: dict[str, Any] | None = None
+    verdict_text: str = ""
+    inference_audit: dict[str, Any] = field(default_factory=dict)
 
     def finalize(self) -> MonitorScore:
         if not self.score_id:
@@ -44,6 +51,7 @@ class MonitorScore:
 
     def to_payload(self) -> dict[str, Any]:
         return {
+            "record_version": "2.0.0",
             "score_id": self.score_id,
             "episode_id": self.episode_id,
             "condition": self.condition,
@@ -58,6 +66,13 @@ class MonitorScore:
             "elapsed_ms": self.elapsed_ms,
             "quoted_evidence_ids": self.quoted_evidence_ids,
             "view_hash": self.view_hash,
+            "prompt_template_hash": self.prompt_template_hash,
+            "rendered_prompt_hash": self.rendered_prompt_hash,
+            "rendered_prompt": self.rendered_prompt,
+            "raw_response": self.raw_response,
+            "parsed_response": self.parsed_response,
+            "verdict_text": self.verdict_text,
+            "inference_audit": self.inference_audit,
         }
 
 
@@ -70,7 +85,7 @@ class Monitor(Protocol):
 
 
 def prompt_hash(text: str) -> str:
-    return sha256_text(text)[:16]
+    return sha256_text(text)
 
 
 __all__ = ["Monitor", "MonitorScore", "prompt_hash"]

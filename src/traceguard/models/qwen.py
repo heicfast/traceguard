@@ -31,7 +31,9 @@ The adapter is GPU-only and lazily imported; all CPU tests use FakeModel.
 from __future__ import annotations
 
 import os
+import platform
 import time
+from copy import deepcopy
 from typing import Any
 
 from ..ids import sha256_text
@@ -49,6 +51,7 @@ class QwenHFProvider:
         self,
         model_id: str,
         revision: str | None = None,
+        tokenizer_revision: str | None = None,
         device_map: str | dict | None = None,
         torch_dtype: str = "auto",
         seed: int = 0,
@@ -76,8 +79,13 @@ class QwenHFProvider:
         self.model_id = model_id
         self.device_map = device_map or {"": 0}
         self.applied_dtype = torch_dtype
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_id, revision=tokenizer_revision or revision
+        )
         self.model_revision = self._resolve_revision(model_id, revision)
+        self.tokenizer_revision = self._resolve_revision(
+            model_id, tokenizer_revision or revision
+        )
         # transformers v5 renamed `torch_dtype` to `dtype`; support both.
         import transformers
         dtype_value = torch_dtype
@@ -107,6 +115,8 @@ class QwenHFProvider:
             return revision or "unresolved_offline"
 
     def generate(self, messages: list[dict[str, str]], settings: GenerationSettings) -> ModelTurn:
+        import transformers
+
         torch = self._torch
         started = time.perf_counter()
         prompt_text = self.tokenizer.apply_chat_template(
@@ -116,11 +126,15 @@ class QwenHFProvider:
             enable_thinking=settings.reasoning_mode,
         )
         inputs = self.tokenizer([prompt_text], return_tensors="pt").to(self.model.device)
+        effective_seed = (self.base_seed + settings.seed * 7919) % (2**31)
+        generator = torch.Generator(device=inputs["input_ids"].device)
+        generator.manual_seed(effective_seed)
         gen_kwargs: dict[str, Any] = {
             "max_new_tokens": settings.max_new_tokens,
             "do_sample": settings.temperature > 0,
             "pad_token_id": self.tokenizer.pad_token_id
             or self.tokenizer.eos_token_id,
+            "generator": generator,
         }
         if settings.temperature > 0:
             gen_kwargs.update({
@@ -128,10 +142,19 @@ class QwenHFProvider:
                 "top_p": settings.top_p,
                 "top_k": settings.top_k,
             })
-        torch.manual_seed((self.base_seed + settings.seed * 7919) % (2**31))
-        with torch.no_grad():
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        with torch.inference_mode():
             output_ids = self.model.generate(**inputs, **gen_kwargs)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
         new_ids = output_ids[0][inputs["input_ids"].shape[-1]:].tolist()
+        decoded_output = self.tokenizer.decode(
+            new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+        raw_output_with_special_tokens = self.tokenizer.decode(
+            new_ids, skip_special_tokens=False, clean_up_tokenization_spaces=False
+        )
 
         # Token-level think/answer split (model card algorithm: LAST close tag).
         # If the closing special token never appears (token budget exhausted
@@ -157,8 +180,7 @@ class QwenHFProvider:
                 parse_status = "empty_block"
                 reasoning_text = None
         else:
-            decoded = self.tokenizer.decode(new_ids, skip_special_tokens=True)
-            turn = split_reasoning(decoded, reasoning_mode=settings.reasoning_mode)
+            turn = split_reasoning(decoded_output, reasoning_mode=settings.reasoning_mode)
             reasoning_text = turn.reasoning_text
             answer_text = turn.assistant_text
             parse_status = turn.reasoning_parse_status
@@ -167,8 +189,36 @@ class QwenHFProvider:
             "prompt_tokens": int(inputs["input_ids"].shape[-1]),
             "generated_tokens": len(new_ids),
         }
+        runtime_metadata: dict[str, Any] = {
+            "python": platform.python_version(),
+            "torch": torch.__version__,
+            "cuda_build": torch.version.cuda,
+            "transformers": transformers.__version__,
+            "model_class": type(self.model).__name__,
+            "tokenizer_class": type(self.tokenizer).__name__,
+            "tokenizer_name_or_path": getattr(self.tokenizer, "name_or_path", ""),
+            "tokenizer_revision": self.tokenizer_revision,
+            "tokenizer_vocab_size": len(self.tokenizer),
+            "chat_template_sha256": sha256_text(self.tokenizer.chat_template or ""),
+            "device": str(inputs["input_ids"].device),
+            "device_map": self.device_map,
+            "dtype_policy": str(self.applied_dtype),
+            "deterministic_algorithms_enabled": torch.are_deterministic_algorithms_enabled(),
+        }
+        if torch.cuda.is_available():
+            device_index = inputs["input_ids"].device.index or 0
+            props = torch.cuda.get_device_properties(device_index)
+            runtime_metadata["gpu"] = {
+                "name": props.name,
+                "capability": list(torch.cuda.get_device_capability(device_index)),
+                "total_memory_bytes": props.total_memory,
+            }
+        serializable_gen_kwargs = {
+            key: value for key, value in gen_kwargs.items() if key != "generator"
+        }
+        serializable_gen_kwargs["seed"] = effective_seed
         return ModelTurn(
-            raw_output=self.tokenizer.decode(new_ids, skip_special_tokens=True),
+            raw_output=decoded_output,
             reasoning_text=reasoning_text,
             assistant_text=answer_text,
             reasoning_parse_status=parse_status,
@@ -178,7 +228,14 @@ class QwenHFProvider:
             elapsed_ms=(time.perf_counter() - started) * 1000.0,
             parser_diagnostics={"provider": self.provider_name,
                                 "model_id": self.model_id,
-                                "prompt_sha256": sha256_text(prompt_text)[:16]},
+                                "prompt_sha256": sha256_text(prompt_text)},
+            raw_output_with_special_tokens=raw_output_with_special_tokens,
+            generated_token_ids=[int(token_id) for token_id in new_ids],
+            prompt_token_ids=[int(token_id) for token_id in inputs["input_ids"][0].tolist()],
+            rendered_prompt=prompt_text,
+            input_messages=deepcopy(messages),
+            generation_parameters=serializable_gen_kwargs,
+            runtime_metadata=runtime_metadata,
         )
 
 
@@ -211,6 +268,11 @@ def build_provider_from_config(config, seed: int = 0):
     return QwenHFProvider(
         model_id=agent_cfg.model_id,
         revision=None if agent_cfg.model_revision.startswith("PIN") else agent_cfg.model_revision,
+        tokenizer_revision=(
+            None
+            if agent_cfg.tokenizer_revision.startswith("PIN")
+            else agent_cfg.tokenizer_revision
+        ),
         device_map=device_map,
         torch_dtype=os.environ.get("TRACEGUARD_TORCH_DTYPE", "auto"),
         seed=seed,

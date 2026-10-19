@@ -41,7 +41,19 @@ class SandboxConfig(FrozenModel):
     network_enabled: Literal[False] = False
     shell_enabled: Literal[False] = False
     external_credentials: Literal[False] = False
-    engine_version: str = "1.0.1"
+    engine_version: str = "1.0.2"
+
+    @field_validator("engine_version")
+    @classmethod
+    def _check_engine_version(cls, value: str) -> str:
+        from .sandbox.engine import ENGINE_VERSION
+
+        if value != ENGINE_VERSION:
+            raise ValueError(
+                f"config pins sandbox engine {value!r}, but imported code is {ENGINE_VERSION!r}; "
+                "refusing provenance drift"
+            )
+        return value
 
 
 class DatasetConfig(FrozenModel):
@@ -87,6 +99,7 @@ class AnalysisConfig(FrozenModel):
     bootstrap_replicates: int = Field(gt=99, default=2000)
     confidence_level: float = Field(gt=0.5, lt=1.0, default=0.95)
     bootstrap_seed: int = 20261019
+    min_calibration_clusters: int = Field(gt=0, default=40)
 
 
 class ProvenanceConfig(FrozenModel):

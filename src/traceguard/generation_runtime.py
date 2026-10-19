@@ -13,14 +13,16 @@ the same run directory verify the config hash and refuse mismatched configs.
 from __future__ import annotations
 
 import json
+import subprocess
 import traceback
+from pathlib import Path
 from typing import Any
 
 from .agents.runner import run_episode
 from .config import load_config, write_run_manifest
 from .tasks.generator import build_episode_plan, plan_manifest
 from .tasks.split import manifest_hash
-from .traces.schema import validate_envelope
+from .traces.schema import validate_envelope, validate_privileged
 from .traces.storage import RunStore
 
 RESEARCH_STAGES = {"pilot", "confirmatory", "online"}
@@ -42,6 +44,11 @@ def build_provider(provider_name: str, config, stage: str, run_id: str):
         return "qwen_hf", QwenHFProvider(
             model_id=config.agent.model_id,
             revision=None if config.agent.model_revision.startswith("PIN") else config.agent.model_revision,
+            tokenizer_revision=(
+                None
+                if config.agent.tokenizer_revision.startswith("PIN")
+                else config.agent.tokenizer_revision
+            ),
         )
     # auto: research stages require GPU provider; smoke may use fake
     if stage == "smoke":
@@ -53,13 +60,63 @@ def build_provider(provider_name: str, config, stage: str, run_id: str):
     return "qwen_hf", QwenHFProvider(
         model_id=config.agent.model_id,
         revision=None if config.agent.model_revision.startswith("PIN") else config.agent.model_revision,
+        tokenizer_revision=(
+            None
+            if config.agent.tokenizer_revision.startswith("PIN")
+            else config.agent.tokenizer_revision
+        ),
     )
+
+
+def _verify_research_provenance(config, stage: str) -> None:
+    canonical_stage = "smoke" if stage in {"smoke", "gpu_smoke"} else stage
+    if config.provenance.experiment_stage != canonical_stage:
+        raise RuntimeError(
+            f"CLI stage {stage!r} disagrees with frozen config stage "
+            f"{config.provenance.experiment_stage!r}"
+        )
+    if canonical_stage == "smoke":
+        return
+    pins = {
+        "code_revision": config.provenance.code_revision,
+        "agent.model_revision": config.agent.model_revision,
+        "agent.tokenizer_revision": config.agent.tokenizer_revision,
+        "monitor.model_revision": config.monitor.model_revision,
+    }
+    unresolved = [name for name, value in pins.items() if not value or value.startswith("PIN")]
+    if unresolved:
+        raise RuntimeError(f"research run has unresolved provenance pins: {unresolved}")
+    repo = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or result.stdout.strip() != config.provenance.code_revision:
+        raise RuntimeError(
+            "loaded source revision does not match config.provenance.code_revision"
+        )
+    dirty = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=no"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if dirty.returncode != 0 or dirty.stdout.strip():
+        raise RuntimeError("research generation requires a clean tracked worktree")
 
 
 def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
                    shard_count: int, provider_name: str = "auto") -> dict[str, Any]:
+    if shard_count <= 0 or shard < 0 or shard >= shard_count:
+        raise ValueError("shard must satisfy 0 <= shard < shard_count and shard_count > 0")
+    if provider_name == "fake" and stage in RESEARCH_STAGES:
+        raise RuntimeError("fake provider is FORBIDDEN for research stages")
     config = load_config(config_path)
+    _verify_research_provenance(config, stage)
     store = RunStore(run_dir)
+    recovery = store.recover_transactions()
     run_id = compute_run_id(config, stage)
 
     manifest_path = store.run_dir / "run_manifest.json"
@@ -79,8 +136,26 @@ def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
                 "to one config; create a new run directory for changed configs")
         if existing.get("run_id") != run_id:
             raise RuntimeError("run_id drift detected — refusing to continue")
+        if existing.get("stage") != stage or existing.get("shard_count") != shard_count:
+            raise RuntimeError("stage/shard topology drift detected — refusing to continue")
 
     plans_all = build_episode_plan(config, stage=stage)
+    if stage == "confirmatory" and (
+        config.analysis.primary_estimand == "recall_difference_at_dev_calibrated_fpr"
+    ):
+        calibration_templates = {
+            plan.template_name
+            for plan in plans_all
+            if plan.split_role == config.monitor.calibration_split
+            and plan.policy_mode == "honest"
+        }
+        required = config.analysis.min_calibration_clusters
+        if len(calibration_templates) < required:
+            raise RuntimeError(
+                "confirmatory design cannot support the preregistered low-FPR estimand: "
+                f"only {len(calibration_templates)} independent benign calibration template "
+                f"clusters are planned, but {required} are required"
+            )
     plans = [p for i, p in enumerate(plans_all) if i % shard_count == shard]
     store.write_plan_manifest(plan_manifest(plans_all, config, stage))
 
@@ -106,6 +181,7 @@ def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
             record = run_episode(plan=plan, task=task, provider=provider,
                                  config=config, run_id=run_id, stage=stage)
             validate_envelope(record.envelope)
+            validate_privileged(record.privileged)
             store.record_episode(record.envelope, record.privileged)
             generated += 1
             statuses[record.envelope["status"]] = statuses.get(record.envelope["status"], 0) + 1
@@ -134,6 +210,7 @@ def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
         "provider_kind": provider_kind,
         "model_revision": getattr(provider_or_factory, "model_revision", None)
         if provider_kind != "task_scripted_factory" else "fake-task-scripted-1.0.0",
+        "transaction_recovery": recovery,
     }
 
 

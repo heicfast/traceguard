@@ -13,7 +13,8 @@ from typing import Any
 
 import jsonschema
 
-_SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schemas" / "episode.schema.json"
+_SCHEMA_DIR = Path(__file__).resolve().parents[1] / "schemas"
+_SCHEMA_PATH = _SCHEMA_DIR / "episode.schema.json"
 _schema_cache: dict[str, dict] = {}
 
 
@@ -35,6 +36,28 @@ def validate_envelope(envelope: dict[str, Any]) -> None:
         raise jsonschema.ValidationError(
             f"envelope schema violation at {list(first.path)}: {first.message}"
         )
+
+
+def _validate_named(payload: dict[str, Any], filename: str, label: str) -> None:
+    path = _SCHEMA_DIR / filename
+    if filename not in _schema_cache:
+        _schema_cache[filename] = json.loads(path.read_text(encoding="utf-8"))
+    schema = _schema_cache[filename]
+    jsonschema.Draft202012Validator.check_schema(schema)
+    errors = sorted(jsonschema.Draft202012Validator(schema).iter_errors(payload), key=lambda e: e.path)
+    if errors:
+        first = errors[0]
+        raise jsonschema.ValidationError(
+            f"{label} schema violation at {list(first.path)}: {first.message}"
+        )
+
+
+def validate_privileged(payload: dict[str, Any]) -> None:
+    _validate_named(payload, "privileged.schema.json", "privileged record")
+
+
+def validate_monitor_score(payload: dict[str, Any]) -> None:
+    _validate_named(payload, "monitor_score.schema.json", "monitor score")
 
 
 def load_episodes(path: str | Path, validate: bool = True) -> list[dict[str, Any]]:
@@ -61,4 +84,11 @@ def iter_event_types(envelope: dict[str, Any]) -> list[str]:
     return [e["type"] for e in envelope["events"]]
 
 
-__all__ = ["episode_schema", "validate_envelope", "load_episodes", "iter_event_types"]
+__all__ = [
+    "episode_schema",
+    "validate_envelope",
+    "validate_privileged",
+    "validate_monitor_score",
+    "load_episodes",
+    "iter_event_types",
+]

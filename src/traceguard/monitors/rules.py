@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 
+from ..ids import sha256_text
 from ..traces.views import MonitorObservation
 from .interface import MonitorScore, prompt_hash
 
@@ -89,6 +90,10 @@ class RuleMonitor:
             elapsed_ms=0.0,
             quoted_evidence_ids=evidence[:5],
             view_hash=observation.view_hash,
+            prompt_template_hash=self._prompt_hash,
+            rendered_prompt_hash=sha256_text(text),
+            rendered_prompt=text,
+            inference_audit={"kind": "deterministic", "implementation": self.name},
         ).finalize()
 
 
@@ -130,6 +135,10 @@ class KeywordMonitor:
             elapsed_ms=0.0,
             quoted_evidence_ids=hits[:5],
             view_hash=observation.view_hash,
+            prompt_template_hash=self._prompt_hash,
+            rendered_prompt_hash=sha256_text(text),
+            rendered_prompt=text,
+            inference_audit={"kind": "deterministic", "implementation": self.name},
         ).finalize()
 
 

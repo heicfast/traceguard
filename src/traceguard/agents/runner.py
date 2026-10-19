@@ -19,6 +19,7 @@ Evidence rules implemented here:
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from ..config import ExperimentConfig
 from ..ids import episode_id as make_episode_id
@@ -131,27 +132,20 @@ def run_episode(
 
         events.append(_event(
             "model_turn", turn,
-            public=raw_answer[:MAX_EVENT_EXCERPT * 4] if raw_answer else "(empty answer)",
+            public=raw_answer if raw_answer else "(empty answer)",
             reasoning=model_turn.reasoning_text,
             privileged_ref=f"priv:{ep_id}:turn{turn}",
         ))
         privileged_events.append({
             "ref": f"priv:{ep_id}:turn{turn}",
             "kind": "model_turn_audit",
-            "content": {
-                "raw_output": model_turn.raw_output[:20000],
-                "reasoning_parse_status": model_turn.reasoning_parse_status,
-                "stop_reason": model_turn.stop_reason,
-                "token_usage": model_turn.token_usage,
-                "model_revision": model_turn.model_revision,
-                "elapsed_ms": model_turn.elapsed_ms,
-            },
+            "content": model_turn.audit_payload(),
         })
 
         # -- extract one tool call from the visible answer -------------------
         obj, extract_status = extract_first_json_object(raw_answer)
         action = None
-        if extract_status == "ok" and isinstance(obj.get("action"), str):
+        if extract_status == "ok" and obj is not None and isinstance(obj.get("action"), str):
             try:
                 action = parse_action(obj)
                 validate_action_semantics(action)
@@ -163,7 +157,7 @@ def run_episode(
                            f"{raw_answer[:MAX_EVENT_EXCERPT]}",
                     reasoning=None,
                 ))
-                messages.append({"role": "assistant", "content": raw_answer[:4000] or "(empty)"})
+                messages.append({"role": "assistant", "content": raw_answer or "(empty)"})
                 messages.append(tool_result_message(f"ERROR: invalid tool call — {exc.reason}. "
                                                      f"Reply with exactly one valid JSON tool object."))
                 if invalid_action_count > agent_cfg.max_invalid_tool_calls:
@@ -172,7 +166,7 @@ def run_episode(
                 continue
         else:
             # No tool call in the answer: conversational turn.
-            messages.append({"role": "assistant", "content": raw_answer[:4000] or "(empty)"})
+            messages.append({"role": "assistant", "content": raw_answer or "(empty)"})
             if model_turn.stop_reason == "length":
                 messages.append(tool_result_message(
                     "NOTE: your previous reply was truncated before any tool call. "
@@ -219,11 +213,10 @@ def run_episode(
             break
 
         # history: answer (think stripped) + tool result
-        messages.append({"role": "assistant", "content": raw_answer[:4000] or "(empty)"})
-        messages.append(tool_result_message(result.tool_response[:6000]))
+        messages.append({"role": "assistant", "content": raw_answer or "(empty)"})
+        messages.append(tool_result_message(result.tool_response))
 
-        total_prompt = sum(len(m["content"]) for m in messages)
-        if total_prompt > agent_cfg.max_context_messages * 3000:
+        if len(messages) > agent_cfg.max_context_messages:
             messages = messages[:1] + messages[-agent_cfg.max_context_messages:]
     else:
         status = "timed_out"
@@ -247,7 +240,7 @@ def run_episode(
         reasoning=None,
     ))
 
-    envelope = {
+    envelope: dict[str, Any] = {
         "schema_version": "1.1.0",
         "episode_id": ep_id,
         "run_id": run_id,
@@ -281,7 +274,7 @@ def run_episode(
     envelope["provenance"]["split_manifest_sha256"] = manifest_hash()
 
     privileged = {
-        "schema_version": "1.1.0",
+        "schema_version": "2.0.0",
         "episode_id": ep_id,
         "run_id": run_id,
         "wall_ms": round((time.perf_counter() - started) * 1000.0, 1),
@@ -298,6 +291,12 @@ def run_episode(
         "transitions": transitions,
         "events_audit": privileged_events,
         "outcomes": outcome.to_payload(),
+        "evidence_contract": {
+            "version": "2.0.0",
+            "raw_model_output_complete": True,
+            "token_ids_complete_when_provider_supports_them": True,
+            "prompt_and_messages_privileged": True,
+        },
     }
     return EpisodeRecord(envelope=envelope, privileged=privileged)
 

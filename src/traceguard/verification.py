@@ -13,13 +13,14 @@ A run that fails verification cannot be presented as confirmatory evidence.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
 from .sandbox.grader import GRADER_VERSION, grade_episode
 from .sandbox.invariants import Invariant
 from .sandbox.state import SandboxState
-from .traces.schema import load_episodes
+from .traces.schema import load_episodes, validate_monitor_score, validate_privileged
 from .traces.storage import RunStore
 
 
@@ -67,6 +68,32 @@ def verify_run(run_dir: str) -> dict[str, Any]:
         if priv is None:
             problems.append(f"privileged record missing for {env['episode_id']}")
             continue
+        if priv.get("schema_version") == "2.0.0":
+            try:
+                validate_privileged(priv)
+            except Exception as exc:
+                problems.append(f"privileged schema violation {env['episode_id']}: {exc}")
+                continue
+            for audit_event in priv["events_audit"]:
+                if audit_event.get("kind") != "model_turn_audit":
+                    continue
+                content = audit_event["content"]
+                from .ids import sha256_json, sha256_text
+                hash_checks = {
+                    "raw_output_utf8_sha256": sha256_text(content["raw_output"]),
+                    "raw_output_with_special_tokens_utf8_sha256": sha256_text(
+                        content["raw_output_with_special_tokens"]
+                    ),
+                    "rendered_prompt_utf8_sha256": sha256_text(content["rendered_prompt"]),
+                    "input_messages_sha256": sha256_json(content["input_messages"]),
+                    "prompt_token_ids_sha256": sha256_json(content["prompt_token_ids"]),
+                    "generated_token_ids_sha256": sha256_json(content["generated_token_ids"]),
+                }
+                for field, expected in hash_checks.items():
+                    if content.get(field) != expected:
+                        problems.append(
+                            f"raw evidence hash mismatch {env['episode_id']}:{field}"
+                        )
         try:
             final_state = SandboxState.from_payload(priv["final_state"])
             initial_state = SandboxState.from_payload(priv["initial_state"])
@@ -92,6 +119,32 @@ def verify_run(run_dir: str) -> dict[str, Any]:
     if checked and regraded_mismatches == 0:
         warnings.append(f"outcome re-grade passed for {checked} episodes (grader {GRADER_VERSION})")
 
+    # -- cross-file transaction integrity (v2 runs) ------------------------------
+    tx_paths = sorted(store.transaction_dir.glob("*.json"))
+    if tx_paths:
+        for tx_path in tx_paths:
+            transaction = json.loads(tx_path.read_text(encoding="utf-8"))
+            ep_id = transaction.get("episode_id")
+            commit_path = store.commit_dir / tx_path.name
+            if not commit_path.exists():
+                problems.append(f"uncommitted episode transaction: {ep_id}")
+                continue
+            commit = json.loads(commit_path.read_text(encoding="utf-8"))
+            from .ids import sha256_json
+            if commit.get("transaction_sha256") != sha256_json(transaction):
+                problems.append(f"transaction/commit hash mismatch: {ep_id}")
+            projected_envelope: dict[str, Any] | None = next(
+                (item for item in episodes if item["episode_id"] == ep_id), None
+            )
+            priv = privileged.get(ep_id)
+            if (
+                projected_envelope is None
+                or sha256_json(projected_envelope) != transaction.get("envelope_sha256")
+            ):
+                problems.append(f"transaction/envelope mismatch: {ep_id}")
+            if priv is None or sha256_json(priv) != transaction.get("privileged_sha256"):
+                problems.append(f"transaction/privileged mismatch: {ep_id}")
+
     # -- monitor scores -----------------------------------------------------------
     for path in sorted(store.scores_dir.glob("*.jsonl")):
         score_ids: set[str] = set()
@@ -99,6 +152,11 @@ def verify_run(run_dir: str) -> dict[str, Any]:
             if not line.strip():
                 continue
             rec = json.loads(line)
+            if rec.get("record_version") == "2.0.0":
+                try:
+                    validate_monitor_score(rec)
+                except Exception as exc:
+                    problems.append(f"monitor score schema violation in {path.name}: {exc}")
             sid = rec.get("score_id")
             if not sid:
                 problems.append(f"missing score_id in {path.name}")
@@ -113,7 +171,6 @@ def verify_run(run_dir: str) -> dict[str, Any]:
     checksum_path = store.artifact_dir / "checksums.sha256"
     if checksum_path.exists():
         lines = [ln for ln in checksum_path.read_text(encoding="utf-8").splitlines() if ln]
-        from .ids import sha256_text
         bad = 0
         for line in lines:
             digest, rel = line.split("  ", 1)
@@ -121,7 +178,7 @@ def verify_run(run_dir: str) -> dict[str, Any]:
             if not target.exists():
                 bad += 1
                 continue
-            current = sha256_text(target.read_text(encoding="utf-8", errors="replace"))
+            current = hashlib.sha256(target.read_bytes()).hexdigest()
             if current != digest:
                 bad += 1
         if bad:
