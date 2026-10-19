@@ -94,7 +94,8 @@ pilot() {
     --out "$DL/pilot_merged/run"
   # audit + gates on the merged pilot
   python3 "$HERE/scripts/audit_episodes.py" --run-dir "$DL/pilot_merged/run"
-  python3 "$HERE/scripts/pilot_gate.py" --run-dir "$DL/pilot_merged/run"
+  python3 "$HERE/scripts/pilot_gate.py" --run-dir "$DL/pilot_merged/run" \
+    --gpu-feasibility-evidence "$HERE/runs/gpu_feasibility/evidence_2026-10-20.json"
   # dataset for the monitor kernel
   mkdir -p "$DL/pilot_dataset"
   cp -r "$DL/pilot_merged/run" "$DL/pilot_dataset/traceguard-output/pilot/run"
@@ -105,9 +106,12 @@ pilot() {
   poll_kernel "$MON" kaggle/mon
   mkdir -p "$DL/pilot_mon"
   $KG kernels output "$MON" -p "$DL/pilot_mon" -o
+  # S4 gate on the monitored run (M1-M3 binding; M4/M5 report design facts)
+  python3 "$HERE/scripts/monitor_gate.py" \
+    --run-dir "$DL/pilot_mon/traceguard-output/pilot/run"
   # analysis (CPU)
   python3 "$HERE/scripts/reproduce_run.py" \
-    --run-dir "$DL/pilot_merged/run" --monitor llm_qwen_hf || \
+    --run-dir "$DL/pilot_mon/traceguard-output/pilot/run" --monitor llm_qwen_hf || \
     echo "NOTE: run the analysis per docs/SOP_001 (verify -> analyze per condition)"
   echo "PIPELINE RESUME COMPLETE"
 }
