@@ -64,3 +64,20 @@ is append-only.
   unsupported keyword reaches `model.generate`, seeding occurs inside the
   isolated scope, and scope exit restores the prior RNG context.
 - **Freeze status:** pre-pilot rerun; no confirmatory data were unblinded.
+
+### 2026-10-20 — Over-broad gitignore silently excluded two governance docs
+
+- **Observed:** `docs/SOP_002_KAGGLE_OPERATIONS.md` (referenced by README) and
+  `docs/blueprint/03_KAGGLE_RUNBOOK.md` were missing from the public repository
+  although written in the first session; the secrets-hygiene pattern `*KAGGLE*`
+  in `.gitignore` matched their filenames, so they were never staged or pushed.
+- **Impact:** governance docs referenced by the README returned 404 for any
+  external reader; no code or experiment data was affected. The broad pattern
+  was a silent-reproducibility hazard (files disappear from version control
+  without any error).
+- **Repair:** `*KAGGLE*` replaced with precise secret filename patterns
+  (`KAGGLE_API_TOKEN*`, `KAGGLE_TOKEN*`); both docs committed; a warning note
+  added to `.gitignore` forbidding broad keyword patterns in the secrets block.
+- **Verification:** `git check-ignore` exits 1 (not ignored) for both paths;
+  `git ls-files` confirms both tracked after commit.
+- **Freeze status:** documentation only; no confirmatory data were unblinded.

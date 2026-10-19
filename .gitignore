@@ -27,9 +27,13 @@ data/generated/
 artifacts/
 
 # Secrets — never commit
+# NOTE: never use broad patterns like *KAGGLE* here — it silently excluded
+# docs/SOP_002_KAGGLE_OPERATIONS.md and docs/blueprint/03_KAGGLE_RUNBOOK.md
+# from version control. Match secret filenames precisely instead.
 .secrets/
 *.token
-*KAGGLE*
+KAGGLE_API_TOKEN*
+KAGGLE_TOKEN*
 kaggle.json
 access_token
 .env
