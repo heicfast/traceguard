@@ -175,6 +175,18 @@ def main() -> int:
         importlib.invalidate_caches()
     manifest["transformers_used"] = transformers.__version__
 
+    # NF4 monitor models require bitsandbytes; the anchor 4B (fp16) never
+    # needed it, so the anchor kernel pattern lacks this gate (probe kernels
+    # have it). Import proves the CUDA kernels are loadable on this image.
+    import importlib.util
+    if importlib.util.find_spec("bitsandbytes") is None:
+        up_bnb = run([sys.executable, "-m", "pip", "install", "-q", "-U",
+                      "bitsandbytes>=0.46.1"], check=False)
+        if up_bnb.returncode != 0:
+            raise SystemExit("bitsandbytes install failed")
+    import bitsandbytes  # noqa: F401
+    manifest["bitsandbytes_version"] = getattr(bitsandbytes, "__version__", "unknown")
+
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
     # Each worker receives one independent model copy and a disjoint episode
     # shard. Worker run directories are private and merged only after schema +
