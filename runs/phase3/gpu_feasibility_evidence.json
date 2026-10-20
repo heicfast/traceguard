@@ -1,0 +1,25 @@
+{
+  "evidence_date": "2026-10-20",
+  "measured_generation": {
+    "kernel_seconds": 9518.5,
+    "workers": 2,
+    "gpu_hours_used": 5.29,
+    "episodes": 128,
+    "gpu_hours_per_episode": 0.0414
+  },
+  "monitoring_projection": {
+    "basis": "128 episodes x (4 raw-condition LLM calls + 3 late-fusion calls) ~ 896 calls; pilot Phase-2 monitor kernel measured 77 min for 256 calls on 2 workers",
+    "projected_gpu_hours": 8.0,
+    "contingency_fraction": 0.35
+  },
+  "fleet_available_gpu_hours": {
+    "acct1_umar0x": 16.46,
+    "acct2_heicfast": 29.89,
+    "acct3_heicjpg": 23.9,
+    "total": 70.25,
+    "quota_refresh": "2026-10-24T00:00:00"
+  },
+  "available_gpu_hours": 70.25,
+  "projected_gpu_hours": 13.29,
+  "contingency_fraction": 0.35
+}

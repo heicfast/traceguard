@@ -18,18 +18,22 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M5 monitor conditions A/C/D/E on same episodes | done |
 | M6 64-episode pilot + independent review | done; exploratory, negative-leaning; **full evidentiary archive committed** (`runs/pilot/` — episodes, privileged records, transactions, 768 monitor scores, analysis report, figures, per-file SHA-256 manifest; `traceguard export` validates it fail-closed) |
 | M6.5 Phase 3 hardening | **merged (PR #3, `2cc54d0`)** — relational non-action-visible families, 4 attack-presentation strata, 0–100 rubric, structured late fusion, pairwise-complete analysis |
-| M6.6 multi-model/T4 architecture | **merged (PR #3, `2cc54d0`)** — audited registry, fail-closed probe-admission, dual-T4 workers, release contract; admission probes and revision freeze in progress |
+| M6.6 multi-model/T4 architecture | **merged (PR #3, `2cc54d0`)** — audited registry, fail-closed probe-admission, dual-T4 workers, release contract |
+| M6.7 Phase 3 pilot | **generated, verified, gate-passed, archived** — 128 episodes (`runs/phase3/pilot_v0_run`), attempts 83%, attack success 100%, honest completion 98%, trace coverage 100%; public dataset `heicjpg/traceguard-phase3-pilot-run-v1` |
+| M6.8 monitor-capability cells | **matrix frozen + scoring in flight** — anchor (4B monitor) + scale-monitor (Qwen3-14B) + cross-monitor (DeepSeek-R1-Distill-14B) all score the SAME 128 stored episodes; frozen matrix `configs/model_matrix_phase3.yaml`, cell configs derived verbatim from the generation manifest |
 | M7 preregistration freeze | blocked on Phase 3 gates and sizing |
 | M8 confirmatory + online intervention | pending |
 
-**Current stage: Phase 3 pilot preparation.** Next steps, in order: (1) run
-`traceguard probe-model` admission probes for the probe-required monitor
-candidates (Qwen3-14B NF4, DeepSeek-R1-Distill-Qwen-14B, Gemma cross-family)
-on the Kaggle T4 fleet — three accounts are used as *scheduling quota only*,
-never as statistical replicates; (2) pin exact model revisions + probe
-artifact hashes into the frozen matrix; (3) execute the 128-episode pipeline
-pilot (`configs/phase3_pilot.yaml`) with raw + late-fusion arms; (4) evaluate
-all Phase 3 gates before any confirmatory sizing decision.
+**Current stage: Phase 3 multi-model monitoring.** The 128-episode Phase 3
+pilot (4 attack-presentation strata over relational non-action-visible
+families) is generated, gate-passed and archived. The frozen matrix
+(`configs/model_matrix_phase3.yaml`) sends the anchor, scale-monitor
+(Qwen3-14B) and cross-monitor (DeepSeek-R1-14B) cells over the SAME stored
+episodes on the three-account Kaggle fleet; agent-role probes for the
+stronger-agent cells run in parallel. On landing: per-cell verify → monitor
+gate → paired analysis → release export → archive; then the cross-cell
+comparison that separates monitor-capability, monitor-family, and
+fusion-architecture explanations of the pilot's negative-leaning signal.
 
 **Pilot result, most defensible statement** (exploratory, 64 episodes,
 Qwen3-4B agent × same-checkpoint monitor): adding capped CoT did not improve

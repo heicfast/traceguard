@@ -494,3 +494,50 @@ is append-only.
 - **Impact:** corrections are reporting-integrity fixes; no recorded score,
   gate result, or estimate changed. The pilot remains exploratory with all
   originally reported caveats.
+
+### 2026-10-20 — Phase-3 pilot run archived; matrix freeze + monitor-cell configs (owner directive: all accounts simultaneously)
+
+- **Observed:** the 2026-10-20 owner message commit (`20a2d6b`) directed (a)
+  simultaneous use of all three Kaggle accounts, (b) completion of all
+  remaining runs toward the final research conclusion, and (c) queue
+  restarts after 20 minutes (replacing the 30-minute guidance). Also found:
+  the phase-3 pilot run (128 episodes, gate-passed) existed only as the
+  public Kaggle dataset + local downloads — the same class of archival gap
+  the reproducibility audit flagged for Phase 2.
+- **Change:**
+  1. The verified merged pilot run is committed at `runs/phase3/pilot_v0_run`
+     (263-file checksum manifest verified before commit; `runs/phase3/`
+     whitelisted).
+  2. The study matrix is frozen at `configs/model_matrix_phase3.yaml`:
+     anchor (4B/4B, running), scale-monitor (Qwen3-14B, probe-admitted rev
+     `40c06982`), cross-monitor (DeepSeek-R1-Distill-14B, probe-admitted rev
+     `1df85071`; substitutes the template's unprobed gemma-4-12B cell — the
+     substitution is the family-diversity arm actually probed and admitted),
+     and two agent cells explicitly `pending_agent_probe`.
+  3. Monitor-cell configs are DERIVED, not hand-written:
+     `scripts/derive_monitor_cell_configs.py` copies the generation
+     manifest's frozen config verbatim and swaps ONLY the monitor-model
+     fields + `provenance.matrix_cell_id`. The runtime consistency gate then
+     enforces byte-equality of every generation-defining section at score
+     time. Cell score files can never collide with anchor scores: with
+     `matrix_cell_id` set, monitor identities become
+     `llm_qwen_hf_c885515408` / `llm_generic_hf_eb379ca5e7`.
+  4. Cell kernels (`kaggle/mon_scale_qwen14`, `kaggle/mon_cross_deepseek14`)
+     extend the anchor kernel's revision-gate allowlist with exactly the
+     three frozen config files (data-only; justified in-line) — all other
+     diffs remain hard-rejected.
+- **fact_checked arm DEFERRED (declared, not silently dropped):** late fusion
+  + cross-family fact-checker would load two ~9.5 GiB NF4 models inside one
+  worker's single visible T4 (14.5 GiB) — an OOM loop by construction. It
+  requires a dual-GPU single-worker kernel variant or a probed int8
+  fact-checker; recorded as the follow-up, never substituted silently.
+- **Validation before any push (owner directive: test locally + in the target
+  environment):** both cell configs drilled through the REAL
+  `traceguard monitor` path against a temp copy of the archived run
+  (consistency gate + scoring ok); full test suite green; ruff clean. The
+  cross kernel's allowlist initially dropped the scale config file (caught by
+  ruff B033 during parameterized generation — the diff gate would have
+  rejected it on Kaggle); repaired before push.
+- **Impact:** monitor-capability and monitor-family cells now score the SAME
+  stored episodes as the anchor cell — the capability x family axis of the
+  final conclusion runs without regenerating anything.

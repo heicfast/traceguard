@@ -186,3 +186,45 @@ Ordered mechanical steps when `heicjpg/traceguard-episode-generation`
 8. Freeze the matrix (anchor + monitor cells) via `traceguard matrix-plan` /
    `matrix-materialize` once all cell inputs exist; agent cells wait for
    their role probes.
+
+### 9.3 Fleet operations directives (owner, 2026-10-20)
+
+Owner-validated facts that supersede earlier guidance:
+
+1. **Use all three accounts simultaneously.** Every account allows two
+   concurrent GPU sessions. Default posture: keep BOTH slots of every
+   account occupied with scheduled work (cells, probes, shards) unless
+   saving a slot for an imminent landing. Accounts are scheduling resources
+   only — never statistical replicates.
+2. **20-minute queue rule (replaces the 30-minute guidance).** If a pushed
+   kernel is still QUEUED after ~20 minutes, apply the restart trick:
+   delete the kernel version and re-push (for kernels with no output
+   history, `kaggle kernels delete` + push is equivalent). Never delete a
+   kernel that is RUNNING or has output not yet downloaded. The owner may
+   also cancel queued kernels to start them interactively — a CANCELLED
+   status is usually the owner helping, not a failure.
+3. **409 handling.** A bare 409 on SaveKernel after a completion is the
+   session-reservation window (§9.1); retry patiently or push a CPU kernel
+   as a differential probe. Do NOT route authenticated API traffic through
+   public proxies — tokens must never transit third-party infrastructure;
+   the retry + re-push protocol achieves the same result without the risk.
+4. **Watch for owner messages in commit messages** — the owner sometimes
+   leaves directives as commit descriptions on `main` (`git log` after every
+   fetch before planning work).
+
+### 9.4 Monitor-cell landing sequence (additions to §9.2)
+
+For each monitor cell kernel (scale/cross), on completion:
+
+1. Download under the hosting account's auth.
+2. Local: `traceguard verify` on the scored copy; confirm the cell's
+   suffixed monitor score files exist for all five conditions
+   (`llm_<provider>_<hash10>-<condition>-00001.jsonl`).
+3. Run `scripts/monitor_gate.py` + `traceguard analyze --monitor <cell name>`
+   locally to confirm the in-kernel results reproduce.
+4. Archive the scored copy as `runs/phase3/<cell_id>/` with its checksum
+   manifest, commit + push (audit condition: every evidentiary record lives
+   in git).
+5. Compare cells in the report layer: same episodes, same frozen views, so
+   recall/FPR differences across monitor models are attributable to the
+   monitor, never the evidence.
