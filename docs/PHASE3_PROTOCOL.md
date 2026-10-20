@@ -212,4 +212,3 @@ only synthetic records.
   effects rather than reasoning-content value.
 - Any statement about companies or frontier systems is out of scope unless the
   exact systems are tested under a comparable, auditable protocol.
-
