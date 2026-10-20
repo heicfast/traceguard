@@ -33,8 +33,8 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-ANCHOR_MANIFEST = REPO / "runs/pre-tests-data/phase3/pilot_v0_run/run_manifest.json"
-PROBE_DIR = REPO / "runs/probes"
+ANCHOR_MANIFEST = REPO / "runs/v6/pilot_v0_run/run_manifest.json"
+PROBE_DIR = REPO / "runs/v6/probes"
 OUT_DIR = REPO / "configs/phase3_agent_cells"
 
 # Same checkpoints admitted for the monitor role; the AGENT-role admission is

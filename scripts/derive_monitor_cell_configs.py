@@ -23,14 +23,20 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-MANIFEST = REPO / "runs/pre-tests-data/phase3/pilot_v0_run/run_manifest.json"
+MANIFEST = REPO / "runs/v6/pilot_v0_run/run_manifest.json"
 OUT_DIR = REPO / "configs/phase3_monitor_cells"
 
-# Admitted monitor candidates (probe artifacts committed under runs/probes/monitor/)
-QWEN3_14B_REV = "40c069824f4251a91eefaf281ebe4c544efd3e18"
-QWEN3_14B_PROBE = "6a7757b13e62b20bc9af11e51b369df691a901c1be34cc9753d30f377bc5a469"
-DEEPSEEK_R1_14B_REV = "1df8507178afcc1bef68cd8c393f61a886323761"
-DEEPSEEK_R1_14B_PROBE = "f0b5ae406767f84c5c8b5b33ec3b20517d02f377b5a6c6b4c7ab48cda72c415f"
+# Admitted monitor candidates: revisions + probe hashes are read from the
+# COMMITTED v0.6 admission artifacts (runs/v6/probes/monitor/) — never
+# hardcoded, so a fresh admission automatically propagates.
+def _admission(filename: str) -> tuple[str, str]:
+    artifact = json.loads((REPO / "runs/v6/probes/monitor" / filename).read_text(encoding="utf-8"))
+    assert artifact.get("all_gates_passed") is True, filename
+    assert artifact.get("role") == "monitor", filename
+    return artifact["model_revision"], artifact["artifact_sha256"]
+
+QWEN3_14B_REV, QWEN3_14B_PROBE = _admission("qwen3_14b_monitor_probe_artifact.json")
+DEEPSEEK_R1_14B_REV, DEEPSEEK_R1_14B_PROBE = _admission("deepseek_r1_14b_monitor_probe_artifact.json")
 
 CELLS = {
     "scale_monitor_qwen14": {
