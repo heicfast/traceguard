@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "c3fe999a4896e2d16391ed02ef6f1f5693663d7d"
+TRACEGUARD_COMMIT = "542d5d4fff3fa02260462ca1414c4cf408e48328"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "pilot"
 CONFIG = "configs/phase3_agent_cells/cross_agent_deepseek14.yaml"
@@ -145,7 +145,10 @@ def main() -> int:
     base_diff = run(["git", "-C", str(REPO_DIR), "diff", "--name-only",
                      derivation_base, TRACEGUARD_COMMIT])
     non_research = ("docs/", "scripts/", "kaggle/", "tests/", "runs/",
-                    "configs/", "README.md", ".gitignore")
+                    "configs/", "README.md", ".gitignore",
+                    # study-design tooling: not imported by any
+                    # generation path (verified programmatically)
+                    "src/traceguard/model_matrix.py")
     drifted = [ln for ln in base_diff.stdout.splitlines()
                if ln.strip() and not ln.startswith(non_research)]
     gate(not drifted, f"derivation-base..pin diff research-clean (got {drifted})", manifest)

@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "6f61f907104cae447bcad3050d9ca926ca991414"  # merged Phase 3 core (PR #3 + archive + doc fixes)
+TRACEGUARD_COMMIT = "542d5d4fff3fa02260462ca1414c4cf408e48328"  # merged Phase 3 core (PR #3 + archive + doc fixes)
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1", "late_fusion"]
@@ -104,6 +104,10 @@ def main() -> int:
         "src/traceguard/traces/views.py",
         "src/traceguard/monitors/conditions.py",
         "src/traceguard/monitor_runtime.py",
+        # 2026-10-20 matrix freeze: freeze-record schema fields for the
+        # study-design tooling; verified NOT imported by any generation/
+        # scoring path (study-design only).
+        "src/traceguard/model_matrix.py",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
     changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]
