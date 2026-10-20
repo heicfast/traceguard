@@ -153,3 +153,9 @@ and an nvidia-smi dump.
   (the pilot generation kernel admitted to RUNNING immediately after the
   cycle). Deleting a kernel with no recorded output loses nothing; never
   delete a kernel whose output has not been downloaded and verified.
+- Session-reservation window (observed 2026-10-20): for roughly 30+ minutes
+  after a GPU kernel completes, its session slot remains reserved; new GPU
+  kernel pushes during that window fail with a bare `409 Conflict` on
+  SaveKernel (CPU kernels push fine — use one as a differential probe).
+  Retrying after the window clears resolves it; plan post-run pushes
+  (datasets, next kernels) around the wait.
