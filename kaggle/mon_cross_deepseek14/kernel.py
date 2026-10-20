@@ -175,11 +175,32 @@ def main() -> int:
         importlib.invalidate_caches()
     manifest["transformers_used"] = transformers.__version__
 
+    # NF4 monitor models require bitsandbytes; the anchor 4B (fp16) never
+    # needed it, so the anchor kernel pattern lacks this gate (probe kernels
+    # have it). Import proves the CUDA kernels are loadable on this image.
+    import importlib.util
+    if importlib.util.find_spec("bitsandbytes") is None:
+        up_bnb = run([sys.executable, "-m", "pip", "install", "-q", "-U",
+                      "bitsandbytes>=0.46.1"], check=False)
+        if up_bnb.returncode != 0:
+            raise SystemExit("bitsandbytes install failed")
+    import bitsandbytes  # noqa: F401
+    manifest["bitsandbytes_version"] = getattr(bitsandbytes, "__version__", "unknown")
+
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
     # Each worker receives one independent model copy and a disjoint episode
     # shard. Worker run directories are private and merged only after schema +
     # score-id validation, avoiding concurrent JSONL writes.
     os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
+    # Admission artifact for the probe-required monitor model: the factory
+    # recomputes this file's hash and compares it to the cell config's frozen
+    # probe_artifact_sha256 before constructing the provider (fail-closed;
+    # no env var -> no model load).
+    artifact_rel = "runs/probes/monitor/deepseek_r1_14b_monitor_probe_artifact.json"
+    artifact_path = Path("/tmp/traceguard") / artifact_rel
+    if not artifact_path.exists():
+        raise SystemExit(f"monitor probe artifact missing at pinned commit: {artifact_rel}")
+    os.environ["TRACEGUARD_MONITOR_PROBE_ARTIFACT"] = str(artifact_path)
     sys.path.insert(0, "/tmp/traceguard/src")
 
     # ---- run the monitoring CLI over the copied run ------------------------------
