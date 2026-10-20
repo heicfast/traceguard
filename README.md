@@ -19,21 +19,23 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M6 64-episode pilot + independent review | done; exploratory, negative-leaning; **full evidentiary archive committed** (`runs/pre-tests-data/pilot/` — episodes, privileged records, transactions, 768 monitor scores, analysis report, figures, per-file SHA-256 manifest; `traceguard export` validates it fail-closed) |
 | M6.5 Phase 3 hardening | **merged (PR #3, `2cc54d0`)** — relational non-action-visible families, 4 attack-presentation strata, 0–100 rubric, structured late fusion, pairwise-complete analysis |
 | M6.6 multi-model/T4 architecture | **merged (PR #3, `2cc54d0`)** — audited registry, fail-closed probe-admission, dual-T4 workers, release contract |
-| M6.7 Phase 3 pilot | **generated, verified, gate-passed, archived** — 128 episodes (`runs/pre-tests-data/phase3/pilot_v0_run`), attempts 83%, attack success 100%, honest completion 98%, trace coverage 100%; public dataset `heicjpg/traceguard-phase3-pilot-run-v1` |
-| M6.8 monitor-capability cells | **matrix frozen + scoring in flight** — anchor (4B monitor) + scale-monitor (Qwen3-14B) + cross-monitor (DeepSeek-R1-Distill-14B) all score the SAME 128 stored episodes; frozen matrix `configs/model_matrix_phase3.yaml`, cell configs derived verbatim from the generation manifest |
+| M6.7 Phase 3 pilot (pre-test) | **generated, verified, gate-passed, archived** — 128 episodes (`runs/pre-tests-data/phase3/pilot_v0_run`), attempts 83%, attack success 100%, honest completion 98%, trace coverage 100%; public dataset `heicjpg/traceguard-phase3-pilot-run-v1`; **superseded by the v0.6.0 from-scratch restart (owner directive `5d1a00e`)** |
+| M6.8 monitor-capability cells (pre-test) | matrix frozen + scoring started under v0.5.x; **stopped by owner directive and folded into the v0.6.0 restart** |
+| M6.9 v0.6.0 core upgrade + multi-POV review | **merged; 3 independent reviews; ALL findings fixed** — 2 BLOCKERs (gate retries; export re-certifying tampered archives) + 14 MAJORs; 218 tests, ruff + mypy clean (`c3fe999`) |
+| M6.10 v0.6.0 from-scratch program | **IN FLIGHT** — GPU smoke running; all four fresh 14B role-admissions PASSED (`runs/v6/probes/`); fresh anchor cohort next; pre-test data renamed to `runs/pre-tests-data/` |
 | M7 preregistration freeze | blocked on Phase 3 gates and sizing |
 | M8 confirmatory + online intervention | pending |
 
-**Current stage: Phase 3 multi-model monitoring.** The 128-episode Phase 3
-pilot (4 attack-presentation strata over relational non-action-visible
-families) is generated, gate-passed and archived. The frozen matrix
-(`configs/model_matrix_phase3.yaml`) sends the anchor, scale-monitor
-(Qwen3-14B) and cross-monitor (DeepSeek-R1-14B) cells over the SAME stored
-episodes on the three-account Kaggle fleet; agent-role probes for the
-stronger-agent cells run in parallel. On landing: per-cell verify → monitor
-gate → paired analysis → release export → archive; then the cross-cell
-comparison that separates monitor-capability, monitor-family, and
-fusion-architecture explanations of the pilot's negative-leaning signal.
+**Current stage: v0.6.0 from-scratch program (owner directive `5d1a00e`).**
+The owner upgraded the research core (workflow engine with hash-chained journal,
+evidence index, failure taxonomy, McNemar+Holm analysis, sizing model, figure
+contract) and directed a full restart: all in-flight runs stopped, all prior data
+renamed to `runs/pre-tests-data/`, every phase re-executed on the hardened core
+with fresh admissions. The v0.6 core passed three independent expert reviews with
+every BLOCKER/MAJOR fixed before any run (`c3fe999`, 218 tests). Fresh program
+identity: `traceguard_v6_pilot_v1`. All four 14B role-admissions passed on v0.6
+(`runs/v6/probes/`); the GPU smoke is running; the fresh anchor cohort and
+monitor/agent cells follow on the multi-account fleet.
 
 **Pilot result, most defensible statement** (exploratory, 64 episodes,
 Qwen3-4B agent × same-checkpoint monitor): adding capped CoT did not improve
