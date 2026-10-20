@@ -260,3 +260,22 @@ is append-only.
   completed; the account had 25+ GPU hours available per owner statement.
 - **Freeze status:** infrastructure operations only; no data or frozen
   parameters affected.
+
+### 2026-10-20 — Mon-kernel diff-allowlist gate additions (gate caught two unapproved files)
+
+- **Observed:** mon kernel v3 failed its own NEW revision gate before any
+  scoring: the gen(32a6bc0)→mon(f36d033) diff contained two research-core
+  files outside the initial allowlist — `.gitignore` (the gpu_feasibility
+  whitelist edit) and `src/traceguard/smoke.py` (the earlier smoke-stage
+  E-pairing fix). The gate worked as designed: nothing scores until every
+  changed file is consciously re-approved.
+- **Verification of scoring-safety:** `smoke.py` is imported only
+  function-locally inside `cli.cmd_smoke` (never by `monitor_runtime` or
+  the monitor CLI path), so it cannot affect how stored episodes are
+  scored; `.gitignore` has zero runtime semantics. The complete
+  research-core diff gen→mon is exactly {`.gitignore`,
+  `src/traceguard/models/qwen.py`, `src/traceguard/smoke.py`} (verified via
+  `git diff --name-only` minus non-research paths).
+- **Repair:** both files added to the kernel's allowed_changes with
+  in-code justification; the gate remains fail-closed for anything else.
+- **Freeze status:** pre-preregistration; no confirmatory data unblinded.

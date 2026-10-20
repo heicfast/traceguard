@@ -85,9 +85,15 @@ def main() -> int:
                 gen_code_revision, TRACEGUARD_COMMIT])
     allowed_changes = {
         # 2026-10-20 prefill-logits guard + device_map hotfix (monitor-kernel
-        # OOM, see docs/deviations.md): inference-layer only; registry, views,
-        # monitors, grader, schemas, configs untouched.
+        # OOM, see docs/deviations.md): inference-layer only.
         "src/traceguard/models/qwen.py",
+        # 2026-10-20 smoke-stage E-pairing fix: smoke.py is integration
+        # validation ONLY (imported function-locally by cmd_smoke; never by
+        # monitor_runtime/cli monitor path) - verified not in the scoring
+        # import graph, so it cannot affect how stored episodes are scored.
+        "src/traceguard/smoke.py",
+        # 2026-10-20 evidence-dir whitelist edit: zero runtime semantics.
+        ".gitignore",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
     changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]
