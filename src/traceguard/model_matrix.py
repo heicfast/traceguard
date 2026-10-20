@@ -58,6 +58,13 @@ class MatrixCell(BaseModel):
     account_slot: Literal[0, 1, 2]
     replicate_ids: list[int] = [0]
     primary: bool = False
+    # Freeze-record annotations (provenance for the operator; not scheduling
+    # inputs): lifecycle status, the realized cohort run, the derived cell
+    # config, and the deterministic suffixed monitor score name.
+    status: str | None = None
+    cohort_run: str | None = None
+    cell_config: str | None = None
+    monitor_score_name: str | None = None
 
     @model_validator(mode="after")
     def _validate_profiles(self) -> MatrixCell:

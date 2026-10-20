@@ -53,7 +53,7 @@ cells:
   - cell_id: scale-monitor-qwen4-qwen14
     generation_cohort_id: agent-qwen4
     primary: false
-    account_slot: 1
+    account_slot: 0
     replicate_ids: [0]
     status: frozen
     cohort_run: runs/v6/pilot_v0_run
@@ -75,7 +75,7 @@ cells:
   - cell_id: cross-monitor-qwen4-deepseek14
     generation_cohort_id: agent-qwen4
     primary: false
-    account_slot: 2
+    account_slot: 0
     replicate_ids: [0]
     status: frozen
     cohort_run: runs/v6/pilot_v0_run
