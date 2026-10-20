@@ -120,3 +120,28 @@ and an nvidia-smi dump.
   score/episode identities.
 - Account identity is an operational scheduling attribute, not a statistical
   replicate. Replicates are the frozen replicate IDs and seeds in the matrix.
+
+### 9.1 Fleet operational facts (2026-10-20)
+
+- Accounts (scheduling quota only, never statistical replicates):
+  `umar0x` (acct1, original), `heicfast` (acct2), `heicjpg` (acct3).
+  Auth token files live outside the repository at
+  `.secrets/kaggle/acct{1,2,3}.token` (never committed); the CLI reads the
+  active token from `~/.kaggle/access_token` (swap via
+  `source .secrets/kaggle/use.sh acctN`).
+- The repository keeps ONE canonical `kernel-metadata.json` per kernel
+  (owner `umar0x`). To push any kernel under a different account, use
+  `scripts/kaggle_push.sh <kernel-dir> <acctN>` (workspace-side helper,
+  not part of the research package): it copies the kernel dir to a temp
+  path, rewrites only the metadata id owner, and pushes. Repo metadata
+  never carries account-specific drift.
+- Per-account concurrent batch GPU sessions remain capped at 2; queued
+  batch kernels occupy their slots. The owner may cancel any queued kernel
+  and restart it interactively (interactive runs start immediately and are
+  the owner's explicit action — a CANCELLED batch status is never evidence
+  of a quota or system problem).
+- Current allocation (Phase 3 pilot preparation):
+  acct3 `heicjpg/traceguard-episode-generation` (128-episode pipeline pilot,
+  anchor cell), acct1 `umar0x/traceguard-probe-qwen14` (monitor-scale
+  admission probe), acct2 `heicfast/traceguard-probe-deepseek14`
+  (monitor-transfer admission probe).
