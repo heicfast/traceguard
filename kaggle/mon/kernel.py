@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "1059ff4fd004df507f2cd7ccd00d81c1e5667dab"  # Phase-3 audited core
+TRACEGUARD_COMMIT = "79e0e293cfa94b0666f24512834893aca06548ec"  # Phase-3 audited core
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1", "late_fusion"]
