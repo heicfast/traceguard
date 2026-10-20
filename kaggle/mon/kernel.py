@@ -115,6 +115,18 @@ def main() -> int:
         # 2026-10-20 matrix freeze: freeze-record schema fields for the
         # study-design tooling; verified NOT imported by any generation/
         # scoring path (study-design only).
+                # 2026-10-20 fresh-program freeze: the matrix + the four derived cell
+        # configs are DATA (model selection for admitted checkpoints; the
+        # runtime consistency gate re-verifies every generation-defining
+        # section against the generation manifest at score time). The files
+        # below are never read by THIS kernel's own scoring path beyond its
+        # own cell config; allowlisting keeps the gate fail-closed for
+        # everything else.
+        "configs/model_matrix_phase3.yaml",
+        "configs/phase3_monitor_cells/scale_monitor_qwen14.yaml",
+        "configs/phase3_monitor_cells/cross_monitor_deepseek14.yaml",
+        "configs/phase3_agent_cells/scale_agent_qwen14.yaml",
+        "configs/phase3_agent_cells/cross_agent_deepseek14.yaml",
         "src/traceguard/model_matrix.py",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
