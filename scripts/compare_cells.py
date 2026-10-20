@@ -17,10 +17,10 @@ report fails loudly (no partial silent output).
 
 Usage:
   python scripts/compare_cells.py \
-      --cell anchor=runs/phase3/pilot_v0_run_mon_anchor \
-      --cell scale=runs/phase3/scale-monitor-qwen4-qwen14 \
-      --cell cross=runs/phase3/cross-monitor-qwen4-deepseek14 \
-      --out runs/phase3/cross_cell_comparison.json
+      --cell anchor=runs/v6/pilot_v0_run_mon_anchor \
+      --cell scale=runs/v6/scale-monitor-qwen4-qwen14 \
+      --cell cross=runs/v6/cross-monitor-qwen4-deepseek14 \
+      --out runs/v6/cross_cell_comparison.json
 """
 
 from __future__ import annotations

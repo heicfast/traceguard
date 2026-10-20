@@ -16,10 +16,10 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M3 FakeModel end-to-end CPU integration | done |
 | M4 Kaggle GPU preflight + Qwen3 integration | done (T4, fp16, SDPA; all gates passed) |
 | M5 monitor conditions A/C/D/E on same episodes | done |
-| M6 64-episode pilot + independent review | done; exploratory, negative-leaning; **full evidentiary archive committed** (`runs/pilot/` — episodes, privileged records, transactions, 768 monitor scores, analysis report, figures, per-file SHA-256 manifest; `traceguard export` validates it fail-closed) |
+| M6 64-episode pilot + independent review | done; exploratory, negative-leaning; **full evidentiary archive committed** (`runs/pre-tests-data/pilot/` — episodes, privileged records, transactions, 768 monitor scores, analysis report, figures, per-file SHA-256 manifest; `traceguard export` validates it fail-closed) |
 | M6.5 Phase 3 hardening | **merged (PR #3, `2cc54d0`)** — relational non-action-visible families, 4 attack-presentation strata, 0–100 rubric, structured late fusion, pairwise-complete analysis |
 | M6.6 multi-model/T4 architecture | **merged (PR #3, `2cc54d0`)** — audited registry, fail-closed probe-admission, dual-T4 workers, release contract |
-| M6.7 Phase 3 pilot | **generated, verified, gate-passed, archived** — 128 episodes (`runs/phase3/pilot_v0_run`), attempts 83%, attack success 100%, honest completion 98%, trace coverage 100%; public dataset `heicjpg/traceguard-phase3-pilot-run-v1` |
+| M6.7 Phase 3 pilot | **generated, verified, gate-passed, archived** — 128 episodes (`runs/pre-tests-data/phase3/pilot_v0_run`), attempts 83%, attack success 100%, honest completion 98%, trace coverage 100%; public dataset `heicjpg/traceguard-phase3-pilot-run-v1` |
 | M6.8 monitor-capability cells | **matrix frozen + scoring in flight** — anchor (4B monitor) + scale-monitor (Qwen3-14B) + cross-monitor (DeepSeek-R1-Distill-14B) all score the SAME 128 stored episodes; frozen matrix `configs/model_matrix_phase3.yaml`, cell configs derived verbatim from the generation manifest |
 | M7 preregistration freeze | blocked on Phase 3 gates and sizing |
 | M8 confirmatory + online intervention | pending |
@@ -84,14 +84,14 @@ Frozen experiment configs drive seeded task-instance generation across twelve sy
 ## Repository layout
 
 ```text
-runs/pilot/pilot_v0_run/   COMPLETE pilot evidentiary archive (64 episodes):
+runs/pre-tests-data/pilot/pilot_v0_run/   COMPLETE pre-test evidentiary archive (64 episodes):
   episodes/ + privileged/ + transactions/ + completed_episode_ids.txt
   monitor_scores/          768 scores: 3 monitors x 4 conditions, every record
                            carries rendered prompts, raw responses, inference
                            audits, and per-record hashes
   reports/                 analysis_report.json + figures (+ plot data)
   artifacts/               per-file SHA-256 manifest + checksums (release gate)
-runs/pilot/                kernel logs + monitor-stage environment manifest
+runs/pre-tests-data/pilot/   pre-test kernel logs + monitor-stage environment manifest
 runs/gpu_smoke_v*/         earlier validated smoke runs (same structure)
 docs/reviews/              multi-POV pilot reviews (scientist, security,
                            statistician) with independently verified findings

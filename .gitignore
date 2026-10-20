@@ -19,13 +19,12 @@ htmlcov/
 # explicitly committed as the research record (user directive: everything public).
 runs/*
 !runs/.gitkeep
-!runs/gpu_smoke_v1/
-!runs/gpu_smoke_v3/
-!runs/gpu_smoke_v4/
-!runs/pilot/
-!runs/phase3/
-!runs/gpu_feasibility/
-!runs/probes/
+# Owner directive 2026-10-20 (commit 5d1a00e): all data recorded on cores
+# before v0.6.0 is renamed to pre-tests-data; the v0.6.0 program restarts
+# every phase from scratch. Pre-test evidence stays public under this prefix.
+!runs/pre-tests-data/
+# New-core run archives (whitelisted as they land):
+!runs/v6/
 data/generated/
 artifacts/
 # Research-run integrity manifests are evidence, not build artifacts:

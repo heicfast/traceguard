@@ -33,7 +33,7 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-ANCHOR_MANIFEST = REPO / "runs/phase3/pilot_v0_run/run_manifest.json"
+ANCHOR_MANIFEST = REPO / "runs/pre-tests-data/phase3/pilot_v0_run/run_manifest.json"
 PROBE_DIR = REPO / "runs/probes"
 OUT_DIR = REPO / "configs/phase3_agent_cells"
 

@@ -23,7 +23,7 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-MANIFEST = REPO / "runs/phase3/pilot_v0_run/run_manifest.json"
+MANIFEST = REPO / "runs/pre-tests-data/phase3/pilot_v0_run/run_manifest.json"
 OUT_DIR = REPO / "configs/phase3_monitor_cells"
 
 # Admitted monitor candidates (probe artifacts committed under runs/probes/monitor/)

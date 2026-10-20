@@ -10,7 +10,7 @@ set -euo pipefail
 
 ACCT="${1:?account (acctN)}"
 KERNEL="${2:?owner/kernel-slug}"
-DEST="${3:?archive dir name under runs/phase3/}"
+DEST="${3:?archive dir name under runs/v6/}"
 
 SECRETS=/home/z/my-project/.secrets/kaggle/use.sh
 REPO=/home/z/my-project/traceguard
@@ -18,7 +18,7 @@ DL=/home/z/my-project/downloads/land-${DEST}
 
 # shellcheck source=/dev/null
 source "$SECRETS" "$ACCT"
-echo "== landing $KERNEL (auth: $ACCT) -> runs/phase3/$DEST"
+echo "== landing $KERNEL (auth: $ACCT) -> runs/v6/$DEST"
 
 rm -rf "$DL"
 mkdir -p "$DL"
@@ -57,7 +57,7 @@ PY
 
 echo "== local verification on a copy"
 STAGE=$(basename "$(dirname "$RUN_DIR")")
-DEST_DIR=$REPO/runs/phase3/$DEST
+DEST_DIR=$REPO/runs/v6/$DEST
 rm -rf "$DEST_DIR"
 mkdir -p "$DEST_DIR"
 cp -r "$RUN_DIR" "$DEST_DIR/run"
@@ -65,4 +65,4 @@ cd "$REPO"
 python3 -m traceguard.cli verify --run-dir "$DEST_DIR/run" | tail -4
 SCORE_COUNT=$(find "$DEST_DIR/run/monitor_scores" -name '*.jsonl' -exec cat {} + 2>/dev/null | wc -l)
 echo "== score records: $SCORE_COUNT"
-echo "== staged at runs/phase3/$DEST (archive + commit remain manual)"
+echo "== staged at runs/v6/$DEST (archive + commit remain manual)"

@@ -593,3 +593,32 @@ committed with justification before the next push:
 No episode was scored under any failed configuration (fail-closed everywhere),
 so no contamination occurred. The scale-agent gen kernels were built with all
 three lessons applied (artifact binding + bnb gate + factory validation).
+
+### 2026-10-20 — OWNER DIRECTIVE (commit 5d1a00e): core v0.6.0 upgrade; all prior data renamed PRE-TESTS-DATA; program restarts from scratch
+
+- **Directive:** the owner upgraded the research core (v0.6.0: workflow engine
+  with hash-chained journal, evidence index, failure taxonomy, study-plan
+  sizing, McNemar+Holm analysis, PR curves, figure contract) and directed an
+  immediate stop of all in-flight runs, renaming of all previously recorded
+  data to `pre-tests-data`, and a from-scratch restart of every phase on the
+  new core (5 new Kaggle accounts / ~150 GPU-hours announced).
+- **Executed:** (1) all five active/queued kernels deleted across the three
+  accounts (anchor monitoring ~5-6h in, scale/cross monitor cells, both agent
+  generations — per explicit owner instruction; partial outputs were never
+  landed and are not archived); (2) `runs/{pilot,phase3,gpu_smoke_v1,gpu_smoke_v3,gpu_feasibility,probes}`
+  → `runs/pre-tests-data/...` via git mv, whitelists + README + script paths
+  updated; (3) new-core runs will archive under `runs/v6/`.
+- **Pre-test data status:** all pre-v0.6.0 evidence (phase-2 pilot 64 episodes
+  + phase-3 pilot 128 episodes + admission probes + smokes + feasibility)
+  remains public and valid AS PRE-TEST RECORDS — generated/analyzed under
+  v0.5.x cores; they are not comparable-at-a-glance with v0.6.0 outputs and
+  do not contribute to the v0.6.0 confirmatory program except as
+  design/measurement priors (sizing inputs, ICC estimates, funnel priors).
+- **Kaggle datasets from the pre-test era stay published under their original
+  slugs** (heicjpg/traceguard-phase3-pilot-run-v1, etc.): Kaggle has no
+  rename operation; the repo path rename is authoritative and the dataset
+  metadata files already record their provenance.
+- **New-core verification before any run (owner: check errors first):** 166
+  tests, ruff, mypy (56 files), doctor (v0.6.0), workflow-plan validation all
+  PASS on the merged tree. A multi-POV review of the new research-operations
+  modules is running before the restart (per docs/REVIEW_SYSTEM.md).
