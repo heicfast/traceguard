@@ -242,3 +242,15 @@ that kernel while the metadata id points elsewhere → conflict. Rules:
 3. The §9.1 reservation-window explanation still applies to RE-pushing an
    existing kernel shortly after a completion — distinguish the two cases by
    whether the kernel ever existed.
+
+### 9.6 Session-slot facts (owner-validated 2026-10-20, from-scratch restart)
+
+1. A kernel deleted WHILE RUNNING (mid-flight kill per an owner stop
+   directive) holds its GPU session slot for a lingering cleanup window —
+   pushes to that account 409 until it clears.
+2. A NEW-VERSION push of an existing kernel whose prior version completed or
+   was killed can 409 the same way; DELETING the kernel releases the
+   lingering session immediately and a fresh v1 push is admitted. Safe when
+   the prior version's output is already downloaded and archived in the repo.
+3. Rule of thumb: on a bare 409, identify which prior kernel's session
+   lingers; delete it if its evidence is archived, then push fresh.
