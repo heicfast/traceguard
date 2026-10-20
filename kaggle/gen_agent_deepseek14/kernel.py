@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "e679d69d1bb9f447c87c76df0429cdc5697eda08"
+TRACEGUARD_COMMIT = "c3fe999a4896e2d16391ed02ef6f1f5693663d7d"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "pilot"
 CONFIG = "configs/phase3_agent_cells/cross_agent_deepseek14.yaml"

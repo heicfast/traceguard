@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "7a670435e0ea01611de34688c7c5a95a6e16ad3c"
+TRACEGUARD_COMMIT = "c3fe999a4896e2d16391ed02ef6f1f5693663d7d"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "pilot"
 CONFIG = "configs/phase3_agent_cells/scale_agent_qwen14.yaml"
