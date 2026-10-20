@@ -9,7 +9,7 @@
   "enable_internet": true,
   "machine_shape": "NvidiaTeslaT4",
   "dataset_sources": [
-    "umar0x/traceguard-phase3-agent-qwen14-run-v1"
+    "umar0x/traceguard-v6-pilot-run-v1"
   ],
   "competition_sources": [],
   "kernel_sources": [],
