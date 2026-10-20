@@ -313,3 +313,43 @@ is append-only.
   will be produced by the same SDPA path in one kernel run).
 - **Freeze status:** pre-preregistration; no confirmatory data unblinded.
   128 tests green; lint clean.
+
+### 2026-10-20 — Diagnostics kernel: SDPA pin took effect but math-backend attention still OOMs; predeclared evidence window implemented
+
+- **Observed:** the mon-attention diagnostics kernel (umar0x/
+  traceguard-monitor-diagnostics, ground-truth run on the real stack:
+  transformers 5.16.1, torch 2.11.0+cu128, dual T4, fp16, device_map=auto)
+  settled the forensics: (a) `attn_implementation="sdpa"` DID take effect
+  (config._attn_implementation = "sdpa", verified); (b) attention still
+  materializes QUADRATIC memory — attempted allocations scale exactly as
+  seq² (20K→21.22 GiB, 24K→30.58, 30K→47.76; ratio 2.25 = (30/20)²),
+  i.e. torch SDPA falls back to the math backend on sm_75+fp16; (c) the
+  measured ceiling: a 5,343-token prompt peaked at 12.32 GiB (worked) and
+  ~8K-token prompts OOM. No attention backend on this stack avoids the
+  quadratic scores tensor.
+- **Empirical pilot evidence:** 346 turns measured: reasoning tokenizes at
+  4.45 chars/token; the longest episode reasoning is 87,886 chars
+  (~19.7K tokens) — exactly the OOM range observed in monitor attempts.
+- **Decision (predeclared BEFORE any admissible LLM scores exist — all
+  five prior monitoring attempts produced zero admissible scores):**
+  implement the config's already-declared `max_monitor_tokens: 3072` as a
+  predeclared evidence window: the reasoning section is head-capped at
+  3072 tokens × 4.0 chars/token (empirical 4.45 rounded DOWN for margin)
+  = 12,288 chars (~2.8K reasoning tokens; full view ≤ ~4.5K tokens, inside
+  the measured ~5-6K-token ceiling). The window applies IDENTICALLY to
+  every reasoning-bearing condition (C/D/E/F); condition D matches the
+  CAPPED length (±20%); condition E uses the partner's CAPPED trace; a
+  visible truncation marker states kept/total chars; short traces are
+  byte-identical to previous behavior. This is a monitoring-protocol
+  definition (the monitor's evidence window — exactly what a deployed
+  monitor with a context budget would receive), symmetric across
+  conditions, and declared before scoring.
+- **Rejected alternatives:** chunked prefill (high engineering risk,
+  nonstandard inference path); truncating actions (condition A's evidence
+  must stay complete); smaller monitor checkpoint (protocol change);
+  CPU scoring (RAM also quadratic: 20K-token scores ≈ 25 GB > host RAM).
+- **Verification:** 131 tests green (3 new window regressions: marker +
+  truncated flag, byte-identical short traces, C/D/E symmetric capping);
+  fresh CPU smoke + monitor_gate M1 32/32 hash-identical; lint clean.
+- **Freeze status:** pre-preregistration; preregistration draft updated
+  with the evidence-window rule; pilot is feasibility data.

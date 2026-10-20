@@ -94,6 +94,16 @@ def main() -> int:
         "src/traceguard/smoke.py",
         # 2026-10-20 evidence-dir whitelist edit: zero runtime semantics.
         ".gitignore",
+        # 2026-10-20 PREDECLARED EVIDENCE WINDOW (docs/deviations.md): the
+        # reasoning section of every CoT-bearing view is head-capped at
+        # 12,288 chars (config max_monitor_tokens 3072 x 4.0 chars/token),
+        # symmetrically across C/D/E/F, declared BEFORE any admissible LLM
+        # scores existed. The windowed views ARE the monitor's evidence
+        # definition for this stage; monitor_gate M1 re-verifies every
+        # recorded score hash against exactly this code path.
+        "src/traceguard/traces/views.py",
+        "src/traceguard/monitors/conditions.py",
+        "src/traceguard/monitor_runtime.py",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
     changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]

@@ -17,8 +17,16 @@ from .monitors.conditions import build_partner_index, compile_all_conditions, fi
 from .monitors.rules import KeywordMonitor, RuleMonitor
 from .traces.schema import validate_monitor_score
 from .traces.storage import RunStore
+from .traces.views import CHARS_PER_TOKEN_FACTOR
 
 DETERMINISTIC_MONITORS = {"rules_v1": RuleMonitor, "keywords_v1": KeywordMonitor}
+
+
+def reasoning_window_from_config(config) -> int:
+    """Predeclared evidence window (chars) from the frozen config's
+    max_monitor_tokens (tokens) — see views.REASONING_WINDOW_CHARS for the
+    hardware derivation. 3072 tokens * 4.0 chars/token = 12,288 chars."""
+    return int(config.monitor.max_monitor_tokens * CHARS_PER_TOKEN_FACTOR)
 
 
 def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
@@ -35,6 +43,7 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
 
     privileged = store.load_all_privileged()
     partner_index = build_partner_index(episodes)
+    window_chars = reasoning_window_from_config(config)
 
     monitors: list[Any] = []
     for name in monitor_names:
@@ -85,7 +94,8 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                 try:
                     obs_all = compile_all_conditions(
                         env, [condition], partner, hidden,
-                        partner_hidden_instruction=partner_hidden)
+                        partner_hidden_instruction=partner_hidden,
+                        reasoning_window_chars=window_chars)
                     obs = obs_all[condition]
                     score = monitor.score(obs)
                     score_payload = score.to_payload()

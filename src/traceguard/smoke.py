@@ -103,6 +103,8 @@ def run_smoke(config_path: str | None, out_dir: str) -> dict[str, Any]:
     # scripts/monitor_gate.py M1 hash re-verification).
     conditions = config.monitor.conditions
     partner_index = build_partner_index(episodes)
+    from .monitor_runtime import reasoning_window_from_config
+    window_chars = reasoning_window_from_config(config)
     rule_monitor = RuleMonitor()
     keyword_monitor = KeywordMonitor()
     score_rows: list[dict[str, Any]] = []
@@ -117,7 +119,8 @@ def run_smoke(config_path: str | None, out_dir: str) -> dict[str, Any]:
             privileged_by_id.get(partner["episode_id"], {}).get("hidden_instruction")
             if partner is not None else None)
         obs_all = compile_all_conditions(env, conditions, partner, hidden,
-                                         partner_hidden_instruction=partner_hidden)
+                                         partner_hidden_instruction=partner_hidden,
+                                         reasoning_window_chars=window_chars)
         for _condition_name, obs in obs_all.items():
             for monitor in (rule_monitor, keyword_monitor):
                 score = monitor.score(obs)

@@ -58,6 +58,20 @@ def main() -> int:
     privileged = store.load_all_privileged()
     by_id = {e["episode_id"]: e for e in episodes}
 
+    # evidence window: derive from the run's frozen config so M1 recompiles
+    # EXACTLY what the runtime scored (the window is part of the view)
+    window_chars = None
+    manifest_path = run / "run_manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        config_payload = manifest.get("config")
+        if config_payload and "monitor" in config_payload:
+            window_chars = int(
+                config_payload["monitor"].get("max_monitor_tokens", 3072) * 4.0)
+    if window_chars is None:
+        from traceguard.traces.views import REASONING_WINDOW_CHARS
+        window_chars = REASONING_WINDOW_CHARS
+
     # ---- load every score record ------------------------------------------------
     scores: list[dict] = []
     for path in sorted((run / "monitor_scores").glob("*.jsonl")):
@@ -97,7 +111,8 @@ def main() -> int:
             try:
                 obs_all = compile_all_conditions(
                     env, [condition], partner, hidden,
-                    partner_hidden_instruction=partner_hidden)
+                    partner_hidden_instruction=partner_hidden,
+                    reasoning_window_chars=window_chars)
                 obs = obs_all[condition]
             except AssertionError as exc:
                 m1_failures.append(f"LEAK {rec['episode_id']}|{condition}: {exc}")

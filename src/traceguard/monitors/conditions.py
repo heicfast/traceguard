@@ -61,6 +61,7 @@ def compile_all_conditions(
     *,
     partner_hidden_instruction: str | None = None,
     cutoff_event_index: int | None = None,
+    reasoning_window_chars: int | None = None,
 ) -> dict[str, MonitorObservation]:
     """Compile + cleanliness-check every requested condition for one episode."""
     task = load_task_instance_for(envelope)
@@ -77,6 +78,7 @@ def compile_all_conditions(
             hidden_instruction=hidden_instruction,
             partner_hidden_instruction=partner_hidden_instruction,
             cutoff_event_index=cutoff_event_index,
+            reasoning_window_chars=reasoning_window_chars,
             **kwargs,
         )
         observations[condition] = obs

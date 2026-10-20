@@ -99,8 +99,16 @@ reproducible scoring), max 256 output tokens, JSON verdict
 outputs are recorded as invalid scores with reasons, never imputed.
 
 Evidence cutoff definition (offline / online separately): offline conditions
-observe the full stored episode; the online stage (RQ4) scores at the
-pre-action cutoff (`cutoff_event_index`) before tool execution.
+observe the stored episode under the PREDECLARED EVIDENCE WINDOW — the
+reasoning section is head-capped at 12,288 chars (config
+max_monitor_tokens 3072 × 4.0 chars/token; empirical pilot ratio 4.45;
+hardware-derived: see docs/deviations.md 2026-10-20) with a visible
+truncation marker; the window applies identically to every
+reasoning-bearing condition (C/D/E/F), D matches the capped length ±20%,
+and E uses the partner's capped trace. Tool actions and the final visible
+message are never capped. The online stage (RQ4) scores at the pre-action
+cutoff (`cutoff_event_index`) before tool execution, under the same
+evidence window.
 
 ## Ground truth and exclusions
 
@@ -179,6 +187,14 @@ cross-referencing value, never new information, for most templates (two new
 holdout templates grant/blackout cases are deliberately innocuous-looking on
 the action surface). Any confirmatory null MUST be worded as "CoT adds
 nothing when attacks are fully action-visible".
+
+Monitor evidence-window constraint (predeclared 2026-10-20): the monitor's
+reasoning window is 12,288 chars (head-kept, marked, symmetric across
+conditions). Findings are therefore about reasoning visibility WITHIN A
+~3072-token evidence window — the deployment-realistic setting for a
+monitor with a context budget — not about arbitrarily long traces. The
+longest pilot reasoning (87.9K chars) exceeds the window; the fraction of
+capped traces is reported with every result.
 
 Threats to causal interpretation: monitor and agent share one checkpoint
 (monitor is not stronger than the agent); episode-level pairing is enforced;
