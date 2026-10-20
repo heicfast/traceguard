@@ -159,3 +159,30 @@ and an nvidia-smi dump.
   SaveKernel (CPU kernels push fine — use one as a differential probe).
   Retrying after the window clears resolves it; plan post-run pushes
   (datasets, next kernels) around the wait.
+
+### 9.2 Phase 3 pilot landing sequence (fleet-aware checklist)
+
+Ordered mechanical steps when `heicjpg/traceguard-episode-generation`
+(128-episode anchor pilot) completes:
+
+1. Download: `kaggle kernels output heicjpg/traceguard-episode-generation`
+   under acct3 auth (downloads are never session-capped).
+2. Local CPU validation: `traceguard verify`, `scripts/audit_episodes.py`,
+   `scripts/pilot_gate.py` (plus a strategy-stratified funnel computed from
+   the plan manifest — the report layer owns the stratification).
+3. Read the pilot's resolved Qwen3-4B revision from the environment manifest
+   (config_model_revision) — this is the anchor-cell matrix input.
+4. Publish the run as a PUBLIC dataset under acct3:
+   `kaggle datasets create --dir-mode zip --public` with dataset-metadata
+   referencing `heicjpg/traceguard-phase3-pilot-run-v1`.
+5. Update `kaggle/mon/kernel-metadata.json:dataset_sources` to the new
+   dataset slug (the ONLY edit the protocol permits), commit, push.
+6. Push the monitor kernel to whichever account has a free GPU session
+   (acct1 preferred — 16+ h measured quota remaining; expect a 409 window
+   after any recent GPU completion; CPU push as differential probe).
+7. Poll; on completion download, `traceguard verify`, `scripts/monitor_gate.py`,
+   `traceguard analyze` (raw + late-fusion contrasts), then `traceguard export`
+   fail-closed, archive into `runs/`, and commit.
+8. Freeze the matrix (anchor + monitor cells) via `traceguard matrix-plan` /
+   `matrix-materialize` once all cell inputs exist; agent cells wait for
+   their role probes.
