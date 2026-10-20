@@ -1,0 +1,116 @@
+{
+  "artifact_sha256": "615abf83c552b6abe36c034cc2ab1cf0fdcc570f8fa50f9516b853989cb907af",
+  "bitsandbytes_version": "0.50.2",
+  "candidate": "deepseek_r1_14b_agent",
+  "config": "configs/probe/deepseek_r1_14b_agent_probe.yaml",
+  "gates": [
+    {
+      "gate": "cuda available",
+      "passed": true,
+      "time_utc": "2026-10-20T12:26:01.444615+00:00"
+    },
+    {
+      "gate": "at least one gpu",
+      "passed": true,
+      "time_utc": "2026-10-20T12:26:01.471329+00:00"
+    },
+    {
+      "gate": "clone repository",
+      "passed": true,
+      "time_utc": "2026-10-20T12:26:03.744267+00:00"
+    },
+    {
+      "gate": "checkout 25f58838b2",
+      "passed": true,
+      "time_utc": "2026-10-20T12:26:04.132948+00:00"
+    },
+    {
+      "gate": "install traceguard package",
+      "passed": true,
+      "time_utc": "2026-10-20T12:26:12.105373+00:00"
+    },
+    {
+      "gate": "install bitsandbytes",
+      "passed": true,
+      "time_utc": "2026-10-20T12:26:16.696837+00:00"
+    },
+    {
+      "gate": "probe gates passed (deepseek_r1_14b_agent)",
+      "passed": true,
+      "time_utc": "2026-10-20T12:31:27.275199+00:00"
+    }
+  ],
+  "gpu": {
+    "capability": [
+      7,
+      5
+    ],
+    "name": "Tesla T4",
+    "total_memory_gib": 14.56
+  },
+  "kernel": "traceguard-probe-deepseek_r1_14b_agent",
+  "kernel_seconds": 333.8,
+  "pinned_commit": "25f58838b2c5096f6bef47c811c795a6a4e417b9",
+  "pip_bnb_rc": 0,
+  "pip_repo_rc": 0,
+  "probe_gates": [
+    {
+      "detail": 2,
+      "name": "cuda_available",
+      "passed": true
+    },
+    {
+      "detail": {
+        "capability": [
+          7,
+          5
+        ],
+        "name": "Tesla T4"
+      },
+      "name": "t4_sm75",
+      "passed": true
+    },
+    {
+      "detail": "float16",
+      "name": "fp16_compute",
+      "passed": true
+    },
+    {
+      "detail": "sdpa",
+      "name": "sdpa_attention",
+      "passed": true
+    },
+    {
+      "detail": "eos",
+      "name": "nonempty_visible_answer",
+      "passed": true
+    },
+    {
+      "detail": "ok",
+      "name": "json_conformance",
+      "passed": true
+    },
+    {
+      "detail": "complete",
+      "name": "authentic_trace_channel",
+      "passed": true
+    },
+    {
+      "detail": {
+        "budget_bytes": 15032385536,
+        "peak_allocated_bytes": 10036117504,
+        "peak_reserved_bytes": 10187964416
+      },
+      "name": "vram_budget",
+      "passed": true
+    }
+  ],
+  "probe_rc": 0,
+  "python": "3.13.15",
+  "resolved_model_revision": "1df8507178afcc1bef68cd8c393f61a886323761",
+  "resolved_tokenizer_revision": "1df8507178afcc1bef68cd8c393f61a886323761",
+  "role": "agent",
+  "timestamp_utc": "2026-10-20T12:25:53.443816+00:00",
+  "transformers_before": "5.16.1",
+  "transformers_used": "5.16.1"
+}
