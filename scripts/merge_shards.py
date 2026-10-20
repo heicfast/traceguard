@@ -188,6 +188,14 @@ def main() -> int:
     store = RunStore(out)
     store.write_checksums()
 
+    # v0.6 evidence chain: build the evidence index BEFORE verifying. A
+    # pilot/confirmatory-stage run without an index is a MISSING_INDEX problem
+    # by design (security review F3), so the merged run must carry its full
+    # integrity chain (index + ledger) at generation time — verify then
+    # confirms the complete chain in-kernel.
+    from traceguard.provenance import build_evidence_index
+    build_evidence_index(out)
+
     from traceguard.verification import verify_run
     report = verify_run(out)
     print(json.dumps(report, indent=2, sort_keys=True))
