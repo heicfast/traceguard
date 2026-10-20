@@ -102,6 +102,15 @@ def main() -> int:
         "configs/model_matrix_phase3.yaml",
         "configs/phase3_monitor_cells/scale_monitor_qwen14.yaml",
         "configs/phase3_monitor_cells/cross_monitor_deepseek14.yaml",
+        # 2026-10-20 owner commit 20a2d6b + stage update: documentation only;
+        # no code path imports or executes README content.
+        "README.md",
+        # 2026-10-20 agent-role probe configs (added after the generation
+        # commit, commit 25f5883): consumed ONLY by `traceguard probe-model`
+        # (cli.py run_model_probe); verified absent from the monitor/analyze/
+        # verify/export import graphs — the scoring path cannot read them.
+        "configs/probe/qwen3_14b_agent_probe.yaml",
+        "configs/probe/deepseek_r1_14b_agent_probe.yaml",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
     changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]
