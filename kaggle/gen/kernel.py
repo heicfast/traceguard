@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "79e0e293cfa94b0666f24512834893aca06548ec"
+TRACEGUARD_COMMIT = "08abc03ebdfc69ae91f4961ba8bb535840601201"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "pilot"            # gpu_smoke | pilot | confirmatory | online
 CONFIG = "configs/phase3_pilot.yaml"
