@@ -9,7 +9,7 @@
   "enable_internet": true,
   "machine_shape": "NvidiaTeslaT4",
   "dataset_sources": [
-    "umar0x/traceguard-pilot-run-v1"
+    "heicjpg/traceguard-phase3-pilot-run-v1"
   ],
   "competition_sources": [],
   "kernel_sources": [],
