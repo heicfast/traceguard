@@ -353,3 +353,24 @@ is append-only.
   fresh CPU smoke + monitor_gate M1 32/32 hash-identical; lint clean.
 - **Freeze status:** pre-preregistration; preregistration draft updated
   with the evidence-window rule; pilot is feasibility data.
+
+### 2026-10-20 — Mon kernel v6 output omitted the completion ledger (restored byte-verified; kernel fixed)
+
+- **Observed:** the mon kernel v6 run completed (monitor_rc 0, 768/768
+  scores) but its output copy list omitted `completed_episode_ids.txt`
+  (and transactions/commits/artifacts), so `verify` failed with "64
+  episodes not in completion ledger" while the outcome re-grade passed
+  64/64. The evidence was present in the kernel's input (the public
+  dataset, created from the archived merged run) — the kernel simply did
+  not copy it out.
+- **Repair:** the omitted pieces were restored locally from the archived
+  authoritative run (`runs/pilot/pilot_v0_run`, git-committed) with
+  byte-verification: the archive's merge-time `checksums.sha256` (139
+  entries) spot-checked 40/40 OK; every restored file SHA-256-verified
+  against the archive (ledger + 64 transactions + 64 commits + checksums).
+  `verify` then passed clean. The mon kernel copy list now includes the
+  full research record for future runs.
+- **Verification:** `traceguard verify` on the restored monitored run:
+  ok=true, no problems; outcome re-grade 64/64; monitor gate M1 768/768.
+- **Freeze status:** pilot (feasibility) stage; no confirmatory data
+  unblinded.
