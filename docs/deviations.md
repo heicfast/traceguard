@@ -279,3 +279,37 @@ is append-only.
 - **Repair:** both files added to the kernel's allowed_changes with
   in-code justification; the gate remains fail-closed for anything else.
 - **Freeze status:** pre-preregistration; no confirmatory data unblinded.
+
+### 2026-10-20 — TRUE root cause of the monitor OOMs: EAGER-ATTENTION fallback (not logits, not KV)
+
+- **Observed:** mon kernel v4 ran the hotfixed provider (logits guard active,
+  traceback line numbers confirm the new file) yet still OOMed with the same
+  single-allocation signatures: 3.37 / 11.22 / 21.14 GiB. Primary-source
+  forensics against transformers 5.16.1 (modeling + generation sources
+  fetched at the v5.16.1 tag) closed the case:
+  (a) generate() ALREADY auto-sets logits_to_keep=1 (generation/utils L2612
+  auto-sets when forward supports it) — the logits tensor was never the
+  allocation; (b) Qwen3's attention interface falls back to
+  `eager_attention_forward` when `config._attn_implementation` does not
+  resolve to sdpa on the Kaggle load path (modeling L262-264), and eager
+  materializes the full [heads, seq, seq] scores matrix per layer. The
+  observed allocations match eager scores at 32 heads fp16 EXACTLY:
+  seq ~7.3K -> 3.37 GiB (v1), seq ~13.3K -> 11.22 GiB (v2/v4), seq ~18.3K
+  -> 21.14 GiB (v4). All three OOM signatures across all kernel versions
+  were the same defect.
+- **Why generation never OOMed:** agent-turn prompts stay far shorter
+  (~4K-char history appends, 40-message cap) — eager scores stayed within
+  VRAM; all 64 pilot episodes completed. The generation data are valid;
+  the pilot was produced with eager attention throughout (deterministic
+  per seed within a fixed implementation).
+- **Repair:** the provider now PINS `attn_implementation="sdpa"` at load
+  (env-overridable `TRACEGUARD_ATTN_IMPL`). SDPA never materializes the
+  scores matrix and is the standard torch backend on sm_75 with fp16. A
+  load failure now fails LOUDLY instead of silently falling back to eager.
+  The logits guard stays as documented belt-and-suspenders.
+- **Verification:** pending the mon v5 run — expected: zero OOMs at all
+  prompt lengths. Monitor scores under SDPA are their own measurement;
+  within-run consistency is what the analysis requires (all pilot scores
+  will be produced by the same SDPA path in one kernel run).
+- **Freeze status:** pre-preregistration; no confirmatory data unblinded.
+  128 tests green; lint clean.

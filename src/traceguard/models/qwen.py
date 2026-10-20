@@ -122,6 +122,16 @@ class QwenHFProvider:
             load_kwargs["dtype"] = dtype_value
         else:
             load_kwargs["torch_dtype"] = dtype_value
+        # Attention implementation MUST be pinned to SDPA (torch built-in,
+        # memory-efficient on sm_75 with fp16). Without this, the transformers
+        # v5 auto-resolution can silently fall back to EAGER attention, which
+        # materializes the full [heads, seq, seq] scores matrix per layer —
+        # ~11-21 GiB single allocations at the ~13-18K-token monitor prompt
+        # lengths — the root cause of the 2026-10-20 monitor-kernel OOMs
+        # (3.37/11.22/21.14 GiB = eager scores at seq ~7.3K/13.3K/18.3K).
+        # SDPA never materializes the scores matrix. Fail loudly rather than
+        # fall back silently.
+        load_kwargs["attn_implementation"] = os.environ.get("TRACEGUARD_ATTN_IMPL", "sdpa")
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
         self.model.eval()
         self.base_seed = int(seed)
@@ -156,12 +166,14 @@ class QwenHFProvider:
             "pad_token_id": self.tokenizer.pad_token_id
             or self.tokenizer.eos_token_id,
         }
-        # Prefill-logits memory guard (2026-10-20): by default generate computes
-        # the FULL [seq_len, vocab] logits tensor during prefill; with ~20K-token
-        # monitor prompts and a ~152K vocab that single fp32 allocation is ~12 GiB
-        # and OOMs the T4 (observed twice on Kaggle). Keeping only the last
-        # position's logits is semantically identical for sampling (we never
-        # sample from earlier positions). transformers >=5 renamed
+        # Prefill-logits guard: transformers >=5.16 generate() already auto-sets
+        # logits_to_keep=1 when the model forward supports it (generation/utils
+        # L2612) — we pass it explicitly anyway as belt-and-suspenders against
+        # library behavior drift. The 2026-10-20 OOM forensics showed the real
+        # culprit was the EAGER-ATTENTION scores matrix (see the
+        # attn_implementation pin at load), not the logits tensor. Keeping only
+        # the sampled position's logits is semantically identical for sampling
+        # (we never sample from earlier positions). transformers >=5 renamed
         # num_logits_to_keep -> logits_to_keep and REJECTS unknown generate
         # kwargs, so resolve the supported name from the model's forward
         # signature at runtime.
