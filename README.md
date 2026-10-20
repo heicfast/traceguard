@@ -140,6 +140,7 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - Qwen3-4B — https://huggingface.co/Qwen/Qwen3-4B (Apache 2.0)
 - Wang et al., *MonitorBench* — https://arxiv.org/abs/2603.28590
 - OpenAI, *Reasoning Models Struggle to Control their Chains of Thought* — https://openai.com/index/reasoning-models-chain-of-thought-controllability/
+- 
 
 ## License
 
