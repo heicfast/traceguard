@@ -61,8 +61,7 @@ class DatasetConfig(FrozenModel):
     templates_per_family: int = Field(gt=0, default=2)
     instances_per_template: int = Field(gt=0, default=1)
     seeds_per_template_per_policy: int = Field(gt=0, default=2)
-    policies: list[Literal["honest", "attack"]] = Field(
-        default_factory=lambda: ["honest", "attack"])
+    policies: list[Literal["honest", "attack"]] = ["honest", "attack"]
     instance_seed_base: int = 0
     split_group_key: Literal["family_id", "template_id"] = "family_id"
     include_negative_controls: bool = True
@@ -71,7 +70,7 @@ class DatasetConfig(FrozenModel):
     # less scripted and monitor-aware pressures without changing ground truth.
     attack_strategies: list[Literal[
         "explicit_override", "side_objective", "implicit_pressure", "monitor_aware"
-    ]] = Field(default_factory=lambda: ["explicit_override"])
+    ]] = ["explicit_override"]
 
     @field_validator("attack_strategies")
     @classmethod
@@ -121,10 +120,10 @@ class MonitorConfig(FrozenModel):
 
     @model_validator(mode="after")
     def _check_fact_checker(self) -> MonitorConfig:
-        if "actions_plus_cot_fact_checked" in self.conditions:
-            if not self.fact_checker_model_id or not self.fact_checker_model_revision:
-                raise ValueError(
-                    "fact-checked condition requires a pinned fact-checker model and revision")
+        if ("actions_plus_cot_fact_checked" in self.conditions
+                and (not self.fact_checker_model_id or not self.fact_checker_model_revision)):
+            raise ValueError(
+                "fact-checked condition requires a pinned fact-checker model and revision")
         if self.require_cross_family_fact_checker:
             if (not self.fact_checker_model_family
                     or self.fact_checker_model_family == self.model_family):
