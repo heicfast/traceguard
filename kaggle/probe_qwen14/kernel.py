@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (per candidate directory) ---------------------
-TRACEGUARD_COMMIT = "PIN_AT_COMMIT_TIME"
+TRACEGUARD_COMMIT = "0e53b846bea2b35c4a20dc5cc1dafbf1ebaaf6f4"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 CONFIG = "configs/probe/qwen3_14b_monitor_probe.yaml"
 ROLE = "monitor"
