@@ -24,8 +24,12 @@ Reads a completed run directory WITH monitor scores and evaluates:
   M6  calibration pool permits at least the frozen minimum number of false
       positives at the target rate.
 
-Exit code 0 iff M1-M3 pass. M4-M6 are reported regardless of outcome; they
-govern S5 planning decisions, not the pilot itself.
+Exit code 0 iff M1-M3 pass; on that binding-gate failure the exit code is 3
+(statistical gate — traceguard.errors.GATE_FAILURE_EXIT_CODE), which the
+workflow engine treats as a non-retryable statistical-gate failure. M4-M6
+are reported regardless of outcome; they govern S5 planning decisions, not
+the pilot itself. A missing-score configuration problem exits 1 (generic
+failure), not 3: it is not a gate verdict.
 """
 from __future__ import annotations
 
@@ -295,7 +299,11 @@ def main() -> int:
     print()
     print("MONITOR GATE: " + ("PASSED" if not failed else "FAILED")
           + " (M1-M3 binding; M4/M5 report design facts for S5 planning)")
-    return 1 if failed else 0
+    if failed:
+        from traceguard.errors import GATE_FAILURE_EXIT_CODE
+
+        return GATE_FAILURE_EXIT_CODE
+    return 0
 
 
 if __name__ == "__main__":

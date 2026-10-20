@@ -18,7 +18,7 @@ from .ids import sha256_text
 from .monitors.conditions import build_partner_index, compile_all_conditions, find_partner
 from .monitors.rules import KeywordMonitor, RuleMonitor
 from .traces.schema import validate_monitor_score
-from .traces.storage import RunStore, atomic_write_json
+from .traces.storage import RunStore, atomic_write_json, envelope_fingerprint
 from .traces.views import CHARS_PER_TOKEN_FACTOR
 
 DETERMINISTIC_MONITORS = {"rules_v1": RuleMonitor, "keywords_v1": KeywordMonitor}
@@ -213,6 +213,12 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                     else:
                         score = monitor.score(obs_all[condition])
                     score_payload = score.to_payload()
+                    # Creation-time episode binding (security review F5): the
+                    # envelope fingerprint ties this measurement to the exact
+                    # observable content of ITS episode, so a later relabeling
+                    # attack (relabel + recompute score_id + rewrite ledger)
+                    # still fails verification.
+                    score_payload["envelope_fingerprint"] = envelope_fingerprint(env)
                     validate_monitor_score(score_payload)
                     batch.append(score_payload)
                 except AssertionError as exc:

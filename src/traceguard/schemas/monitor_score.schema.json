@@ -1,42 +1,134 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://traceguard.invalid/schema/monitor-score.v2.0.0.json",
-  "title": "TRACEGUARD v2 monitor score record",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "record_version", "score_id", "episode_id", "condition", "monitor_name",
-    "suspicion", "valid", "invalid_reason", "prompt_hash", "model_revision",
-    "input_token_estimate", "output_token_count", "elapsed_ms", "quoted_evidence_ids",
-    "view_hash", "prompt_template_hash", "rendered_prompt_hash", "rendered_prompt",
-    "raw_response", "parsed_response", "verdict_text", "inference_audit"
-  ],
-  "properties": {
-    "record_version": {"const": "2.0.0"},
-    "score_id": {"type": "string", "minLength": 1},
-    "episode_id": {"type": "string", "minLength": 1},
-    "condition": {"type": "string", "minLength": 1},
-    "monitor_name": {"type": "string", "minLength": 1},
-    "suspicion": {"type": "number", "minimum": 0, "maximum": 1},
-    "valid": {"type": "boolean"},
-    "invalid_reason": {"type": ["string", "null"]},
-    "prompt_hash": {"$ref": "#/$defs/sha256"},
-    "model_revision": {"type": "string"},
-    "input_token_estimate": {"type": "integer", "minimum": 0},
-    "output_token_count": {"type": "integer", "minimum": 0},
-    "elapsed_ms": {"type": "number", "minimum": 0},
-    "quoted_evidence_ids": {"type": "array", "items": {"type": "string"}},
-    "view_hash": {"$ref": "#/$defs/sha256"},
-    "prompt_template_hash": {"$ref": "#/$defs/sha256"},
-    "rendered_prompt_hash": {"$ref": "#/$defs/sha256"},
-    "rendered_prompt": {"type": "string"},
-    "raw_response": {"type": "string"},
-    "parsed_response": {"type": ["object", "null"]},
-    "verdict_text": {"type": "string"},
-    "inference_audit": {"type": "object"},
-    "monitor": {"type": "string"}
-  },
   "$defs": {
-    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-  }
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "$id": "https://traceguard.invalid/schema/monitor-score.v2.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "condition": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "elapsed_ms": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "envelope_fingerprint": {
+      "description": "Creation-time binding of this measurement to the exact observable content of its episode (sha256 over episode_id + public/reasoning events). Optional: absent only in legacy records created before 2026-10-20; verified against the episode envelope whenever present.",
+      "pattern": "^[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "episode_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "inference_audit": {
+      "type": "object"
+    },
+    "input_token_estimate": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "invalid_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model_revision": {
+      "type": "string"
+    },
+    "monitor": {
+      "type": "string"
+    },
+    "monitor_name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "output_token_count": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "parsed_response": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "prompt_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "prompt_template_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "quoted_evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "raw_response": {
+      "type": "string"
+    },
+    "record_version": {
+      "const": "2.0.0"
+    },
+    "rendered_prompt": {
+      "type": "string"
+    },
+    "rendered_prompt_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "score_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "suspicion": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "valid": {
+      "type": "boolean"
+    },
+    "verdict_text": {
+      "type": "string"
+    },
+    "view_hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "required": [
+    "record_version",
+    "score_id",
+    "episode_id",
+    "condition",
+    "monitor_name",
+    "suspicion",
+    "valid",
+    "invalid_reason",
+    "prompt_hash",
+    "model_revision",
+    "input_token_estimate",
+    "output_token_count",
+    "elapsed_ms",
+    "quoted_evidence_ids",
+    "view_hash",
+    "prompt_template_hash",
+    "rendered_prompt_hash",
+    "rendered_prompt",
+    "raw_response",
+    "parsed_response",
+    "verdict_text",
+    "inference_audit"
+  ],
+  "title": "TRACEGUARD v2 monitor score record",
+  "type": "object"
 }

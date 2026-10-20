@@ -1,4 +1,13 @@
-"""Build a self-verifying research archive from a completed run directory."""
+"""Build a self-verifying research archive from a completed run directory.
+
+Security-review F1 (BLOCKER) fix: export VERIFIES BEFORE IT REBUILDS. A
+tampered archive (edited episode, deleted file, added file, forged index)
+makes export REFUSE loudly — it can never rebuild index/ledger over tampered
+content and ship it as ``release_complete: true``. Prior index/ledger digests
+are recorded as history anchors so the rebuild is auditable against what it
+replaced. ``allow_incomplete`` tolerates ONLY missing integrity metadata
+(unbuilt index/ledger), never content tampering.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +20,10 @@ from pathlib import Path
 from typing import Any
 
 from .ids import sha256_json, sha256_text
-from .provenance import build_evidence_index
+from .provenance import build_evidence_index, verify_evidence_index
 from .traces.schema import validate_monitor_score, validate_privileged
 from .traces.storage import RunStore, atomic_write_json
+from .verification import verify_run
 
 
 def _sha256(path: Path) -> str:
@@ -79,13 +89,53 @@ def build_release(
 ) -> dict[str, Any]:
     """Validate raw evidence coverage, emit a manifest, and optionally archive it.
 
+    Verify-before-rebuild contract (security review F1):
+      1. a PRE-EXISTING evidence index must verify clean, else export refuses
+         without touching it (no laundering of index tamper evidence);
+      2. the full verify battery must pass; content problems always refuse;
+         missing metadata (unbuilt index/ledger) refuses unless
+         ``allow_incomplete`` — which is recorded prominently in the manifest.
+
     Research-stage releases fail closed if episode, privileged, monitor-score,
     or analysis artifacts are missing. ``allow_incomplete`` exists only for
-    operational checkpoints and is recorded prominently in the manifest.
+    operational checkpoints.
     """
     store = RunStore(run_dir)
     root = store.run_dir.resolve()
     manifest = store.read_run_manifest()
+    stage = manifest.get("experiment_stage", manifest.get("stage", "unknown"))
+
+    # ---- integrity gates (before ANY rebuild; nothing is written on refusal) --
+    index_path = root / "artifacts" / "evidence_index.json"
+    ledger_path = root / "artifacts" / "checksums.sha256"
+    prior_index_digest = _sha256(index_path) if index_path.exists() else None
+    prior_ledger_digest = _sha256(ledger_path) if ledger_path.exists() else None
+
+    # Gate 1: a PRE-EXISTING evidence index must verify clean. Its failures are
+    # reported alongside the content failures below — never laundered by a
+    # rebuild, never silently replaced.
+    index_problems: list[str] = []
+    if index_path.exists():
+        index_result = verify_evidence_index(root)
+        index_problems = [] if index_result["ok"] else list(index_result["problems"])
+
+    # Gate 2: the full verify battery.
+    verification = verify_run(str(root))
+
+    content_failures: list[str] = list(index_problems)
+    if not verification["ok"] and not verification.get("metadata_only"):
+        content_failures.extend(verification["problems"])
+    if content_failures:
+        raise ValueError(
+            "export refused: run verification failed: "
+            + "; ".join(content_failures[:5]))
+    if not verification["ok"] and not allow_incomplete:
+        raise ValueError(
+            "export refused: run verification failed (missing integrity "
+            "metadata; pass allow_incomplete for an operational checkpoint): "
+            + "; ".join(verification["problems"][:5]))
+
+    # ---- deep content validation ------------------------------------------------
     episodes = store.load_all_episodes(validate=True)
     privileged = store.load_all_privileged()
     completed = store.completed_episode_ids()
@@ -132,7 +182,6 @@ def build_release(
             monitor_audit_turns_checked += audit_checked
 
     report_paths = sorted((root / "reports").glob("*")) if (root / "reports").exists() else []
-    stage = manifest.get("experiment_stage", manifest.get("stage", "unknown"))
     if stage in {"pilot", "confirmatory", "online"} and not allow_incomplete:
         if not score_files:
             errors.append("research release has no monitor score shards")
@@ -141,6 +190,7 @@ def build_release(
     if errors and not allow_incomplete:
         raise ValueError("release validation failed: " + "; ".join(sorted(set(errors))))
 
+    # ---- manifest + integrity rebuild (verified content only) --------------------
     excluded = {
         Path("artifacts/artifact_manifest.json"),
         Path("artifacts/checksums.sha256"),
@@ -161,9 +211,14 @@ def build_release(
 
     release_manifest = {
         "schema_version": "1.0.0",
-        "release_complete": not errors,
+        "release_complete": not errors and verification["ok"],
         "allow_incomplete": allow_incomplete,
         "validation_errors": sorted(set(errors)),
+        "verification": verification,
+        "prior_integrity_anchors": {
+            "prior_evidence_index_sha256": prior_index_digest,
+            "prior_checksum_ledger_file_sha256": prior_ledger_digest,
+        },
         "run_id": manifest.get("run_id"),
         "experiment_stage": stage,
         "config_sha256": manifest.get("config_sha256"),
@@ -181,6 +236,7 @@ def build_release(
         "files": files,
     }
     manifest_path = root / "artifacts" / "artifact_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(manifest_path, release_manifest)
     evidence_index = build_evidence_index(root)
     store.write_checksums()
@@ -208,12 +264,17 @@ def build_release(
         archive_sha256 = _sha256(target)
 
     return {
-        "ok": not errors,
+        "ok": not errors and verification["ok"],
         "manifest_path": str(manifest_path),
         "archive_path": archive_result,
         "archive_sha256": archive_sha256,
         "manifest": release_manifest,
-        "evidence_index_sha256": evidence_index["index_sha256"],
+        # The FILE digest of the index as written: this is what the NEXT
+        # export's prior_integrity_anchors records, so rebuild chains are
+        # auditable build-over-build (the payload self-digest embeds the
+        # generation timestamp and is not stable across rebuilds).
+        "evidence_index_sha256": _sha256(index_path),
+        "evidence_content_index_sha256": evidence_index["content_index_sha256"],
     }
 
 

@@ -36,7 +36,21 @@ traceguard workflow status \
 `resume` and `run` intentionally share semantics: a completed stage is skipped
 only when its prior success record and every declared output digest still
 match. Editing an output makes the stage incomplete. A lock prevents two
-orchestrators from writing the same journal concurrently.
+orchestrators from writing the same journal concurrently; a lock whose holder
+PID is dead (hard crash) is taken over and the recovery is journaled, while a
+live holder is refused.
+
+Additional resume rules:
+
+- The journal is baselined to the workflow file's SHA-256 (a `genesis` record
+  anchors it). Resuming an edited workflow is refused unless the operator
+  explicitly re-baselines (`--rebaseline`, journaled as a `rebaselined`
+  event) or starts a new work-dir — stale outputs from an old stage command
+  are never silently reused.
+- A stage with no declared outputs (`outputs: []`) has side effects the
+  journal cannot verify, so resume re-runs it unless the operator declared
+  it `idempotent: true` (pure-check stages like doctor/verify re-run cheaply;
+  declare real outputs for expensive side-effecting stages).
 
 ## 3. Failure contract
 
@@ -46,6 +60,21 @@ software defect, cancellation, and unknown. Every failure includes the stage,
 exception type, retryability decision, attempt, and log path. Retries are
 bounded in the workflow file. Scientific gate failures are not transient and
 must never be retried into a pass by changing the threshold or data.
+
+Exit-code convention: `0` success; `1` generic failure; `2` CLI usage error;
+`3` statistical-gate failure (`traceguard.errors.GATE_FAILURE_EXIT_CODE`).
+Stage commands that evaluate predeclared gates (`scripts/pilot_gate.py`,
+`scripts/monitor_gate.py`) exit 3 on failure; the workflow engine classifies
+exit 3 — or any failure of a `gate: true` stage — as `statistical_gate` and
+never retries it (gate stages must declare `retries: 0` and may not set
+`continue_on_error`). The CLI exits 3 when a workflow stops on a statistical
+gate failure. Retryability is layered: engine-detected failures retry only
+for inherently retryable classes (resource exhaustion, transient provider);
+stage exit-code verdicts follow the operator-declared per-stage `retries`;
+`statistical_gate` and `user_cancelled` are never retried. Every journal read
+re-verifies the hash chain and the durable anchor (`journal_state.json`), so
+tail truncation is a loud tamper error, and operator-facing failures surface
+as structured failure envelopes — tracebacks only in logs.
 
 ## 4. Run directory contract
 

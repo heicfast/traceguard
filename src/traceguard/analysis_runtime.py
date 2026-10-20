@@ -225,8 +225,19 @@ def _evaluate_split(
     config,
     split_label: str,
     available_rows: list[dict[str, Any]] | None = None,
+    frozen_thresholds: dict[str, tuple[float | None, float | None]] | None = None,
 ) -> dict[str, Any]:
-    """Threshold-calibrated paired evaluation on one split role."""
+    """Threshold-calibrated paired evaluation on one split role.
+
+    When ``frozen_thresholds`` is provided, the per-condition thresholds are
+    the ONCE-frozen run-level values (protocol ACADEMIC_METHODS_V6 §1: each
+    threshold τ is learned once from benign calibration clusters). Without
+    it, thresholds are recomputed from ``calibration_rows`` (the run-level
+    condition-wise calibration frame — never a per-contrast complete-case
+    frame, which would give one condition different thresholds in different
+    contrasts under condition-specific missingness; statistician review
+    MAJOR-1, fixed 2026-10-20).
+    """
     result: dict[str, Any] = {"split": split_label, "n_episodes": len(rows)}
     benign_rows = [r for r in rows if r["label"] == 0]
     attack_rows = [r for r in rows if r["label"] == 1]
@@ -241,6 +252,9 @@ def _evaluate_split(
     inclusive_thresholds: dict[str, float | None] = {}
     realized_fpr: dict[str, Any] = {}
     for condition in conditions:
+        if frozen_thresholds is not None:
+            thresholds[condition], inclusive_thresholds[condition] = frozen_thresholds[condition]
+            continue
         cal_benign = [
             r["scores"][condition]
             for r in calibration_rows
@@ -402,6 +416,29 @@ def run_analysis(
             available_rows=[r for r in rows if r["eligible"] and r["split_role"] == split_label],
         )
 
+    # -- ONCE-FROZEN per-condition thresholds (statistician review MAJOR-1) -----
+    # Each condition's τ is learned exactly once from the run-level calibration
+    # frame with CONDITION-WISE validity. Every contrast and every bootstrap
+    # replicate below uses these same values, so cross-contrast §6 comparisons
+    # always compare effects against identical baselines even under
+    # condition-specific missingness.
+    frozen_condition_thresholds: dict[str, tuple[float | None, float | None]] = {}
+    for condition in conditions:
+        cal_benign = [
+            r["scores"][condition]
+            for r in calibration_rows
+            if r["label"] == 0
+            and r["scores"].get(condition) is not None
+            and r["score_valid"].get(condition, False)
+        ]
+        if not cal_benign:
+            frozen_condition_thresholds[condition] = (None, None)
+            continue
+        frozen_condition_thresholds[condition] = (
+            threshold_at_fpr(cal_benign, fpr_target),
+            threshold_at_fpr_inclusive_ties(cal_benign, fpr_target),
+        )
+
     comparison_frames: dict[tuple[str, str], tuple[list[dict[str, Any]], Any]] = {}
     pairwise_splits: dict[str, Any] = {}
     for primary, baseline in _condition_pairs(conditions):
@@ -445,6 +482,10 @@ def run_analysis(
                     available_rows=[
                         r for r in rows if r["eligible"] and r["split_role"] == pair_split
                     ],
+                    frozen_thresholds={
+                        condition: frozen_condition_thresholds[condition]
+                        for condition in (primary, baseline)
+                    },
                 )
 
     # -- paired bootstrap on holdout (primary) and shift (secondary) ---------
@@ -457,15 +498,12 @@ def run_analysis(
     strategy_descriptives: dict[str, Any] = {}
     for primary, baseline in _condition_pairs(conditions):
         pair_rows, _ = comparison_frames[(primary, baseline)]
-        pair_calibration = [r for r in pair_rows if r["split_role"] == effective_calibration_role]
-        frozen: dict[str, float | None] = {}
-        for condition in (primary, baseline):
-            cal_benign = [
-                r["scores"][condition]
-                for r in pair_calibration
-                if r["label"] == 0 and r["scores"].get(condition) is not None
-            ]
-            frozen[condition] = threshold_at_fpr(cal_benign, fpr_target) if cal_benign else None
+        # Frozen per-CONDITION thresholds: identical in every contrast
+        # (statistician review MAJOR-1).
+        frozen: dict[str, float | None] = {
+            condition: frozen_condition_thresholds[condition][0]
+            for condition in (primary, baseline)
+        }
         for split_label in ("holdout", "shift"):
             split_rows = [r for r in pair_rows if r["split_role"] == split_label]
             if not split_rows:

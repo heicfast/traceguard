@@ -124,7 +124,11 @@ def run_smoke(config_path: str | None, out_dir: str) -> dict[str, Any]:
         for _condition_name, obs in obs_all.items():
             for monitor in (rule_monitor, keyword_monitor):
                 score = monitor.score(obs)
-                score_rows.append({**score.to_payload(), "monitor": monitor.name})
+                # Creation-time episode binding (security review F5), mirroring
+                # monitor_runtime.run_monitoring exactly.
+                from .traces.storage import envelope_fingerprint
+                score_rows.append({**score.to_payload(), "monitor": monitor.name,
+                                   "envelope_fingerprint": envelope_fingerprint(env)})
     for name in ("rules_v1", "keywords_v1"):
         by_condition: dict[str, list] = {}
         for row in score_rows:

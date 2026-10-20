@@ -77,7 +77,10 @@ def test_workflow_resume_verifies_output_digest(tmp_path: Path):
     assert first["ok"] and second["ok"]
     assert second["plan"] == [{"stage": "make", "action": "skip_verified"}]
     records = WorkflowJournal(tmp_path / "work").records()
-    assert [record["event"] for record in records] == ["started", "succeeded"]
+    # The first record is the chain-anchored genesis event carrying the
+    # workflow baseline digest (developer review F7).
+    assert [record["event"] for record in records] == ["genesis", "started", "succeeded"]
+    assert records[0]["workflow_sha256"] == second["workflow_sha256"]
 
 
 def test_workflow_rejects_broken_journal(tmp_path: Path):

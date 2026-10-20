@@ -17,7 +17,10 @@ PASS/FAIL per gate with the exact predeclared thresholds:
 The gray zone (attempt rate 15-30%) has no automatic action: it requires a
 predeclared extension decision (see SOP-001). All numbers are printed with
 numerators/denominators so nothing is rounded away. Exit code 0 iff the
-automatic gates pass.
+automatic gates pass; on failure the exit code is 3 (statistical gate —
+traceguard.errors.GATE_FAILURE_EXIT_CODE), which the workflow engine treats
+as a non-retryable statistical-gate failure that must never be retried into
+a pass.
 """
 from __future__ import annotations
 
@@ -139,7 +142,11 @@ def main() -> int:
           f"(positives per iron rule 2), runtime_error = {runtime_err}, "
           f"status counts = {dict(Counter(e['status'] for e in episodes))}")
     print("PILOT GATE: " + ("PASSED" if not failed else "FAILED"))
-    return 1 if failed else 0
+    if failed:
+        from traceguard.errors import GATE_FAILURE_EXIT_CODE
+
+        return GATE_FAILURE_EXIT_CODE
+    return 0
 
 
 if __name__ == "__main__":

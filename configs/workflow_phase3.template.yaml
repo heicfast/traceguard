@@ -1,3 +1,14 @@
+# Resume contract (docs/AUTOMATION_AND_EVIDENCE_V6.md §2):
+#   - Stages with declared outputs are skipped on resume only when a prior
+#     success record exists AND every output digest still matches.
+#   - Stages with `outputs: []` have side effects the journal cannot verify:
+#     they RE-RUN on every resume unless declared `idempotent: true`. The
+#     pure-check stages below (doctor, verify) intentionally re-run — they are
+#     cheap and re-validate the environment. For an expensive side-effecting
+#     no-output stage (e.g. monitoring), declare its real output files, or
+#     mark it `idempotent: true` only when a re-run is genuinely a no-op.
+#   - Editing this file after a run changes its SHA-256: resume then refuses
+#     until you start a new work-dir or pass `--rebaseline` (journaled).
 schema_version: 1.0.0
 name: phase3-audited-pipeline
 stages:

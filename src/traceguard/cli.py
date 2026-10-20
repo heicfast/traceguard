@@ -21,8 +21,11 @@ only for smoke stages and are refused by analysis for research stages.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
+import traceback
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -263,19 +266,81 @@ def cmd_study_plan(args: argparse.Namespace) -> int:
 
 
 def cmd_workflow(args: argparse.Namespace) -> int:
-    """Plan, run, resume, or inspect a hash-journaled research workflow."""
-    from .workflow import run_workflow, workflow_status
+    """Plan, run, resume, or inspect a hash-journaled research workflow.
 
-    if args.workflow_action == "status":
-        result = workflow_status(args.workflow, args.work_dir)
-    else:
-        result = run_workflow(
-            args.workflow,
-            args.work_dir,
-            dry_run=args.workflow_action == "plan",
+    Operator-facing failures (tamper, lock, validation) surface as structured
+    failure-envelope JSON with a clear message — tracebacks go to the work
+    dir's log, never to stdout (developer review F9). Exit codes: 0 success,
+    1 generic failure, 3 statistical-gate failure (errors.GATE_FAILURE_EXIT_CODE),
+    130 operator interrupt.
+    """
+    from .errors import (
+        GATE_FAILURE_EXIT_CODE,
+        ErrorCode,
+        FailureEnvelope,
+        classify_exception,
+    )
+    from .workflow import (
+        JournalTamperError,
+        LockHeldError,
+        WorkflowBaselineError,
+        run_workflow,
+        workflow_status,
+    )
+
+    def emit(exc: BaseException, code: ErrorCode, exit_code: int) -> int:
+        envelope = FailureEnvelope(
+            code=code,
+            message=str(exc),
+            stage=args.workflow_action,
+            exception_type=type(exc).__name__,
+            retryable=False,
+            context={"workflow": args.workflow, "work_dir": args.work_dir},
         )
+        # Tracebacks are evidence, not operator output: append them to the
+        # work dir log when it exists, never print them (F9).
+        if Path(args.work_dir).is_dir():
+            with contextlib.suppress(OSError):
+                log_dir = Path(args.work_dir) / "logs"
+                log_dir.mkdir(parents=True, exist_ok=True)
+                with open(
+                    log_dir / "workflow_cli_errors.log", "a", encoding="utf-8"
+                ) as handle:
+                    handle.write(
+                        f"--- {datetime.now(UTC).isoformat()} "
+                        f"action={args.workflow_action} ---\n{traceback.format_exc()}\n"
+                    )
+        print(json.dumps(envelope.to_payload(), indent=2, sort_keys=True, default=str))
+        return exit_code
+
+    try:
+        if args.workflow_action == "status":
+            result = workflow_status(args.workflow, args.work_dir)
+        else:
+            result = run_workflow(
+                args.workflow,
+                args.work_dir,
+                dry_run=args.workflow_action == "plan",
+                rebaseline=args.rebaseline,
+            )
+    except KeyboardInterrupt:
+        return emit(
+            KeyboardInterrupt("orchestrator interrupted (SIGINT)"),
+            ErrorCode.USER_CANCELLED,
+            130,
+        )
+    except JournalTamperError as exc:
+        return emit(exc, ErrorCode.INPUT_INTEGRITY, 1)
+    except (LockHeldError, WorkflowBaselineError, ValueError) as exc:
+        return emit(exc, ErrorCode.CONFIGURATION, 1)
+    except Exception as exc:
+        return emit(exc, classify_exception(exc, stage=args.workflow_action).code, 1)
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
-    return 0 if result.get("ok", True) else 1
+    if result.get("ok", True):
+        return 0
+    if result.get("failure_code") == ErrorCode.STATISTICAL_GATE.value:
+        return GATE_FAILURE_EXIT_CODE
+    return 1
 
 
 def cmd_index_run(args: argparse.Namespace) -> int:
@@ -398,6 +463,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("workflow_action", choices=["plan", "run", "resume", "status"])
     p.add_argument("--workflow", required=True)
     p.add_argument("--work-dir", required=True)
+    p.add_argument(
+        "--rebaseline",
+        action="store_true",
+        help=(
+            "explicitly re-baseline the journal after a workflow edit "
+            "(journals a rebaselined event; required to resume an edited workflow)"
+        ),
+    )
     p.set_defaults(func=cmd_workflow)
 
     p = sub.add_parser("index-run", help="build or verify a run evidence index")

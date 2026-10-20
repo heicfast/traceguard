@@ -89,7 +89,16 @@ class JsonlShardWriter:
 
 
 class RunStore:
-    """Manages one run directory with resumable, hashed, append-only output."""
+    """Manages one run directory with resumable, hashed, append-only output.
+
+    Directory creation is LAZY: constructing a store (e.g. for a read-only
+    verify/export audit) never mutates the audited tree; only write paths
+    create the directories they need (security review F9: verify must be a
+    read-only audit, not a mkdir side effect).
+    """
+
+    _DIRS = ("episode_dir", "privileged_dir", "scores_dir", "log_dir",
+             "artifact_dir", "transaction_dir", "commit_dir")
 
     def __init__(self, run_dir: str | Path):
         self.run_dir = Path(run_dir)
@@ -100,12 +109,14 @@ class RunStore:
         self.artifact_dir = self.run_dir / "artifacts"
         self.transaction_dir = self.run_dir / "transactions"
         self.commit_dir = self.run_dir / "commits"
-        for d in (self.episode_dir, self.privileged_dir, self.scores_dir,
-                  self.log_dir, self.artifact_dir, self.transaction_dir, self.commit_dir):
-            d.mkdir(parents=True, exist_ok=True)
+
+    def _ensure_dirs(self) -> None:
+        for name in self._DIRS:
+            getattr(self, name).mkdir(parents=True, exist_ok=True)
 
     # -- manifests ----------------------------------------------------------
     def write_run_manifest(self, manifest: dict[str, Any]) -> None:
+        self._ensure_dirs()
         atomic_write_json(self.run_dir / "run_manifest.json", manifest)
 
     def read_run_manifest(self) -> dict[str, Any]:
@@ -115,6 +126,7 @@ class RunStore:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def write_plan_manifest(self, manifest: dict[str, Any]) -> None:
+        self._ensure_dirs()
         atomic_write_json(self.run_dir / "plan_manifest.json", manifest)
 
     def read_plan_manifest(self) -> dict[str, Any]:
@@ -147,6 +159,7 @@ class RunStore:
             raise ValueError(f"episode {ep_id} already recorded (would duplicate)")
         if privileged.get("episode_id") != ep_id:
             raise ValueError("envelope/privileged episode_id mismatch")
+        self._ensure_dirs()
         transaction = {
             "schema_version": "1.0.0",
             "episode_id": ep_id,
@@ -168,6 +181,7 @@ class RunStore:
 
     def _project_transaction(self, transaction: dict[str, Any]) -> None:
         ep_id = transaction["episode_id"]
+        self._ensure_dirs()
         self._ensure_jsonl_record(
             self.episode_dir / transaction["episode_shard"],
             transaction["envelope"],
@@ -235,6 +249,7 @@ class RunStore:
 
     def record_scores(self, monitor_name: str, condition: str,
                       score_records: Iterable[dict[str, Any]], shard: int = 1) -> None:
+        self._ensure_dirs()
         writer = JsonlShardWriter(self.score_shard_path(monitor_name, condition, shard))
         for rec in score_records:
             writer.append(rec)
@@ -242,16 +257,25 @@ class RunStore:
 
     # -- integrity ------------------------------------------------------------
     def write_checksums(self) -> Path:
+        # Path-based exclusion: ONLY the canonical ledger itself is excluded.
+        # A decoy `logs/checksums.sha256` must remain ledger-covered
+        # (security review F8: name-based exclusion let decoys escape).
+        ledger_rel = "artifacts/checksums.sha256"
         lines: list[str] = []
         for path in sorted(self.run_dir.rglob("*")):
-            if path.is_file() and path.name != "checksums.sha256":
-                digest = hashlib.sha256(path.read_bytes()).hexdigest()
-                lines.append(f"{digest}  {path.relative_to(self.run_dir)}")
+            if not path.is_file():
+                continue
+            if path.relative_to(self.run_dir).as_posix() == ledger_rel:
+                continue
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            lines.append(f"{digest}  {path.relative_to(self.run_dir)}")
+        self._ensure_dirs()
         out = self.artifact_dir / "checksums.sha256"
         atomic_write_text(out, "\n".join(lines) + ("\n" if lines else ""))
         return out
 
     def log(self, name: str, text: str) -> None:
+        self._ensure_dirs()
         with open(self.log_dir / name, "a", encoding="utf-8") as handle:
             handle.write(text)
 
@@ -274,12 +298,25 @@ class RunStore:
         return records
 
     def load_scores(self, monitor_name: str, condition: str) -> list[dict[str, Any]]:
+        """Load one monitor's scores for one condition across shards.
+
+        Security review F4: score shards are BOUND to their filename's
+        monitor+condition. A swapped shard (misattributed measurements) is a
+        hard error, never a silent return.
+        """
         safe = condition.replace(" ", "_")
         records: list[dict[str, Any]] = []
         for path in sorted(self.scores_dir.glob(f"{monitor_name}-{safe}-*.jsonl")):
             for line in path.read_text(encoding="utf-8").splitlines():
-                if line.strip():
-                    records.append(json.loads(line))
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                if rec.get("condition") != condition or rec.get("monitor_name") != monitor_name:
+                    raise ValueError(
+                        f"score record condition {rec.get('condition')!r}/monitor "
+                        f"{rec.get('monitor_name')!r} does not match the shard "
+                        f"{path.name} (expected {monitor_name}/{condition})")
+                records.append(rec)
         return records
 
 
