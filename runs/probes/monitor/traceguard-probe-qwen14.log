@@ -1,0 +1,187 @@
+[{"stream_name":"stdout","time":7.272976504,"data":"GATE PASSED: cuda available\n"}
+,{"stream_name":"stdout","time":7.299566251,"data":"GATE PASSED: at least one gpu\n"}
+,{"stream_name":"stdout","time":7.314900381,"data":"GPU: {'name': 'Tesla T4', 'capability': [7, 5], 'total_memory_gib': 14.56}\n"}
+,{"stream_name":"stdout","time":7.314921229,"data":"+ git clone -q https://github.com/heicfast/traceguard.git /tmp/traceguard\n"}
+,{"stream_name":"stdout","time":9.29290472,"data":"GATE PASSED: clone repository\n"}
+,{"stream_name":"stdout","time":9.29293212,"data":"+ git -C /tmp/traceguard checkout 0e53b846bea2b35c4a20dc5cc1dafbf1ebaaf6f4\n"}
+,{"stream_name":"stdout","time":9.522593217,"data":"GATE PASSED: checkout 0e53b846be\n"}
+,{"stream_name":"stdout","time":9.52261028,"data":"+ /usr/bin/python3 -m pip install -q --no-deps -e /tmp/traceguard\n"}
+,{"stream_name":"stdout","time":17.987914095,"data":"GATE PASSED: install traceguard package\n"}
+,{"stream_name":"stdout","time":17.990545127,"data":"+ /usr/bin/python3 -m pip install -q bitsandbytes\n"}
+,{"stream_name":"stdout","time":23.114182323,"data":"GATE PASSED: install bitsandbytes\n"}
+,{"stream_name":"stdout","time":31.436139979,"data":"bitsandbytes: 0.50.2\n"}
+,{"stream_name":"stdout","time":42.263524083,"data":"transformers: 5.16.1\n"}
+,{"stream_name":"stderr","time":52.352113564,"data":"Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.\n"}
+,{"stream_name":"stderr","time":187.925944425,"data":"\rFetching 8 files:   0%|          | 0/8 [00:00\u003c?, ?it/s]\rFetching 8 files:  12%|█▎        | 1/8 [00:49\u003c05:44, 49.16s/it]\rFetching 8 files:  25%|██▌       | 2/8 [01:44\u003c05:16, 52.79s/it]\rFetching 8 files:  38%|███▊      | 3/8 [01:44\u003c02:23, 28.74s/it]\rFetching 8 files:  50%|█████     | 4/8 [01:44\u003c01:09, 17.49s/it]\rFetching 8 files:  62%|██████▎   | 5/8 [01:59\u003c00:49, 16.54s/it]\rFetching 8 files:  88%|████████▊ | 7/8 [02:00\u003c00:08,  8.25s/it]\rFetching 8 files: 100%|██████████| 8/8 [02:06\u003c00:00,  7.72s/it]\rFetching 8 files: 100%|██████████| 8/8 [02:06\u003c00:00, 15.80s/it]\n"}
+,{"stream_name":"stderr","time":309.256891171,"data":"\rLoading weights:   0%|          | 0/443 [00:00\u003c?, ?it/s]\rLoading weights:   0%|          | 1/443 [00:06\u003c50:36,  6.87s/it]\rLoading weights:   0%|          | 2/443 [00:13\u003c49:03,  6.67s/it]\rLoading weights:   1%|          | 4/443 [00:14\u003c20:06,  2.75s/it]\rLoading weights:   1%|          | 5/443 [00:14\u003c15:23,  2.11s/it]\rLoading weights:   1%|▏         | 6/443 [00:15\u003c12:09,  1.67s/it]\rLoading weights:   2%|▏         | 10/443 [00:15\u003c04:36,  1.57it/s]\rLoading weights:   3%|▎         | 12/443 [00:15\u003c03:19,  2.16it/s]\rLoading weights:   3%|▎         | 15/443 [00:16\u003c02:35,  2.74it/s]\rLoading weights:   4%|▎         | 16/443 [00:17\u003c02:55,  2.43it/s]\rLoading weights:   4%|▍         | 17/443 [00:17\u003c03:14,  2.19it/s]\rLoading weights:   5%|▍         | 21/443 [00:18\u003c01:42,  4.11it/s]\rLoading weights:   5%|▌         | 23/443 [00:18\u003c01:24,  4.97it/s]\rLoading weights:   6%|▌         | 26/443 [00:18\u003c01:31,  4.58it/s]\rLoading weights:   6%|▌         | 27/443 [00:19\u003c01:58,  3.50it/s]\rLoading weights:   6%|▋         | 28/443 [00:20\u003c02:21,  2.93it/s]\rLoading weights:   7%|▋         | 32/443 [00:20\u003c01:21,  5.05it/s]\rLoading weights:   8%|▊         | 34/443 [00:20\u003c01:08,  6.00it/s]\rLoading weights:   8%|▊         | 37/443 [00:21\u003c01:19,  5.10it/s]\rLoading weights:   9%|▊         | 38/443 [00:21\u003c01:40,  4.03it/s]\rLoading weights:   9%|▉         | 39/443 [00:22\u003c02:13,  3.02it/s]\rLoading weights:  10%|█         | 45/443 [00:22\u003c00:58,  6.81it/s]\rLoading weights:  11%|█         | 48/443 [00:23\u003c01:08,  5.80it/s]\rLoading weights:  11%|█▏        | 50/443 [00:24\u003c01:55,  3.41it/s]\rLoading weights:  12%|█▏        | 54/443 [00:25\u003c01:17,  5.03it/s]\rLoading weights:  13%|█▎        | 56/443 [00:25\u003c01:09,  5.60it/s]\rLoading weights:  13%|█▎        | 59/443 [00:26\u003c01:18,  4.87it/s]\rLoading weights:  14%|█▎        | 60/443 [00:26\u003c01:43,  3.70it/s]\rLoading weights:  14%|█▍        | 61/443 [00:27\u003c02:09,  2.95it/s]\rLoading weights:  15%|█▍        | 65/443 [00:27\u003c01:16,  4.94it/s]\rLoading weights:  15%|█▌        | 67/443 [00:27\u003c01:06,  5.67it/s]\rLoading weights:  16%|█▌        | 70/443 [00:28\u003c01:14,  5.02it/s]\rLoading weights:  16%|█▌        | 71/443 [00:29\u003c01:38,  3.77it/s]\rLoading weights:  16%|█▋        | 72/443 [00:29\u003c02:04,  2.99it/s]\rLoading weights:  17%|█▋        | 76/443 [00:30\u003c01:12,  5.09it/s]\rLoading weights:  18%|█▊        | 78/443 [00:30\u003c01:01,  5.93it/s]\rLoading weights:  18%|█▊        | 81/443 [00:31\u003c01:05,  5.51it/s]\rLoading weights:  19%|█▊        | 82/443 [00:31\u003c01:06,  5.40it/s]\rLoading weights:  19%|█▊        | 83/443 [00:31\u003c01:09,  5.16it/s]\rLoading weights:  20%|██        | 89/443 [00:31\u003c00:31, 11.24it/s]\rLoading weights:  21%|██        | 92/443 [00:31\u003c00:27, 12.70it/s]\rLoading weights:  21%|██▏       | 95/443 [00:32\u003c00:30, 11.48it/s]\rLoading weights:  23%|██▎       | 100/443 [00:32\u003c00:20, 16.87it/s]\rLoading weights:  23%|██▎       | 103/443 [00:32\u003c00:21, 15.96it/s]\rLoading weights:  24%|██▍       | 106/443 [00:32\u003c00:26, 12.49it/s]\rLoading weights:  25%|██▌       | 111/443 [00:32\u003c00:18, 17.70it/s]\rLoading weights:  26%|██▌       | 114/443 [00:33\u003c00:33,  9.75it/s]\rLoading weights:  26%|██▋       | 117/443 [00:34\u003c01:04,  5.04it/s]\rLoading weights:  27%|██▋       | 120/443 [00:35\u003c00:52,  6.12it/s]\rLoading weights:  28%|██▊       | 122/443 [00:35\u003c00:48,  6.61it/s]\rLoading weights:  28%|██▊       | 125/443 [00:36\u003c00:59,  5.37it/s]\rLoading weights:  29%|██▊       | 127/443 [00:37\u003c01:36,  3.28it/s]\rLoading weights:  30%|██▉       | 131/443 [00:37\u003c01:04,  4.85it/s]\rLoading weights:  30%|███       | 133/443 [00:38\u003c00:56,  5.47it/s]\rLoading weights:  31%|███       | 136/443 [00:38\u003c01:03,  4.80it/s]\rLoading weights:  31%|███       | 137/443 [00:39\u003c01:23,  3.65it/s]\rLoading weights:  31%|███       | 138/443 [00:40\u003c01:44,  2.91it/s]\rLoading weights:  32%|███▏      | 142/443 [00:40\u003c01:01,  4.88it/s]\rLoading weights:  33%|███▎      | 144/443 [00:40\u003c00:53,  5.57it/s]\rLoading weights:  33%|███▎      | 147/443 [00:41\u003c01:01,  4.79it/s]\rLoading weights:  33%|███▎      | 148/443 [00:42\u003c01:22,  3.57it/s]\rLoading weights:  34%|███▎      | 149/443 [00:42\u003c01:43,  2.84it/s]\rLoading weights:  35%|███▍      | 153/443 [00:43\u003c00:59,  4.87it/s]\rLoading weights:  35%|███▍      | 155/443 [00:43\u003c00:52,  5.52it/s]\rLoading weights:  36%|███▌      | 158/443 [00:44\u003c00:58,  4.85it/s]\rLoading weights:  36%|███▌      | 159/443 [00:44\u003c01:19,  3.58it/s]\rLoading weights:  36%|███▌      | 160/443 [00:45\u003c01:39,  2.84it/s]\rLoading weights:  37%|███▋      | 164/443 [00:45\u003c00:55,  4.99it/s]\rLoading weights:  37%|███▋      | 166/443 [00:45\u003c00:47,  5.79it/s]\rLoading weights:  38%|███▊      | 169/443 [00:46\u003c00:56,  4.85it/s]\rLoading weights:  38%|███▊      | 170/443 [00:47\u003c01:15,  3.63it/s]\rLoading weights:  39%|███▊      | 171/443 [00:47\u003c01:35,  2.85it/s]\rLoading weights:  40%|███▉      | 175/443 [00:48\u003c00:54,  4.94it/s]\rLoading weights:  40%|███▉      | 177/443 [00:48\u003c00:46,  5.67it/s]\rLoading weights:  41%|████      | 180/443 [00:49\u003c00:54,  4.83it/s]\rLoading weights:  41%|████      | 181/443 [00:49\u003c01:13,  3.56it/s]\rLoading weights:  41%|████      | 182/443 [00:50\u003c01:35,  2.75it/s]\rLoading weights:  42%|████▏     | 186/443 [00:50\u003c00:53,  4.84it/s]\rLoading weights:  42%|████▏     | 188/443 [00:51\u003c00:45,  5.58it/s]\rLoading weights:  43%|████▎     | 191/443 [00:51\u003c00:52,  4.78it/s]\rLoading weights:  43%|████▎     | 192/443 [00:52\u003c01:10,  3.54it/s]\rLoading weights:  44%|████▎     | 193/443 [00:53\u003c01:29,  2.79it/s]\rLoading weights:  44%|████▍     | 197/443 [00:53\u003c00:52,  4.73it/s]\rLoading weights:  45%|████▍     | 199/443 [00:53\u003c00:44,  5.54it/s]\rLoading weights:  46%|████▌     | 202/443 [00:54\u003c00:49,  4.84it/s]\rLoading weights:  46%|████▌     | 203/443 [00:55\u003c01:07,  3.58it/s]\rLoading weights:  46%|████▌     | 204/443 [00:55\u003c01:24,  2.83it/s]\rLoading weights:  47%|████▋     | 208/443 [00:56\u003c00:48,  4.87it/s]\rLoading weights:  47%|████▋     | 210/443 [00:56\u003c00:41,  5.66it/s]\rLoading weights:  48%|████▊     | 213/443 [00:57\u003c00:47,  4.81it/s]\rLoading weights:  48%|████▊     | 214/443 [00:57\u003c01:04,  3.58it/s]\rLoading weights:  49%|████▊     | 215/443 [00:58\u003c01:20,  2.83it/s]\rLoading weights:  49%|████▉     | 219/443 [00:58\u003c00:45,  4.88it/s]\rLoading weights:  50%|████▉     | 221/443 [00:58\u003c00:39,  5.61it/s]\rLoading weights:  51%|█████     | 224/443 [00:59\u003c00:45,  4.79it/s]\rLoading weights:  51%|█████     | 225/443 [01:00\u003c01:01,  3.55it/s]\rLoading weights:  51%|█████     | 226/443 [01:01\u003c01:17,  2.81it/s]\rLoading weights:  52%|█████▏    | 230/443 [01:01\u003c00:43,  4.88it/s]\rLoading weights:  52%|█████▏    | 232/443 [01:01\u003c00:37,  5.59it/s]\rLoading weights:  53%|█████▎    | 235/443 [01:02\u003c00:43,  4.77it/s]\rLoading weights:  53%|█████▎    | 236/443 [01:03\u003c00:58,  3.54it/s]\rLoading weights:  53%|█████▎    | 237/443 [01:03\u003c01:13,  2.81it/s]\rLoading weights:  54%|█████▍    | 241/443 [01:03\u003c00:41,  4.88it/s]\rLoading weights:  55%|█████▍    | 243/443 [01:04\u003c00:35,  5.61it/s]\rLoading weights:  56%|█████▌    | 246/443 [01:04\u003c00:41,  4.79it/s]\rLoading weights:  56%|█████▌    | 247/443 [01:05\u003c00:55,  3.55it/s]\rLoading weights:  56%|█████▌    | 248/443 [01:06\u003c01:09,  2.81it/s]\rLoading weights:  57%|█████▋    | 252/443 [01:06\u003c00:39,  4.87it/s]\rLoading weights:  57%|█████▋    | 254/443 [01:06\u003c00:33,  5.59it/s]\rLoading weights:  58%|█████▊    | 257/443 [01:07\u003c00:38,  4.78it/s]\rLoading weights:  58%|█████▊    | 258/443 [01:08\u003c00:52,  3.50it/s]\rLoading weights:  58%|█████▊    | 259/443 [01:09\u003c01:05,  2.82it/s]\rLoading weights:  59%|█████▉    | 263/443 [01:09\u003c00:37,  4.86it/s]\rLoading weights:  60%|█████▉    | 265/443 [01:09\u003c00:31,  5.62it/s]\rLoading weights:  60%|██████    | 268/443 [01:10\u003c00:36,  4.79it/s]\rLoading weights:  61%|██████    | 269/443 [01:10\u003c00:49,  3.55it/s]\rLoading weights:  61%|██████    | 270/443 [01:11\u003c01:01,  2.80it/s]\rLoading weights:  62%|██████▏   | 274/443 [01:11\u003c00:34,  4.87it/s]\rLoading weights:  62%|██████▏   | 276/443 [01:12\u003c00:29,  5.59it/s]\rLoading weights:  63%|██████▎   | 279/443 [01:12\u003c00:34,  4.77it/s]\rLoading weights:  63%|██████▎   | 280/443 [01:13\u003c00:46,  3.53it/s]\rLoading weights:  63%|██████▎   | 281/443 [01:14\u003c00:58,  2.79it/s]\rLoading weights:  64%|██████▍   | 285/443 [01:14\u003c00:33,  4.78it/s]\rLoading weights:  65%|██████▍   | 287/443 [01:14\u003c00:27,  5.60it/s]\rLoading weights:  65%|██████▌   | 290/443 [01:15\u003c00:32,  4.78it/s]\rLoading weights:  66%|██████▌   | 291/443 [01:16\u003c00:42,  3.54it/s]\rLoading weights:  66%|██████▌   | 292/443 [01:16\u003c00:53,  2.80it/s]\rLoading weights:  67%|██████▋   | 296/443 [01:17\u003c00:30,  4.88it/s]\rLoading weights:  67%|██████▋   | 298/443 [01:17\u003c00:25,  5.60it/s]\rLoading weights:  68%|██████▊   | 301/443 [01:18\u003c00:29,  4.78it/s]\rLoading weights:  68%|██████▊   | 302/443 [01:18\u003c00:39,  3.54it/s]\rLoading weights:  68%|██████▊   | 303/443 [01:19\u003c00:49,  2.80it/s]\rLoading weights:  69%|██████▉   | 307/443 [01:19\u003c00:27,  4.88it/s]\rLoading weights:  70%|██████▉   | 309/443 [01:19\u003c00:23,  5.60it/s]\rLoading weights:  70%|███████   | 312/443 [01:20\u003c00:27,  4.79it/s]\rLoading weights:  71%|███████   | 313/443 [01:21\u003c00:36,  3.54it/s]\rLoading weights:  71%|███████   | 314/443 [01:22\u003c00:45,  2.81it/s]\rLoading weights:  72%|███████▏  | 318/443 [01:22\u003c00:25,  4.87it/s]\rLoading weights:  72%|███████▏  | 320/443 [01:22\u003c00:22,  5.58it/s]\rLoading weights:  73%|███████▎  | 323/443 [01:23\u003c00:25,  4.77it/s]\rLoading weights:  73%|███████▎  | 324/443 [01:24\u003c00:33,  3.53it/s]\rLoading weights:  73%|███████▎  | 325/443 [01:24\u003c00:42,  2.80it/s]\rLoading weights:  74%|███████▍  | 329/443 [01:25\u003c00:23,  4.85it/s]\rLoading weights:  75%|███████▍  | 331/443 [01:25\u003c00:20,  5.57it/s]\rLoading weights:  75%|███████▌  | 334/443 [01:26\u003c00:22,  4.77it/s]\rLoading weights:  76%|███████▌  | 335/443 [01:26\u003c00:30,  3.54it/s]\rLoading weights:  76%|███████▌  | 336/443 [01:27\u003c00:38,  2.80it/s]\rLoading weights:  77%|███████▋  | 340/443 [01:27\u003c00:21,  4.86it/s]\rLoading weights:  77%|███████▋  | 342/443 [01:27\u003c00:18,  5.57it/s]\rLoading weights:  78%|███████▊  | 345/443 [01:28\u003c00:20,  4.77it/s]\rLoading weights:  78%|███████▊  | 346/443 [01:29\u003c00:27,  3.54it/s]\rLoading weights:  78%|███████▊  | 347/443 [01:30\u003c00:34,  2.80it/s]\rLoading weights:  79%|███████▉  | 351/443 [01:30\u003c00:18,  4.87it/s]\rLoading weights:  80%|███████▉  | 353/443 [01:30\u003c00:16,  5.59it/s]\rLoading weights:  80%|████████  | 356/443 [01:31\u003c00:18,  4.79it/s]\rLoading weights:  81%|████████  | 357/443 [01:31\u003c00:24,  3.54it/s]\rLoading weights:  81%|████████  | 358/443 [01:32\u003c00:30,  2.81it/s]\rLoading weights:  82%|████████▏ | 362/443 [01:32\u003c00:16,  4.87it/s]\rLoading weights:  82%|████████▏ | 364/443 [01:33\u003c00:14,  5.60it/s]\rLoading weights:  83%|████████▎ | 367/443 [01:33\u003c00:15,  4.77it/s]\rLoading weights:  83%|████████▎ | 368/443 [01:34\u003c00:21,  3.52it/s]\rLoading weights:  83%|████████▎ | 369/443 [01:35\u003c00:26,  2.82it/s]\rLoading weights:  84%|████████▍ | 373/443 [01:35\u003c00:14,  4.88it/s]\rLoading weights:  85%|████████▍ | 375/443 [01:35\u003c00:12,  5.60it/s]\rLoading weights:  85%|████████▌ | 378/443 [01:36\u003c00:13,  4.80it/s]\rLoading weights:  86%|████████▌ | 379/443 [01:37\u003c00:18,  3.55it/s]\rLoading weights:  86%|████████▌ | 380/443 [01:37\u003c00:22,  2.82it/s]\rLoading weights:  87%|████████▋ | 384/443 [01:38\u003c00:12,  4.79it/s]\rLoading weights:  87%|████████▋ | 386/443 [01:38\u003c00:10,  5.54it/s]\rLoading weights:  88%|████████▊ | 389/443 [01:39\u003c00:11,  4.77it/s]\rLoading weights:  88%|████████▊ | 390/443 [01:39\u003c00:14,  3.57it/s]\rLoading weights:  88%|████████▊ | 391/443 [01:40\u003c00:18,  2.83it/s]\rLoading weights:  89%|████████▉ | 395/443 [01:40\u003c00:09,  4.91it/s]\rLoading weights:  90%|████████▉ | 397/443 [01:40\u003c00:08,  5.63it/s]\rLoading weights:  90%|█████████ | 400/443 [01:41\u003c00:08,  4.80it/s]\rLoading weights:  91%|█████████ | 401/443 [01:42\u003c00:11,  3.56it/s]\rLoading weights:  91%|█████████ | 402/443 [01:43\u003c00:14,  2.82it/s]\rLoading weights:  92%|█████████▏| 406/443 [01:43\u003c00:07,  4.89it/s]\rLoading weights:  92%|█████████▏| 408/443 [01:43\u003c00:06,  5.60it/s]\rLoading weights:  93%|█████████▎| 411/443 [01:44\u003c00:06,  4.80it/s]\rLoading weights:  93%|█████████▎| 412/443 [01:45\u003c00:08,  3.52it/s]\rLoading weights:  93%|█████████▎| 413/443 [01:45\u003c00:10,  2.83it/s]\rLoading weights:  94%|█████████▍| 417/443 [01:46\u003c00:05,  4.90it/s]\rLoading weights:  95%|█████████▍| 419/443 [01:46\u003c00:04,  5.62it/s]\rLoading weights:  95%|█████████▌| 422/443 [01:47\u003c00:04,  4.79it/s]\rLoading weights:  95%|█████████▌| 423/443 [01:47\u003c00:05,  3.55it/s]\rLoading weights:  96%|█████████▌| 424/443 [01:48\u003c00:06,  2.81it/s]\rLoading weights:  97%|█████████▋| 428/443 [01:48\u003c00:03,  4.88it/s]\rLoading weights:  97%|█████████▋| 430/443 [01:48\u003c00:02,  5.60it/s]\rLoading weights:  98%|█████████▊| 433/443 [01:49\u003c00:02,  4.78it/s]\rLoading weights:  98%|█████████▊| 434/443 [01:50\u003c00:02,  3.54it/s]\rLoading weights:  98%|█████████▊| 435/443 [01:51\u003c00:02,  2.81it/s]\rLoading weights:  99%|█████████▉| 439/443 [01:51\u003c00:00,  4.87it/s]\rLoading weights: 100%|█████████▉| 441/443 [01:51\u003c00:00,  5.60it/s]\rLoading weights: 100%|██████████| 443/443 [01:51\u003c00:00,  3.97it/s]\n"}
+,{"stream_name":"stdout","time":315.765931604,"data":"{\n"}
+,{"stream_name":"stdout","time":315.76595973,"data":"  \"all_gates_passed\": true,\n"}
+,{"stream_name":"stdout","time":315.765964251,"data":"  \"artifact_sha256\": \"6a7757b13e62b20bc9af11e51b369df691a901c1be34cc9753d30f377bc5a469\",\n"}
+,{"stream_name":"stdout","time":315.765969716,"data":"  \"gates\": [\n"}
+,{"stream_name":"stdout","time":315.765976837,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.765979214,"data":"      \"detail\": 2,\n"}
+,{"stream_name":"stdout","time":315.765981622,"data":"      \"name\": \"cuda_available\",\n"}
+,{"stream_name":"stdout","time":315.765984004,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.765986175,"data":"    },\n"}
+,{"stream_name":"stdout","time":315.765988251,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.765990408,"data":"      \"detail\": {\n"}
+,{"stream_name":"stdout","time":315.765992548,"data":"        \"capability\": [\n"}
+,{"stream_name":"stdout","time":315.765994747,"data":"          7,\n"}
+,{"stream_name":"stdout","time":315.765996846,"data":"          5\n"}
+,{"stream_name":"stdout","time":315.765999034,"data":"        ],\n"}
+,{"stream_name":"stdout","time":315.766001097,"data":"        \"name\": \"Tesla T4\"\n"}
+,{"stream_name":"stdout","time":315.766003288,"data":"      },\n"}
+,{"stream_name":"stdout","time":315.766005381,"data":"      \"name\": \"t4_sm75\",\n"}
+,{"stream_name":"stdout","time":315.766016031,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.766018324,"data":"    },\n"}
+,{"stream_name":"stdout","time":315.766020377,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.766022408,"data":"      \"detail\": \"float16\",\n"}
+,{"stream_name":"stdout","time":315.766024642,"data":"      \"name\": \"fp16_compute\",\n"}
+,{"stream_name":"stdout","time":315.766026857,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.766028975,"data":"    },\n"}
+,{"stream_name":"stdout","time":315.766031055,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.766033176,"data":"      \"detail\": \"sdpa\",\n"}
+,{"stream_name":"stdout","time":315.766035364,"data":"      \"name\": \"sdpa_attention\",\n"}
+,{"stream_name":"stdout","time":315.766037553,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.766039674,"data":"    },\n"}
+,{"stream_name":"stdout","time":315.766042108,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.766044168,"data":"      \"detail\": \"eos\",\n"}
+,{"stream_name":"stdout","time":315.766046365,"data":"      \"name\": \"nonempty_visible_answer\",\n"}
+,{"stream_name":"stdout","time":315.766048621,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.76605081,"data":"    },\n"}
+,{"stream_name":"stdout","time":315.766052836,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.766054894,"data":"      \"detail\": \"ok\",\n"}
+,{"stream_name":"stdout","time":315.766057052,"data":"      \"name\": \"json_conformance\",\n"}
+,{"stream_name":"stdout","time":315.766059313,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.766061425,"data":"    },\n"}
+,{"stream_name":"stdout","time":315.766063461,"data":"    {\n"}
+,{"stream_name":"stdout","time":315.766065492,"data":"      \"detail\": {\n"}
+,{"stream_name":"stdout","time":315.766067609,"data":"        \"budget_bytes\": 15032385536,\n"}
+,{"stream_name":"stdout","time":315.766069788,"data":"        \"peak_allocated_bytes\": 10185420800,\n"}
+,{"stream_name":"stdout","time":315.766071966,"data":"        \"peak_reserved_bytes\": 10322182144\n"}
+,{"stream_name":"stdout","time":315.766104995,"data":"      },\n"}
+,{"stream_name":"stdout","time":315.766109685,"data":"      \"name\": \"vram_budget\",\n"}
+,{"stream_name":"stdout","time":315.766113384,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":315.766116641,"data":"    }\n"}
+,{"stream_name":"stdout","time":315.766119761,"data":"  ],\n"}
+,{"stream_name":"stdout","time":315.766122944,"data":"  \"output\": \"/kaggle/working/probe_artifact_qwen3_14b.json\"\n"}
+,{"stream_name":"stdout","time":315.766126389,"data":"}\n"}
+,{"stream_name":"stdout","time":319.173887895,"data":"GATE PASSED: probe gates passed (qwen3_14b)\n"}
+,{"stream_name":"stdout","time":319.175033444,"data":"PROBE KERNEL COMPLETE {\n"}
+,{"stream_name":"stdout","time":319.175049934,"data":"  \"kernel\": \"traceguard-probe-qwen3_14b\",\n"}
+,{"stream_name":"stdout","time":319.175055657,"data":"  \"candidate\": \"qwen3_14b\",\n"}
+,{"stream_name":"stdout","time":319.175060869,"data":"  \"config\": \"configs/probe/qwen3_14b_monitor_probe.yaml\",\n"}
+,{"stream_name":"stdout","time":319.175066038,"data":"  \"role\": \"monitor\",\n"}
+,{"stream_name":"stdout","time":319.175130018,"data":"  \"timestamp_utc\": \"2026-10-20T07:48:18.346005+00:00\",\n"}
+,{"stream_name":"stdout","time":319.175135047,"data":"  \"python\": \"3.13.15\",\n"}
+,{"stream_name":"stdout","time":319.175140402,"data":"  \"pinned_commit\": \"0e53b846bea2b35c4a20dc5cc1dafbf1ebaaf6f4\",\n"}
+,{"stream_name":"stdout","time":319.175155355,"data":"  \"gates\": [\n"}
+,{"stream_name":"stdout","time":319.175160427,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.17516575,"data":"      \"gate\": \"cuda available\",\n"}
+,{"stream_name":"stdout","time":319.175171063,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.175176412,"data":"      \"time_utc\": \"2026-10-20T07:48:24.950866+00:00\"\n"}
+,{"stream_name":"stdout","time":319.175181716,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175186911,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175192279,"data":"      \"gate\": \"at least one gpu\",\n"}
+,{"stream_name":"stdout","time":319.17519748,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.175202852,"data":"      \"time_utc\": \"2026-10-20T07:48:24.977301+00:00\"\n"}
+,{"stream_name":"stdout","time":319.175208035,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175213357,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175218872,"data":"      \"gate\": \"clone repository\",\n"}
+,{"stream_name":"stdout","time":319.175224222,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.175229555,"data":"      \"time_utc\": \"2026-10-20T07:48:26.970788+00:00\"\n"}
+,{"stream_name":"stdout","time":319.175235037,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.17524037,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175245709,"data":"      \"gate\": \"checkout 0e53b846be\",\n"}
+,{"stream_name":"stdout","time":319.175250915,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.175262885,"data":"      \"time_utc\": \"2026-10-20T07:48:27.200530+00:00\"\n"}
+,{"stream_name":"stdout","time":319.17526802,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175273362,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175277232,"data":"      \"gate\": \"install traceguard package\",\n"}
+,{"stream_name":"stdout","time":319.175282317,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.17528766,"data":"      \"time_utc\": \"2026-10-20T07:48:35.665811+00:00\"\n"}
+,{"stream_name":"stdout","time":319.175293009,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.17529824,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175303609,"data":"      \"gate\": \"install bitsandbytes\",\n"}
+,{"stream_name":"stdout","time":319.175308871,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.175314239,"data":"      \"time_utc\": \"2026-10-20T07:48:40.792083+00:00\"\n"}
+,{"stream_name":"stdout","time":319.175319565,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175324914,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175330197,"data":"      \"gate\": \"probe gates passed (qwen3_14b)\",\n"}
+,{"stream_name":"stdout","time":319.175335514,"data":"      \"passed\": true,\n"}
+,{"stream_name":"stdout","time":319.175340865,"data":"      \"time_utc\": \"2026-10-20T07:53:36.851820+00:00\"\n"}
+,{"stream_name":"stdout","time":319.175346102,"data":"    }\n"}
+,{"stream_name":"stdout","time":319.175351449,"data":"  ],\n"}
+,{"stream_name":"stdout","time":319.175356815,"data":"  \"gpu\": {\n"}
+,{"stream_name":"stdout","time":319.175362099,"data":"    \"name\": \"Tesla T4\",\n"}
+,{"stream_name":"stdout","time":319.175367302,"data":"    \"capability\": [\n"}
+,{"stream_name":"stdout","time":319.175372607,"data":"      7,\n"}
+,{"stream_name":"stdout","time":319.175377945,"data":"      5\n"}
+,{"stream_name":"stdout","time":319.175383239,"data":"    ],\n"}
+,{"stream_name":"stdout","time":319.175391972,"data":"    \"total_memory_gib\": 14.56\n"}
+,{"stream_name":"stdout","time":319.175397274,"data":"  },\n"}
+,{"stream_name":"stdout","time":319.175402472,"data":"  \"pip_repo_rc\": 0,\n"}
+,{"stream_name":"stdout","time":319.175407692,"data":"  \"pip_bnb_rc\": 0,\n"}
+,{"stream_name":"stdout","time":319.17541303,"data":"  \"bitsandbytes_version\": \"0.50.2\",\n"}
+,{"stream_name":"stdout","time":319.175418249,"data":"  \"transformers_before\": \"5.16.1\",\n"}
+,{"stream_name":"stdout","time":319.175423582,"data":"  \"transformers_used\": \"5.16.1\",\n"}
+,{"stream_name":"stdout","time":319.175428752,"data":"  \"probe_rc\": 0,\n"}
+,{"stream_name":"stdout","time":319.175434143,"data":"  \"artifact_sha256\": \"6a7757b13e62b20bc9af11e51b369df691a901c1be34cc9753d30f377bc5a469\",\n"}
+,{"stream_name":"stdout","time":319.175439327,"data":"  \"resolved_model_revision\": \"40c069824f4251a91eefaf281ebe4c544efd3e18\",\n"}
+,{"stream_name":"stdout","time":319.175444517,"data":"  \"resolved_tokenizer_revision\": \"40c069824f4251a91eefaf281ebe4c544efd3e18\",\n"}
+,{"stream_name":"stdout","time":319.17544976,"data":"  \"probe_gates\": [\n"}
+,{"stream_name":"stdout","time":319.175455098,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175460369,"data":"      \"detail\": 2,\n"}
+,{"stream_name":"stdout","time":319.175465743,"data":"      \"name\": \"cuda_available\",\n"}
+,{"stream_name":"stdout","time":319.175471065,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175476402,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175481729,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175487075,"data":"      \"detail\": {\n"}
+,{"stream_name":"stdout","time":319.175492323,"data":"        \"capability\": [\n"}
+,{"stream_name":"stdout","time":319.175497684,"data":"          7,\n"}
+,{"stream_name":"stdout","time":319.175502883,"data":"          5\n"}
+,{"stream_name":"stdout","time":319.175508164,"data":"        ],\n"}
+,{"stream_name":"stdout","time":319.175513472,"data":"        \"name\": \"Tesla T4\"\n"}
+,{"stream_name":"stdout","time":319.175518809,"data":"      },\n"}
+,{"stream_name":"stdout","time":319.175524139,"data":"      \"name\": \"t4_sm75\",\n"}
+,{"stream_name":"stdout","time":319.175529436,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175534764,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175540085,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175545392,"data":"      \"detail\": \"float16\",\n"}
+,{"stream_name":"stdout","time":319.175551443,"data":"      \"name\": \"fp16_compute\",\n"}
+,{"stream_name":"stdout","time":319.175555913,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175561227,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175566557,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175571896,"data":"      \"detail\": \"sdpa\",\n"}
+,{"stream_name":"stdout","time":319.175577068,"data":"      \"name\": \"sdpa_attention\",\n"}
+,{"stream_name":"stdout","time":319.1755824,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175587732,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175592341,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175597376,"data":"      \"detail\": \"eos\",\n"}
+,{"stream_name":"stdout","time":319.175602666,"data":"      \"name\": \"nonempty_visible_answer\",\n"}
+,{"stream_name":"stdout","time":319.175607851,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175613023,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175621702,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.17562697,"data":"      \"detail\": \"ok\",\n"}
+,{"stream_name":"stdout","time":319.175632164,"data":"      \"name\": \"json_conformance\",\n"}
+,{"stream_name":"stdout","time":319.175637363,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175642685,"data":"    },\n"}
+,{"stream_name":"stdout","time":319.175648055,"data":"    {\n"}
+,{"stream_name":"stdout","time":319.175653319,"data":"      \"detail\": {\n"}
+,{"stream_name":"stdout","time":319.175658634,"data":"        \"budget_bytes\": 15032385536,\n"}
+,{"stream_name":"stdout","time":319.175663861,"data":"        \"peak_allocated_bytes\": 10185420800,\n"}
+,{"stream_name":"stdout","time":319.175669178,"data":"        \"peak_reserved_bytes\": 10322182144\n"}
+,{"stream_name":"stdout","time":319.175674462,"data":"      },\n"}
+,{"stream_name":"stdout","time":319.175679799,"data":"      \"name\": \"vram_budget\",\n"}
+,{"stream_name":"stdout","time":319.175685119,"data":"      \"passed\": true\n"}
+,{"stream_name":"stdout","time":319.175690474,"data":"    }\n"}
+,{"stream_name":"stdout","time":319.175695713,"data":"  ],\n"}
+,{"stream_name":"stdout","time":319.17570115,"data":"  \"kernel_seconds\": 318.5\n"}
+,{"stream_name":"stdout","time":319.175706431,"data":"}\n"}
+,{"stream_name":"stderr","time":322.021762609,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":322.021810173,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":322.274178131,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":322.274199236,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":323.033659815,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":323.931443233,"data":"[NbConvertApp] Writing 298677 bytes to __results__.html\n"}
+]
