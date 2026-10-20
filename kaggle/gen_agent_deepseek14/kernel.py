@@ -162,7 +162,7 @@ def main() -> int:
     # Admission artifact for the probe-required agent model: the factory
     # recomputes this file's hash and compares it to the config's frozen
     # probe_artifact_sha256 before constructing the provider (fail-closed).
-    artifact_rel = "runs/probes/agent/deepseek_r1_14b_agent_probe_artifact.json"
+    artifact_rel = "runs/v6/probes/agent/deepseek_r1_14b_agent_probe_artifact.json"
     artifact_path = REPO_DIR / artifact_rel
     gate(artifact_path.exists(),
          f"agent probe artifact present at pin ({artifact_rel})", manifest)

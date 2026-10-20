@@ -44,7 +44,15 @@ def main() -> int:
     }
 
     # ---- locate the generation run directory (kernel data source mount) -------
-    candidates = sorted(glob.glob("/kaggle/input/**/run/run_manifest.json", recursive=True))
+    # Dataset layouts vary with Kaggle's zip handling: the run manifest may
+    # appear either as .../run/run_manifest.json (nested layout) or directly
+    # at the dataset root (flat layout). Match any depth, then keep only
+    # candidates whose parent directory actually looks like a run (has an
+    # episodes/ sibling) so a stray manifest elsewhere can not be picked up.
+    candidates = sorted(
+        path for path in glob.glob("/kaggle/input/**/run_manifest.json", recursive=True)
+        if (Path(path).parent / "episodes").is_dir()
+    )
     if not candidates:
         print("NO RUN MANIFEST FOUND. /kaggle/input contents:", flush=True)
         os.system("find /kaggle/input -maxdepth 5 -type d | head -50")
