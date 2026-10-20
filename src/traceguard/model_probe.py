@@ -56,7 +56,12 @@ def run_model_probe(
             '"evidence_refs":[],"verdict_text":"probe"}'
         )
         reasoning_mode = False
-        max_new_tokens = min(256, config.monitor.max_output_tokens)
+        # Deployment-faithful budget: real scoring uses exactly
+        # config.monitor.max_output_tokens (monitor_runtime passes it to both
+        # the raw and structured monitors). A think-first monitor must fit
+        # its reasoning AND the JSON inside this budget — probing at a lower
+        # cap would falsely reject models that would pass in deployment.
+        max_new_tokens = config.monitor.max_output_tokens
     turn = provider.generate(
         [{"role": "user", "content": prompt}],
         GenerationSettings(
