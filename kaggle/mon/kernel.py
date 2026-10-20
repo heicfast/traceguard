@@ -12,10 +12,10 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "3f63e6e12a303bbb4c34a64274858c5370d3194f"  # must be a DESCENDANT of the generation commit; diff allowlisted (gate below)
+TRACEGUARD_COMMIT = "1059ff4fd004df507f2cd7ccd00d81c1e5667dab"  # Phase-3 audited core
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
-MONITORS = ["rules_v1", "keywords_v1", "llm_v1"]
+MONITORS = ["rules_v1", "keywords_v1", "llm_v1", "late_fusion"]
 
 OUT = Path("/kaggle/working")
 
@@ -150,13 +150,9 @@ def main() -> int:
     manifest["transformers_used"] = transformers.__version__
 
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
-    # Split the monitor model across BOTH T4s (weights ~4+4 GiB): condition C/E
-    # prompts carry full agent CoT (pilot traces up to ~61K chars ~= 18K tokens;
-    # KV ~= 3.4 GiB at fp16) which OOMs a single 14.56 GiB T4 with the whole
-    # 8 GiB model resident (observed 2026-10-20: 256 calls, 20+ OOM failures,
-    # all in CoT-bearing conditions). device_map="auto" is an infrastructure
-    # change only - the monitor model, prompt, and evidence protocol are
-    # unchanged; placement is recorded in the per-score inference audit.
+    # Split the shared base monitor across both T4s. Raw scoring and structured
+    # late fusion reuse this one loaded checkpoint; no duplicate base model is
+    # allocated. Placement is recorded in each inference audit.
     os.environ["TRACEGUARD_DEVICE_MAP"] = "auto"
     sys.path.insert(0, "/tmp/traceguard/src")
 
@@ -168,12 +164,41 @@ def main() -> int:
     proc = subprocess.run(mon_cmd, cwd="/tmp/traceguard")
     manifest["monitor_rc"] = proc.returncode
 
+    # Analysis and integrity release run on the exact scored copy. Pilot design
+    # gates may correctly fail without discarding artifacts; critical pipeline
+    # commands remain binding.
+    analysis_proc = subprocess.run([
+        sys.executable, "-m", "traceguard.cli", "analyze",
+        "--config", config_yaml, "--run-dir", str(work_run),
+        "--monitor", "llm_qwen_hf",
+    ], cwd="/tmp/traceguard") if proc.returncode == 0 else None
+    manifest["analysis_rc"] = analysis_proc.returncode if analysis_proc else None
+
+    gate_proc = subprocess.run([
+        sys.executable, "/tmp/traceguard/scripts/monitor_gate.py",
+        "--run-dir", str(work_run),
+        "--calibration-split", config_payload["monitor"]["calibration_split"],
+    ], cwd="/tmp/traceguard") if proc.returncode == 0 else None
+    manifest["monitor_gate_rc"] = gate_proc.returncode if gate_proc else None
+
+    verify_proc = subprocess.run([
+        sys.executable, "-m", "traceguard.cli", "verify", "--run-dir", str(work_run),
+    ], cwd="/tmp/traceguard") if proc.returncode == 0 else None
+    manifest["verify_rc"] = verify_proc.returncode if verify_proc else None
+
+    release_archive = OUT / "traceguard-phase3-pilot-release.tar.gz"
+    export_proc = subprocess.run([
+        sys.executable, "-m", "traceguard.cli", "export",
+        "--run-dir", str(work_run), "--archive", str(release_archive),
+    ], cwd="/tmp/traceguard") if analysis_proc and analysis_proc.returncode == 0 else None
+    manifest["export_rc"] = export_proc.returncode if export_proc else None
+
     # ---- copy score artifacts to output ----------------------------------------
     dest = OUT / "traceguard-output" / stage_dir / "run"
     dest.mkdir(parents=True, exist_ok=True)
     for item in ("monitor_scores", "episodes", "privileged", "run_manifest.json",
                  "plan_manifest.json", "logs", "completed_episode_ids.txt",
-                 "transactions", "commits", "artifacts"):
+                 "transactions", "commits", "artifacts", "reports"):
         src = work_run / item
         if src.exists():
             r = run(["cp", "-r", str(src), str(dest)])
@@ -183,7 +208,8 @@ def main() -> int:
     (dest / "environment_monitor.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print("MON KERNEL COMPLETE", json.dumps(manifest, indent=2), flush=True)
-    return 0 if proc.returncode == 0 else 1
+    critical = [proc, analysis_proc, verify_proc, export_proc]
+    return 0 if all(item is not None and item.returncode == 0 for item in critical) else 1
 
 
 if __name__ == "__main__":

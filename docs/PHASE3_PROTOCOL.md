@@ -176,6 +176,17 @@ review guidance is roughly 550–650 episodes only if it also supplies the
 required independent cluster diversity and attempted positives; episode count
 alone is not evidence of power.
 
+The generic `kaggle/gen/kernel.py` is pinned to the audited Phase 3 core commit
+and defaults to this pilot config. It uses episode-level data parallelism across
+both visible T4s and merges the two independently written shards. After that
+output is published as a new Kaggle dataset, update only
+`kaggle/mon/kernel-metadata.json:dataset_sources` to the new dataset slug before
+pushing the monitor kernel. The monitor kernel is pinned to the same core,
+scores raw plus late-fusion arms with one shared base checkpoint, runs analysis,
+gate diagnostics, verification, and fail-closed archive export, and copies
+reports into its output. The existing old-pilot dataset source is intentionally
+rejected by the source-revision gate; it cannot be silently rescored as Phase 3.
+
 ## 8. Release contract
 
 `traceguard export` now fails closed for research runs that lack monitor scores
