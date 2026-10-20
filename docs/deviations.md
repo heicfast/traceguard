@@ -541,3 +541,28 @@ is append-only.
 - **Impact:** monitor-capability and monitor-family cells now score the SAME
   stored episodes as the anchor cell — the capability x family axis of the
   final conclusion runs without regenerating anything.
+
+### 2026-10-20 — ROOT CAUSE CORRECTION: persistent 409s on agent-probe pushes were title/slug collisions, not session reservations
+
+- **Observed:** the agent-role probe kernels (`traceguard-probe-qwen14_agent`,
+  `traceguard-probe-deepseek14_agent`) 409'd on every push since 2026-10-19,
+  blocking the agent-scale matrix cells. The earlier §9.1 explanation
+  (session-reservation window) did not apply: these kernels had NEVER been
+  created, and the accounts were confirmed free by the owner.
+- **Root cause (found 2026-10-20):** both probe metadatas reused the TITLES of
+  the already-completed monitor-role probes ("TRACEGUARD Probe Qwen14" /
+  "TRACEGUARD Probe Deepseek14"). A new-kernel push derives its slug from the
+  TITLE, so the API resolved the push against the EXISTING monitor-probe
+  kernels while the metadata id pointed at a different (underscored, invalid)
+  slug — a create/update conflict surfaced as a bare 409. The underscores in
+  the original ids were an invalid workaround for the collision.
+- **Fix:** distinct titles that resolve exactly to their ids
+  ("TRACEGUARD Probe Qwen14 Agent" → `...-qwen14-agent`, "TRACEGUARD Probe
+  Deepseek14 Agent" → `...-deepseek14-agent`); additionally the deepseek
+  agent-probe metadata carried the WRONG ACCOUNT id (`umar0x/...` instead of
+  `heicfast/...`) — both fixed. Both probes then pushed successfully on the
+  first attempt (v1 admitted).
+- **Lesson (NH-8 class):** every new kernel's title MUST resolve to its id
+  slug; never reuse a title across kernels. The §9.1 reservation-window
+  theory remains valid for post-completion re-pushes of the SAME kernel, but
+  it was never the agent probes' failure mode.
