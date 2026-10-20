@@ -211,7 +211,7 @@ def main() -> int:
     # recomputes this file's hash and compares it to the cell config's frozen
     # probe_artifact_sha256 before constructing the provider (fail-closed;
     # no env var -> no model load).
-    artifact_rel = "runs/probes/monitor/qwen3_14b_monitor_probe_artifact.json"
+    artifact_rel = "runs/v6/probes/monitor/qwen3_14b_monitor_probe_artifact.json"
     artifact_path = Path("/tmp/traceguard") / artifact_rel
     if not artifact_path.exists():
         raise SystemExit(f"monitor probe artifact missing at pinned commit: {artifact_rel}")
