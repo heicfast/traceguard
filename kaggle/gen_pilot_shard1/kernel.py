@@ -15,10 +15,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (edited per push; recorded in output) ---------
-TRACEGUARD_COMMIT = "32a6bc0fb73160b7c910ccf441c0edd8abea502b"
+TRACEGUARD_COMMIT = "9a18c1d4c18a5086690b4c208e4b28b8fc688e7a"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 STAGE = "pilot"        # gpu_smoke | pilot | confirmatory | online
-CONFIG = "configs/pilot.yaml"
+CONFIG = "configs/phase3_pilot.yaml"
 SHARD = 1
 SHARD_COUNT = 2
 TORCH_DTYPE = "float16"    # T4 (sm_75): no native bf16 -> force fp16
