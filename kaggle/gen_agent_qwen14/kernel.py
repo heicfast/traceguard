@@ -134,6 +134,14 @@ def main() -> int:
     manifest["config_monitor_revision"] = cfg_data["monitor"]["model_revision"]
     from types import SimpleNamespace
     agent_spec = SimpleNamespace(**cfg_data["agent"])
+    # Admission artifact for the probe-required agent model: the factory
+    # recomputes this file's hash and compares it to the config's frozen
+    # probe_artifact_sha256 before constructing the provider (fail-closed).
+    artifact_rel = "runs/probes/agent/qwen3_14b_agent_probe_artifact.json"
+    artifact_path = REPO_DIR / artifact_rel
+    gate(artifact_path.exists(),
+         f"agent probe artifact present at pin ({artifact_rel})", manifest)
+    os.environ["TRACEGUARD_AGENT_PROBE_ARTIFACT"] = str(artifact_path)
     patched_cfg = Path("/tmp/run_config.yaml")
     patched_cfg.write_text(yaml.safe_dump(cfg_data, sort_keys=True), encoding="utf-8")
 

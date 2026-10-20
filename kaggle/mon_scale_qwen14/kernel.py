@@ -180,6 +180,15 @@ def main() -> int:
     # shard. Worker run directories are private and merged only after schema +
     # score-id validation, avoiding concurrent JSONL writes.
     os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
+    # Admission artifact for the probe-required monitor model: the factory
+    # recomputes this file's hash and compares it to the cell config's frozen
+    # probe_artifact_sha256 before constructing the provider (fail-closed;
+    # no env var -> no model load).
+    artifact_rel = "runs/probes/monitor/qwen3_14b_monitor_probe_artifact.json"
+    artifact_path = Path("/tmp/traceguard") / artifact_rel
+    if not artifact_path.exists():
+        raise SystemExit(f"monitor probe artifact missing at pinned commit: {artifact_rel}")
+    os.environ["TRACEGUARD_MONITOR_PROBE_ARTIFACT"] = str(artifact_path)
     sys.path.insert(0, "/tmp/traceguard/src")
 
     # ---- run the monitoring CLI over the copied run ------------------------------
