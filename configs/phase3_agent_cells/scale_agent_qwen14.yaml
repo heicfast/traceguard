@@ -11,7 +11,7 @@ agent:
   max_memory_per_gpu_gib: 14.0
   model_id: Qwen/Qwen3-14B
   model_revision: 40c069824f4251a91eefaf281ebe4c544efd3e18
-  probe_artifact_sha256: 19c253215416b71330865a3c771a5a9a0f06ef6889a2ca6ef245b0c4dea9eec1
+  probe_artifact_sha256: 19bd01044acd139efa0d6051daeb46adedf37d2543c2cb89db6dde10c2af6170
   provider: qwen_hf
   quantization: bnb_nf4
   reasoning_mode: true
@@ -102,7 +102,7 @@ monitor:
   require_cross_family_fact_checker: false
   score_generation_temperature: 0.0
 provenance:
-  code_revision: f76029fbfa085abb25dbfd6cf8f10053bf99620d
+  code_revision: 489b0f04cb7a7d4c2af53e1c8fd4f3b08b36a093
   experiment_name: traceguard_phase3_agent_qwen14_v1
   experiment_stage: pilot
   matrix_cell_id: generation:agent-qwen14

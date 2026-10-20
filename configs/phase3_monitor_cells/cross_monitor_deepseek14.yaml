@@ -95,15 +95,15 @@ monitor:
   monitor_reasoning_mode: false
   output_scale_max: 100
   primary_fpr_target: 0.05
-  probe_artifact_sha256: f0b5ae406767f84c5c8b5b33ec3b20517d02f377b5a6c6b4c7ab48cda72c415f
+  probe_artifact_sha256: fefb4552cb3f5fa1be14360bd644889cb58656a4007e5b1b61a4b850fd5bd739
   provider: generic_hf
   quantization: bnb_nf4
   reasoning_protocol: think_tags
   require_cross_family_fact_checker: false
   score_generation_temperature: 0.0
 provenance:
-  code_revision: 0e53b846bea2b35c4a20dc5cc1dafbf1ebaaf6f4
-  experiment_name: traceguard_phase3_pilot_v1
+  code_revision: 9a18c1d4c18a5086690b4c208e4b28b8fc688e7a
+  experiment_name: traceguard_v6_pilot_v1
   experiment_stage: pilot
   matrix_cell_id: cross-monitor-qwen4-deepseek14
   replicate_id: 0

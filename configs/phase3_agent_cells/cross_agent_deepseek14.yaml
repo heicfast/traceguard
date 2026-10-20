@@ -11,7 +11,7 @@ agent:
   max_memory_per_gpu_gib: 14.0
   model_id: deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
   model_revision: 1df8507178afcc1bef68cd8c393f61a886323761
-  probe_artifact_sha256: 615abf83c552b6abe36c034cc2ab1cf0fdcc570f8fa50f9516b853989cb907af
+  probe_artifact_sha256: e0a25259418b8c1a26009eb7f080861ea679df6de8fb9a7a09240901a45d98af
   provider: generic_hf
   quantization: bnb_nf4
   reasoning_mode: true
@@ -102,7 +102,7 @@ monitor:
   require_cross_family_fact_checker: false
   score_generation_temperature: 0.0
 provenance:
-  code_revision: 63831035ae5ecff46027fab02428c6ff299f3bf2
+  code_revision: 489b0f04cb7a7d4c2af53e1c8fd4f3b08b36a093
   experiment_name: traceguard_phase3_agent_deepseek14_v1
   experiment_stage: pilot
   matrix_cell_id: generation:agent-deepseek14

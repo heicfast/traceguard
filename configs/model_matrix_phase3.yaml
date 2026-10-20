@@ -1,4 +1,7 @@
-# TRACEGUARD Phase 3 multi-model study matrix — FROZEN 2026-10-20.
+# TRACEGUARD v0.6.0 multi-model study matrix — RE-FROZEN 2026-10-20 on the
+# hardened core (owner directive 5d1a00e: from-scratch program). Fresh
+# admissions, fresh anchor cohort (runs/v6/pilot_v0_run), fresh probe
+# artifacts under runs/v6/probes/.
 # Materializes the model-capability x family-diversity axis of the phase-3
 # protocol (docs/PHASE3_PROTOCOL.md, docs/MULTI_MODEL_STUDY.md).
 #
@@ -33,8 +36,8 @@ cells:
     primary: true
     account_slot: 0
     replicate_ids: [0]
-    status: frozen_and_running
-    cohort_run: runs/phase3/pilot_v0_run
+    status: frozen
+    cohort_run: runs/v6/pilot_v0_run
     agent: &qwen4_agent
       model_id: Qwen/Qwen3-4B
       revision: 1cfa9a7208912126459214e8b04321603b3df60c
@@ -53,7 +56,7 @@ cells:
     account_slot: 1
     replicate_ids: [0]
     status: frozen
-    cohort_run: runs/phase3/pilot_v0_run
+    cohort_run: runs/v6/pilot_v0_run
     cell_config: configs/phase3_monitor_cells/scale_monitor_qwen14.yaml
     monitor_score_name: llm_qwen_hf_c885515408
     agent: *qwen4_agent
@@ -67,7 +70,7 @@ cells:
       compute_dtype: float16
       attention_backend: sdpa
       max_context_tokens: 8192
-      probe_artifact_sha256: 6a7757b13e62b20bc9af11e51b369df691a901c1be34cc9753d30f377bc5a469
+      probe_artifact_sha256: 7e0a269b93426475854a432b6886381556f43153237a4d992b5082ed00699581
 
   - cell_id: cross-monitor-qwen4-deepseek14
     generation_cohort_id: agent-qwen4
@@ -75,7 +78,7 @@ cells:
     account_slot: 2
     replicate_ids: [0]
     status: frozen
-    cohort_run: runs/phase3/pilot_v0_run
+    cohort_run: runs/v6/pilot_v0_run
     cell_config: configs/phase3_monitor_cells/cross_monitor_deepseek14.yaml
     monitor_score_name: llm_generic_hf_eb379ca5e7
     agent: *qwen4_agent
@@ -89,25 +92,25 @@ cells:
       compute_dtype: float16
       attention_backend: sdpa
       max_context_tokens: 8192
-      probe_artifact_sha256: f0b5ae406767f84c5c8b5b33ec3b20517d02f377b5a6c6b4c7ab48cda72c415f
+      probe_artifact_sha256: fefb4552cb3f5fa1be14360bd644889cb58656a4007e5b1b61a4b850fd5bd739
 
   - cell_id: scale-agent-qwen14-qwen4
     generation_cohort_id: agent-qwen14
     primary: false
     account_slot: 1
     replicate_ids: [0]
-    status: pending_agent_probe
+    status: admitted_v6
     agent:
       model_id: Qwen/Qwen3-14B
-      revision: PIN_AGENT_PROBE_ADMITTED_REVISION
-      tokenizer_revision: PIN_AGENT_PROBE_ADMITTED_REVISION
+      revision: 40c069824f4251a91eefaf281ebe4c544efd3e18
+      tokenizer_revision: 40c069824f4251a91eefaf281ebe4c544efd3e18
       provider: qwen_hf
       reasoning_protocol: qwen3
       quantization: bnb_nf4
       compute_dtype: float16
       attention_backend: sdpa
       max_context_tokens: 8192
-      probe_artifact_sha256: PIN_AGENT_PROBE_ARTIFACT_SHA256
+      probe_artifact_sha256: e0a25259418b8c1a26009eb7f080861ea679df6de8fb9a7a09240901a45d98af
     monitor: *qwen4_agent
 
   - cell_id: cross-agent-deepseek14-qwen4
@@ -115,16 +118,16 @@ cells:
     primary: false
     account_slot: 2
     replicate_ids: [0]
-    status: pending_agent_probe
+    status: admitted_v6
     agent:
       model_id: deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
-      revision: PIN_AGENT_PROBE_ADMITTED_REVISION
-      tokenizer_revision: PIN_AGENT_PROBE_ADMITTED_REVISION
+      revision: 1df8507178afcc1bef68cd8c393f61a886323761
+      tokenizer_revision: 1df8507178afcc1bef68cd8c393f61a886323761
       provider: generic_hf
       reasoning_protocol: think_tags
       quantization: bnb_nf4
       compute_dtype: float16
       attention_backend: sdpa
       max_context_tokens: 8192
-      probe_artifact_sha256: PIN_AGENT_PROBE_ARTIFACT_SHA256
+      probe_artifact_sha256: e0a25259418b8c1a26009eb7f080861ea679df6de8fb9a7a09240901a45d98af
     monitor: *qwen4_agent
