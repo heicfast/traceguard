@@ -126,10 +126,32 @@ def main() -> int:
     resolved_ok = (
         not str(cfg_data["agent"]["model_revision"]).startswith("PIN")
         and not str(cfg_data["monitor"]["model_revision"]).startswith("PIN")
-        and cfg_data["provenance"]["code_revision"] == TRACEGUARD_COMMIT
         and cfg_data["provenance"]["matrix_cell_id"] == CELL_ID
     )
-    gate(resolved_ok, "cell config fully resolved + pinned to this commit", manifest)
+    gate(resolved_ok, "cell config fully resolved (revisions + cell identity)", manifest)
+    # The config's code_revision records the DERIVATION BASE (the commit whose
+    # anchor manifest the config was derived from). The code that actually
+    # runs is THIS kernel's pin, so: (a) the base must be an ancestor of the
+    # pin; (b) the base..pin diff may touch only non-research files (the
+    # config commit itself + kernel scripts); (c) the run records the TRUE
+    # as-run code by substituting code_revision = pin (anchor-kernel
+    # semantics). Any research-core drift between derivation and run fails
+    # loudly here instead of being silently scored.
+    derivation_base = cfg_data["provenance"]["code_revision"]
+    anc = run(["git", "-C", str(REPO_DIR), "merge-base", "--is-ancestor",
+               derivation_base, TRACEGUARD_COMMIT])
+    gate(anc.returncode == 0,
+         f"derivation base {str(derivation_base)[:10]} is an ancestor of the pin", manifest)
+    base_diff = run(["git", "-C", str(REPO_DIR), "diff", "--name-only",
+                     derivation_base, TRACEGUARD_COMMIT])
+    non_research = ("docs/", "scripts/", "kaggle/", "tests/", "runs/",
+                    "configs/", "README.md", ".gitignore")
+    drifted = [ln for ln in base_diff.stdout.splitlines()
+               if ln.strip() and not ln.startswith(non_research)]
+    gate(not drifted, f"derivation-base..pin diff research-clean (got {drifted})", manifest)
+    cfg_data["provenance"]["code_revision"] = TRACEGUARD_COMMIT
+    manifest["config_derivation_base"] = derivation_base
+    manifest["config_code_revision"] = TRACEGUARD_COMMIT
     manifest["config_model_revision"] = cfg_data["agent"]["model_revision"]
     manifest["config_monitor_revision"] = cfg_data["monitor"]["model_revision"]
     from types import SimpleNamespace
