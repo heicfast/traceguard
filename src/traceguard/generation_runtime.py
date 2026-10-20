@@ -40,32 +40,18 @@ def build_provider(provider_name: str, config, stage: str, run_id: str):
         from .models.fake import TaskScriptedAgent
         return "task_scripted_factory", TaskScriptedAgent
     if provider_name == "qwen":
-        from .models.qwen import QwenHFProvider
-        return "qwen_hf", QwenHFProvider(
-            model_id=config.agent.model_id,
-            revision=None if config.agent.model_revision.startswith("PIN") else config.agent.model_revision,
-            tokenizer_revision=(
-                None
-                if config.agent.tokenizer_revision.startswith("PIN")
-                else config.agent.tokenizer_revision
-            ),
-        )
+        from .models.factory import build_hf_provider
+        provider = build_hf_provider(config.agent, role="agent")
+        return provider.provider_name, provider
     # auto: research stages require GPU provider; smoke may use fake
     if stage == "smoke":
         from .models.fake import TaskScriptedAgent
         return "task_scripted_factory", TaskScriptedAgent
     import torch  # noqa: F401  (raises ImportError if torch missing)
 
-    from .models.qwen import QwenHFProvider
-    return "qwen_hf", QwenHFProvider(
-        model_id=config.agent.model_id,
-        revision=None if config.agent.model_revision.startswith("PIN") else config.agent.model_revision,
-        tokenizer_revision=(
-            None
-            if config.agent.tokenizer_revision.startswith("PIN")
-            else config.agent.tokenizer_revision
-        ),
-    )
+    from .models.factory import build_hf_provider
+    provider = build_hf_provider(config.agent, role="agent")
+    return provider.provider_name, provider
 
 
 def _verify_research_provenance(config, stage: str) -> None:
@@ -77,6 +63,19 @@ def _verify_research_provenance(config, stage: str) -> None:
         )
     if canonical_stage == "smoke":
         return
+    from .models.catalog import validate_model_assignment
+
+    profile = validate_model_assignment(
+        config.agent.model_id,
+        role="agent",
+        quantization=config.agent.quantization,
+        allow_probe_required=bool(config.agent.probe_artifact_sha256),
+    )
+    if config.agent.max_context_tokens > profile.native_context_tokens:
+        raise RuntimeError(
+            "configured context exceeds the audited model's native context; "
+            "extended-context scaling requires a separate registered treatment"
+        )
     pins = {
         "code_revision": config.provenance.code_revision,
         "agent.model_revision": config.agent.model_revision,
@@ -121,12 +120,22 @@ def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
 
     manifest_path = store.run_dir / "run_manifest.json"
     if not manifest_path.exists():
+        from .models.catalog import get_model_profile
+        from .runtime_evidence import capture_runtime_environment
+
+        model_profile = (
+            {"model_id": config.agent.model_id, "kind": "deterministic_test_double"}
+            if stage == "smoke" and provider_name == "fake"
+            else get_model_profile(config.agent.model_id).to_payload()
+        )
         store.write_run_manifest({
             **write_run_manifest(config, store.run_dir),
             "run_id": run_id,
             "stage": stage,
             "split_manifest_sha256": manifest_hash(),
             "shard_count": shard_count,
+            "agent_model_profile": model_profile,
+            "runtime_environment": capture_runtime_environment(),
         })
     else:
         existing = json.loads(manifest_path.read_text(encoding="utf-8"))

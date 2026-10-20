@@ -78,6 +78,12 @@ class QwenHFProvider:
         device_map: str | dict | None = None,
         torch_dtype: str = "auto",
         seed: int = 0,
+        quantization: str = "none",
+        attention_backend: str = "sdpa",
+        max_context_tokens: int = 8192,
+        max_memory_per_gpu_gib: float = 14.0,
+        adapter_id: str | None = None,
+        adapter_revision: str | None = None,
     ):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -102,6 +108,14 @@ class QwenHFProvider:
         self.model_id = model_id
         self.device_map = device_map or {"": 0}
         self.applied_dtype = torch_dtype
+        self.quantization = quantization
+        self.attention_backend = attention_backend
+        self.max_context_tokens = int(max_context_tokens)
+        self.max_memory_per_gpu_gib = float(max_memory_per_gpu_gib)
+        self.adapter_id = adapter_id
+        self.adapter_revision = adapter_revision
+        self.model_profile: dict[str, Any] | None = None
+        self.probe_artifact_sha256: str | None = None
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id, revision=tokenizer_revision or revision
         )
@@ -117,7 +131,7 @@ class QwenHFProvider:
         elif dtype_value == "bfloat16":
             dtype_value = torch.bfloat16
         major = int(transformers.__version__.split(".")[0])
-        load_kwargs = {"revision": revision, "device_map": self.device_map}
+        load_kwargs: dict[str, Any] = {"revision": revision, "device_map": self.device_map}
         if major >= 5:
             load_kwargs["dtype"] = dtype_value
         else:
@@ -131,8 +145,39 @@ class QwenHFProvider:
         # (3.37/11.22/21.14 GiB = eager scores at seq ~7.3K/13.3K/18.3K).
         # SDPA never materializes the scores matrix. Fail loudly rather than
         # fall back silently.
-        load_kwargs["attn_implementation"] = os.environ.get("TRACEGUARD_ATTN_IMPL", "sdpa")
+        load_kwargs["attn_implementation"] = os.environ.get(
+            "TRACEGUARD_ATTN_IMPL", attention_backend
+        )
+        if quantization not in {"none", "bnb_nf4", "bnb_int8"}:
+            raise ValueError(f"unsupported transformers quantization: {quantization}")
+        if quantization != "none":
+            from transformers import BitsAndBytesConfig
+
+            if quantization == "bnb_nf4":
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_compute_dtype=torch.float16,
+                )
+            else:
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
+            # dtype still governs non-quantized modules. T4 execution is fp16;
+            # bf16 is rejected by the hardware preflight, not silently cast.
+            self.quantization_config = load_kwargs["quantization_config"].to_dict()
+        else:
+            self.quantization_config = None
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+        if adapter_id:
+            if not adapter_revision:
+                raise ValueError("adapter_revision is required when adapter_id is set")
+            try:
+                from peft import PeftModel
+            except ImportError as exc:
+                raise RuntimeError("loading a tuned adapter requires traceguard[tuning]") from exc
+            self.model = PeftModel.from_pretrained(
+                self.model, adapter_id, revision=adapter_revision, is_trainable=False
+            )
         self.model.eval()
         self.base_seed = int(seed)
 
@@ -152,13 +197,16 @@ class QwenHFProvider:
 
         torch = self._torch
         started = time.perf_counter()
-        prompt_text = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=settings.reasoning_mode,
-        )
+        prompt_text = self._render_prompt(messages, settings)
         inputs = self.tokenizer([prompt_text], return_tensors="pt").to(self.model.device)
+        prompt_tokens = int(inputs["input_ids"].shape[-1])
+        max_context_tokens = getattr(self, "max_context_tokens", 32_768)
+        if prompt_tokens + settings.max_new_tokens > max_context_tokens:
+            raise RuntimeError(
+                "context budget exceeded: "
+                f"prompt={prompt_tokens} + generation={settings.max_new_tokens} > "
+                f"configured max_context_tokens={max_context_tokens}"
+            )
         effective_seed = (self.base_seed + settings.seed * 7919) % (2**31)
         gen_kwargs: dict[str, Any] = {
             "max_new_tokens": settings.max_new_tokens,
@@ -185,6 +233,7 @@ class QwenHFProvider:
                 "top_k": settings.top_k,
             })
         if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats(inputs["input_ids"].device)
             torch.cuda.synchronize()
         with (
             _isolated_generation_rng(torch, inputs["input_ids"].device, effective_seed),
@@ -206,29 +255,9 @@ class QwenHFProvider:
         # mid-think, or the model emitted the tag as literal text), fall back
         # to split_reasoning, which guarantees reasoning can never leak into
         # the visible answer channel.
-        try:
-            index = len(new_ids) - new_ids[::-1].index(QWEN_CLOSE_THINK_TOKEN_ID)
-        except ValueError:
-            index = 0
-        if index > 0:
-            reasoning_ids = new_ids[:index]
-            answer_ids = new_ids[index:]
-            reasoning_text = self.tokenizer.decode(reasoning_ids,
-                                                   skip_special_tokens=True).strip("\n")
-            answer_text = self.tokenizer.decode(answer_ids,
-                                                skip_special_tokens=True).strip("\n")
-            if reasoning_text:
-                parse_status = "complete" if len(reasoning_ids) < settings.max_new_tokens \
-                    else "truncated"
-            else:
-                # empty think block: template-prefilled non-thinking turn
-                parse_status = "empty_block"
-                reasoning_text = None
-        else:
-            turn = split_reasoning(decoded_output, reasoning_mode=settings.reasoning_mode)
-            reasoning_text = turn.reasoning_text
-            answer_text = turn.assistant_text
-            parse_status = turn.reasoning_parse_status
+        reasoning_text, answer_text, parse_status = self._split_generated_output(
+            new_ids, decoded_output, settings
+        )
 
         usage = {
             "prompt_tokens": int(inputs["input_ids"].shape[-1]),
@@ -248,6 +277,17 @@ class QwenHFProvider:
             "device": str(inputs["input_ids"].device),
             "device_map": self.device_map,
             "dtype_policy": str(self.applied_dtype),
+            "quantization": getattr(self, "quantization", "none"),
+            "quantization_config": getattr(self, "quantization_config", None),
+            "attention_backend": getattr(self, "attention_backend", "sdpa"),
+            "max_context_tokens": max_context_tokens,
+            "max_memory_per_gpu_gib": getattr(self, "max_memory_per_gpu_gib", None),
+            "adapter_id": getattr(self, "adapter_id", None),
+            "adapter_revision": getattr(self, "adapter_revision", None),
+            "model_profile": getattr(self, "model_profile", None),
+            "probe_artifact_sha256": getattr(self, "probe_artifact_sha256", None),
+            "model_memory_footprint_bytes": int(self.model.get_memory_footprint())
+            if hasattr(self.model, "get_memory_footprint") else None,
             "deterministic_algorithms_enabled": torch.are_deterministic_algorithms_enabled(),
             "rng_strategy": "torch.random.fork_rng+torch.manual_seed",
         }
@@ -258,6 +298,8 @@ class QwenHFProvider:
                 "name": props.name,
                 "capability": list(torch.cuda.get_device_capability(device_index)),
                 "total_memory_bytes": props.total_memory,
+                "peak_allocated_bytes": torch.cuda.max_memory_allocated(device_index),
+                "peak_reserved_bytes": torch.cuda.max_memory_reserved(device_index),
             }
         serializable_gen_kwargs = dict(gen_kwargs)
         serializable_gen_kwargs["seed"] = effective_seed
@@ -281,6 +323,46 @@ class QwenHFProvider:
             generation_parameters=serializable_gen_kwargs,
             runtime_metadata=runtime_metadata,
         )
+
+    def _render_prompt(
+        self, messages: list[dict[str, str]], settings: GenerationSettings
+    ) -> str:
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=settings.reasoning_mode,
+        )
+
+    def _split_generated_output(
+        self,
+        new_ids: list[int],
+        decoded_output: str,
+        settings: GenerationSettings,
+    ) -> tuple[str | None, str, str]:
+        try:
+            index = len(new_ids) - new_ids[::-1].index(QWEN_CLOSE_THINK_TOKEN_ID)
+        except ValueError:
+            index = 0
+        if index > 0:
+            reasoning_ids = new_ids[:index]
+            answer_ids = new_ids[index:]
+            reasoning_text = self.tokenizer.decode(
+                reasoning_ids, skip_special_tokens=True
+            ).strip("\n")
+            answer_text = self.tokenizer.decode(
+                answer_ids, skip_special_tokens=True
+            ).strip("\n")
+            if reasoning_text:
+                parse_status = (
+                    "complete" if len(reasoning_ids) < settings.max_new_tokens else "truncated"
+                )
+            else:
+                parse_status = "empty_block"
+                reasoning_text = None
+            return reasoning_text, answer_text, parse_status
+        turn = split_reasoning(decoded_output, reasoning_mode=settings.reasoning_mode)
+        return turn.reasoning_text, turn.assistant_text, turn.reasoning_parse_status
 
 
     def _prefill_logits_guard(self) -> dict[str, int]:
@@ -311,31 +393,10 @@ class QwenHFProvider:
 
 
 def build_provider_from_config(config, seed: int = 0):
-    """Factory used by GPU runtimes; returns a loaded provider instance."""
-    import json
+    """Backward-compatible entry point routed through the audited factory."""
+    from .factory import build_hf_provider
 
-    agent_cfg = config.agent
-    device_map = {"": 0}
-    raw_map = os.environ.get("TRACEGUARD_DEVICE_MAP", "").strip()
-    if raw_map:
-        try:
-            device_map = json.loads(raw_map)
-            if not isinstance(device_map, dict):
-                device_map = {"": 0}
-        except json.JSONDecodeError:
-            device_map = {"": 0}
-    return QwenHFProvider(
-        model_id=agent_cfg.model_id,
-        revision=None if agent_cfg.model_revision.startswith("PIN") else agent_cfg.model_revision,
-        tokenizer_revision=(
-            None
-            if agent_cfg.tokenizer_revision.startswith("PIN")
-            else agent_cfg.tokenizer_revision
-        ),
-        device_map=device_map,
-        torch_dtype=os.environ.get("TRACEGUARD_TORCH_DTYPE", "auto"),
-        seed=seed,
-    )
+    return build_hf_provider(config.agent, role="agent", seed=seed)
 
 
 __all__ = [

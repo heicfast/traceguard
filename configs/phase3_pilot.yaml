@@ -14,6 +14,13 @@ agent:
   max_agent_turns: 10
   max_invalid_tool_calls: 3
   max_context_messages: 40
+  provider: qwen_hf
+  reasoning_protocol: qwen3
+  quantization: none
+  compute_dtype: float16
+  attention_backend: sdpa
+  max_context_tokens: 8192
+  max_memory_per_gpu_gib: 14.0
 sandbox:
   backend: in_memory_deterministic
   network_enabled: false
@@ -45,6 +52,13 @@ monitor:
   output_scale_max: 100
   max_output_tokens: 512
   evidence_ref_max_chars: 96
+  provider: qwen_hf
+  reasoning_protocol: qwen3
+  quantization: none
+  compute_dtype: float16
+  attention_backend: sdpa
+  max_context_tokens: 8192
+  max_memory_per_gpu_gib: 14.0
 analysis:
   primary_estimand: recall_difference_at_dev_calibrated_fpr
   cluster_key: template_id
@@ -59,6 +73,8 @@ analysis:
   min_score_levels: 10
   min_paired_retention: 0.90
   min_allowed_calibration_false_positives: 3
+  min_trace_coverage: 0.90
+  require_model_stratified_report: true
 provenance:
   code_revision: PIN_EXACT_COMMIT_BEFORE_RUN
   experiment_name: traceguard_phase3_pilot_v1

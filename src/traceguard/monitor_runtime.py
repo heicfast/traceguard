@@ -8,15 +8,17 @@ scored are skipped, enabling crash-resumable monitor shards.
 
 from __future__ import annotations
 
+import json
 import traceback
+from types import SimpleNamespace
 from typing import Any
 
 from .config import load_config
-from .generation_runtime import compute_run_id
+from .ids import sha256_text
 from .monitors.conditions import build_partner_index, compile_all_conditions, find_partner
 from .monitors.rules import KeywordMonitor, RuleMonitor
 from .traces.schema import validate_monitor_score
-from .traces.storage import RunStore
+from .traces.storage import RunStore, atomic_write_json
 from .traces.views import CHARS_PER_TOKEN_FACTOR
 
 DETERMINISTIC_MONITORS = {"rules_v1": RuleMonitor, "keywords_v1": KeywordMonitor}
@@ -30,12 +32,31 @@ def reasoning_window_from_config(config) -> int:
 
 
 def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
-                   conditions: list[str] | None = None, limit: int | None = None) -> dict[str, Any]:
+                   conditions: list[str] | None = None, limit: int | None = None,
+                   shard: int = 0, shard_count: int = 1) -> dict[str, Any]:
+    if shard_count <= 0 or not 0 <= shard < shard_count:
+        raise ValueError("monitor shard must satisfy 0 <= shard < shard_count")
     config = load_config(config_path)
     store = RunStore(run_dir)
     stage = _stage_from_manifest(store)
-    run_id = compute_run_id(config, stage=stage)
-    episodes = store.load_all_episodes(validate=True)
+    generation_manifest = store.read_run_manifest()
+    generation_config = generation_manifest.get("config", {})
+    requested_config = config.to_payload()
+    for section in ("seed", "agent", "sandbox", "dataset"):
+        if generation_config.get(section) != requested_config.get(section):
+            raise RuntimeError(
+                f"monitor config changes generation-defining section {section!r}; "
+                "score the stored episodes with the identical agent/dataset specification"
+            )
+    for key in ("code_revision", "experiment_name", "experiment_stage", "replicate_id"):
+        if generation_config.get("provenance", {}).get(key) != requested_config.get(
+            "provenance", {}
+        ).get(key):
+            raise RuntimeError(f"monitor config changes generation provenance field {key!r}")
+    run_id = generation_manifest["run_id"]
+    all_episodes = store.load_all_episodes(validate=True)
+    episodes = [episode for index, episode in enumerate(all_episodes)
+                if index % shard_count == shard]
     if limit:
         episodes = episodes[:limit]
     if not episodes:
@@ -43,28 +64,34 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
     conditions = conditions or config.monitor.conditions
 
     privileged = store.load_all_privileged()
-    partner_index = build_partner_index(episodes)
+    partner_index = build_partner_index(all_episodes)
     window_chars = reasoning_window_from_config(config)
 
     monitors: list[Any] = []
     shared_llm_provider = None
 
-    def local_provider(model_id: str, revision: str, device_map=None):
-        from .models.qwen import QwenHFProvider
-        return QwenHFProvider(
-            model_id=model_id,
-            revision=None if revision.startswith("PIN") else revision,
-            tokenizer_revision=None if revision.startswith("PIN") else revision,
-            device_map=device_map,
-        )
+    def monitor_identity(provider) -> str:
+        base = f"llm_{provider.provider_name}"
+        if not config.provenance.matrix_cell_id:
+            return base
+        identity = "|".join([
+            config.monitor.model_id,
+            config.monitor.model_revision,
+            config.monitor.adapter_id or "",
+            config.monitor.adapter_revision or "",
+        ])
+        return f"{base}_{sha256_text(identity)[:10]}"
+
+    def local_provider(spec, role="monitor", device_map=None):
+        from .models.factory import build_hf_provider
+        return build_hf_provider(spec, role=role, device_map=device_map)
 
     for name in monitor_names:
         if name in DETERMINISTIC_MONITORS:
             monitors.append(DETERMINISTIC_MONITORS[name]())
         elif name in {"late_fusion", "fact_checked"}:
             if shared_llm_provider is None:
-                shared_llm_provider = local_provider(
-                    config.monitor.model_id, config.monitor.model_revision)
+                shared_llm_provider = local_provider(config.monitor)
             fact_provider = None
             if name == "fact_checked":
                 if stage == "confirmatory" and not config.monitor.require_cross_family_fact_checker:
@@ -88,8 +115,25 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                         and fact_id.split("/")[0] == config.monitor.model_id.split("/")[0]):
                     raise ValueError(
                         "fact checker must also use a different model-organization namespace")
+                fact_spec = SimpleNamespace(
+                    model_id=fact_id,
+                    model_revision=fact_rev,
+                    tokenizer_revision=fact_rev,
+                    provider=config.monitor.fact_checker_provider,
+                    reasoning_protocol=config.monitor.fact_checker_reasoning_protocol,
+                    quantization=config.monitor.fact_checker_quantization,
+                    compute_dtype=config.monitor.fact_checker_compute_dtype,
+                    attention_backend=config.monitor.fact_checker_attention_backend,
+                    max_context_tokens=config.monitor.fact_checker_max_context_tokens,
+                    max_memory_per_gpu_gib=config.monitor.fact_checker_max_memory_per_gpu_gib,
+                    adapter_id=config.monitor.fact_checker_adapter_id,
+                    adapter_revision=config.monitor.fact_checker_adapter_revision,
+                    probe_artifact_sha256=(
+                        config.monitor.fact_checker_probe_artifact_sha256
+                    ),
+                )
                 fact_provider = local_provider(
-                    fact_id, fact_rev, config.monitor.fact_checker_device_map)
+                    fact_spec, "fact_checker", config.monitor.fact_checker_device_map)
             from .monitors.structured import StructuredLateFusionMonitor
             structured_monitor = StructuredLateFusionMonitor(
                 shared_llm_provider,
@@ -102,16 +146,14 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
             # Conditions are experimental arms of one monitor system and must
             # join into one paired analysis frame.  The condition records the
             # architecture; the monitor name records the shared base scorer.
-            structured_monitor.name = f"llm_{shared_llm_provider.provider_name}"
+            structured_monitor.name = monitor_identity(shared_llm_provider)
             monitors.append(structured_monitor)
         elif name.startswith("llm"):
             # Pin the monitor checkpoint to the frozen config revision. A
             # resumable monitor run must never silently mix two monitor
             # checkpoints across pushes (review finding 2026-10-19).
-            monitor_revision = config.monitor.model_revision
             if shared_llm_provider is None:
-                shared_llm_provider = local_provider(
-                    config.monitor.model_id, monitor_revision)
+                shared_llm_provider = local_provider(config.monitor)
             provider = shared_llm_provider
             from .monitors.llm import LLMMonitor
             monitor = LLMMonitor(provider, settings_overrides={
@@ -119,7 +161,7 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                 "temperature": config.monitor.score_generation_temperature,
             }, retry_once=config.monitor.missing_score_policy == "retry_once",
                 evidence_ref_max_chars=config.monitor.evidence_ref_max_chars)
-            monitor.name = f"llm_{provider.provider_name}"
+            monitor.name = monitor_identity(provider)
             monitors.append(monitor)
         else:
             raise ValueError(f"unknown monitor: {name}")
@@ -182,11 +224,42 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
             totals[condition] = len(batch) + len(existing & {e["episode_id"] for e in episodes})
         scored_totals.setdefault(monitor.name, {}).update(totals)
 
+    from .runtime_evidence import capture_runtime_environment
+
+    session = {
+        "schema_version": "1.0.0",
+        "run_id": run_id,
+        "config_sha256": config.content_hash(),
+        "matrix_cell_id": config.provenance.matrix_cell_id,
+        "replicate_id": config.provenance.replicate_id,
+        "shard": shard,
+        "shard_count": shard_count,
+        "conditions": conditions,
+        "monitor_names_requested": monitor_names,
+        "scored": scored_totals,
+        "failures": failures,
+        "monitor_model_profile": (
+            getattr(shared_llm_provider, "model_profile", None)
+            if shared_llm_provider is not None else None
+        ),
+        "monitor_probe_artifact_sha256": config.monitor.probe_artifact_sha256,
+        "runtime_environment": capture_runtime_environment(),
+    }
+    session["session_sha256"] = sha256_text(
+        json.dumps(session, sort_keys=True, separators=(",", ":"))
+    )
+    session_id = sha256_text(
+        f"{config.content_hash()}|{shard}|{shard_count}|{','.join(monitor_names)}"
+    )[:20]
+    atomic_write_json(
+        store.artifact_dir / "monitor_sessions" / f"session-{session_id}.json", session
+    )
     store.write_checksums()
     return {
         "ok": not failures,
         "run_id": run_id,
         "episodes_considered": len(episodes),
+        "shard": f"{shard}/{shard_count}",
         "conditions": conditions,
         "scored": scored_totals,
         "failures": failures[:20],

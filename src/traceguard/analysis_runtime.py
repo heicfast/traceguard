@@ -480,6 +480,22 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
     }
 
     funnel = summarize_funnel(rows)
+    trace_denominator = [row for row in rows if row["status"] != "runtime_error"]
+    trace_coverage = (
+        sum(bool(row["trace_available"]) for row in trace_denominator)
+        / len(trace_denominator)
+        if trace_denominator else 0.0
+    )
+    trace_coverage_by_split = {
+        split: (
+            sum(bool(row["trace_available"]) for row in split_rows) / len(split_rows)
+        )
+        for split in ("development", "validation", "holdout", "shift")
+        if (split_rows := [
+            row for row in trace_denominator if row["split_role"] == split
+        ])
+    }
+    run_manifest = store.read_run_manifest()
     report = {
         "schema_version": "2.0.0",
         "analysis_monitor": monitor_name,
@@ -499,13 +515,33 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
         "measurement_diagnostics": _measurement_diagnostics(
             store, rows, conditions, config),
         "precision_gate": precision_gate,
+        "trace_coverage_gate": {
+            "coverage": trace_coverage,
+            "minimum": config.analysis.min_trace_coverage,
+            "by_split": trace_coverage_by_split,
+            "gate_passed": trace_coverage >= config.analysis.min_trace_coverage,
+            "consequence": (
+                "CoT contrasts admissible"
+                if trace_coverage >= config.analysis.min_trace_coverage
+                else "CoT contrasts blocked: emitted trace coverage is below the frozen minimum"
+            ),
+        },
+        "model_identity": {
+            "agent_model_id": config.agent.model_id,
+            "agent_model_revision": config.agent.model_revision,
+            "monitor_model_id": config.monitor.model_id,
+            "monitor_model_revision": config.monitor.model_revision,
+            "matrix_cell_id": config.provenance.matrix_cell_id,
+            "replicate_id": config.provenance.replicate_id,
+            "agent_model_profile": run_manifest.get("agent_model_profile"),
+        },
         "config_sha256": config.content_hash(),
         "cluster_key": config.analysis.cluster_key,
         "estimand": config.analysis.primary_estimand,
     }
 
     # -- figures ------------------------------------------------------------------
-    prov = provenance_line(store.read_run_manifest().get("run_id", "run"),
+    prov = provenance_line(run_manifest.get("run_id", "run"),
                            config.content_hash(), monitor_name)
     holdout_rows = [r for r in paired_rows if r["split_role"] == "holdout"]
     figures: list[str] = []
@@ -558,6 +594,7 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
         "report_path": str(report_path),
         "funnel": funnel,
         "precision_gate": precision_gate,
+        "trace_coverage_gate": report["trace_coverage_gate"],
         "holdout": holdout_report,
         "figures": figures,
     }

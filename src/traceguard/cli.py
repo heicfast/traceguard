@@ -8,6 +8,7 @@ Commands (docs/06 command contract):
     analyze   - metrics, paired bootstrap, figures, reports
     verify    - integrity verification of a run directory (hashes, schema)
     export    - package a run for export (checksums + manifest)
+    probe-model / matrix-* / prepare-tuning - multi-model study controls
 
 Every command writes explicit success/failure results; nothing is silently
 swallowed. GPU stages record provider identity; fake providers are allowed
@@ -104,6 +105,8 @@ def cmd_monitor(args: argparse.Namespace) -> int:
         monitor_names=args.monitors,
         conditions=args.conditions or None,
         limit=args.limit,
+        shard=args.shard,
+        shard_count=args.shard_count,
     )
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
     return 0 if result.get("ok") else 1
@@ -143,6 +146,58 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0 if result["ok"] or args.allow_incomplete else 1
 
 
+def cmd_matrix_plan(args: argparse.Namespace) -> int:
+    """Validate a frozen multi-model matrix and emit its deterministic job plan."""
+    from .model_matrix import build_schedule, load_model_matrix
+
+    matrix = load_model_matrix(args.matrix)
+    result = build_schedule(matrix)
+    if args.out:
+        from .traces.storage import atomic_write_json
+
+        atomic_write_json(args.out, result)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_matrix_materialize(args: argparse.Namespace) -> int:
+    """Write immutable per-job configs and a deduplicated schedule."""
+    from .model_matrix import load_model_matrix, materialize_matrix
+
+    result = materialize_matrix(load_model_matrix(args.matrix), args.out)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_prepare_tuning(args: argparse.Namespace) -> int:
+    """Build a development-only monitor SFT corpus with a hashed manifest."""
+    from .tuning import prepare_tuning_corpus
+
+    config = load_config(args.config)
+    result = prepare_tuning_corpus(
+        config=config,
+        run_dir=args.run_dir,
+        output_dir=args.out,
+        conditions=args.conditions,
+    )
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_probe_model(args: argparse.Namespace) -> int:
+    """Run and persist the hardware/template/reasoning admission gates."""
+    from .model_probe import run_model_probe
+
+    result = run_model_probe(args.config, args.role, args.out)
+    print(json.dumps({
+        "all_gates_passed": result["all_gates_passed"],
+        "artifact_sha256": result["artifact_sha256"],
+        "output": args.out,
+        "gates": result["gates"],
+    }, indent=2, sort_keys=True))
+    return 0 if result["all_gates_passed"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceguard")
     parser.add_argument("--version", action="version", version=f"traceguard {__version__}")
@@ -174,6 +229,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--monitors", nargs="+", default=["rules_v1", "llm_v1"])
     p.add_argument("--conditions", nargs="+", default=None)
     p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--shard", type=int, default=0)
+    p.add_argument("--shard-count", type=int, default=1)
     p.set_defaults(func=cmd_monitor)
 
     p = sub.add_parser("analyze", help="paired analysis and figures")
@@ -194,6 +251,33 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--allow-incomplete", action="store_true",
                    help="export an explicitly marked operational checkpoint")
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("matrix-plan", help="validate and schedule a multi-model study")
+    p.add_argument("--matrix", required=True)
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=cmd_matrix_plan)
+
+    p = sub.add_parser("matrix-materialize", help="write frozen configs for matrix jobs")
+    p.add_argument("--matrix", required=True)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_matrix_materialize)
+
+    p = sub.add_parser(
+        "prepare-tuning", help="prepare a development-only secondary QLoRA corpus"
+    )
+    p.add_argument("--config", required=True)
+    p.add_argument("--run-dir", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument(
+        "--conditions", nargs="+", default=["actions", "actions_plus_cot"]
+    )
+    p.set_defaults(func=cmd_prepare_tuning)
+
+    p = sub.add_parser("probe-model", help="run a T4 model admission probe")
+    p.add_argument("--config", required=True)
+    p.add_argument("--role", choices=["agent", "monitor"], required=True)
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_probe_model)
 
     args = parser.parse_args(argv)
     return int(args.func(args) or 0)

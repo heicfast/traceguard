@@ -18,6 +18,7 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M5 monitor conditions A/C/D/E on same episodes | done |
 | M6 64-episode pilot + independent review | done; exploratory, negative-leaning |
 | M6.5 Phase 3 hardening | implemented on `v6`; new pilot required |
+| M6.6 multi-model/T4 architecture | implemented; admission probes and revision freeze required |
 | M7 preregistration freeze | blocked on Phase 3 gates and sizing |
 | M8 confirmatory + online intervention | pending |
 
@@ -60,14 +61,14 @@ Frozen experiment configs drive seeded task-instance generation across twelve sy
 src/traceguard/
   tasks/       TaskSpec registry (12 families, 24 templates), seeded instances, split manifest
   sandbox/     pure state, typed actions, engine, invariants, exact grader
-  models/      provider contract, FakeModel/scripted agent, Qwen3 HF adapter
+  models/      provider contract, audited model registry, quantized HF adapters
   agents/      honest/attack policy composition, episode runner
   traces/      schema validation, atomic storage, allowlist view compiler
   monitors/    rules/keyword baselines, LLM monitor, condition harness
   protocols/   pre-action online intervention (phase two)
   analyses/    metrics (AUROC/AP/recall@FPR), paired cluster bootstrap, plots
-  cli.py       doctor | smoke | generate | monitor | analyze | verify | export
-configs/       smoke.yaml, legacy pilot.yaml, phase3_pilot.yaml
+  cli.py       doctor | probe-model | matrix-plan/materialize | prepare-tuning | pipeline
+configs/       smoke/pilot configs plus the multi-model matrix freeze template
 tests/         unit + property + integration tests
 docs/          protocol, architecture, SOPs, quality manual, review system
 kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
@@ -83,6 +84,7 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - [`docs/RAW_EVIDENCE_SPEC.md`](docs/RAW_EVIDENCE_SPEC.md) — exact token/prompt/runtime retention and release separation
 - [`docs/RESEARCH_REVIEW_V2.md`](docs/RESEARCH_REVIEW_V2.md) — consolidated findings and confirmatory blockers
 - [`docs/PHASE3_PROTOCOL.md`](docs/PHASE3_PROTOCOL.md) — harder task strata, structured monitoring, statistics, and release contract
+- [`docs/MULTIMODEL_STUDY.md`](docs/MULTIMODEL_STUDY.md) — T4 feasibility, audited model matrix, admission probes, tuning isolation, and raw-evidence additions
 - [`docs/prior_art_matrix.md`](docs/prior_art_matrix.md) — how TRACEGUARD differs from SLEIGHT-Bench, MonitorBench, OpenAI monitorability evals, SHADE-Arena
 - [`docs/research_question.md`](docs/research_question.md) — the one falsifiable hypothesis and its negative outcomes
 - [`docs/deviations.md`](docs/deviations.md) — dated deviation log (changes after any freeze)

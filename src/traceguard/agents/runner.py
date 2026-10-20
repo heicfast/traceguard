@@ -265,6 +265,13 @@ def run_episode(
         "provenance": {
             "code_revision": config.provenance.code_revision,
             "model_revision": getattr(provider, "model_revision", config.agent.model_revision),
+            "model_id": config.agent.model_id,
+            "model_profile_sha256": (getattr(provider, "model_profile", None) or {}).get(
+                "profile_sha256"
+            ),
+            "quantization": config.agent.quantization,
+            "adapter_id": config.agent.adapter_id,
+            "adapter_revision": config.agent.adapter_revision,
             "config_sha256": config.content_hash(),
             "provider": getattr(provider, "provider_name", "unknown"),
             "task_hash": task.task_hash,

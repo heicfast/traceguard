@@ -150,14 +150,14 @@ def main() -> int:
     manifest["transformers_used"] = transformers.__version__
 
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
-    # Split the shared base monitor across both T4s. Raw scoring and structured
-    # late fusion reuse this one loaded checkpoint; no duplicate base model is
-    # allocated. Placement is recorded in each inference audit.
-    os.environ["TRACEGUARD_DEVICE_MAP"] = "auto"
+    # Each worker receives one independent model copy and a disjoint episode
+    # shard. Worker run directories are private and merged only after schema +
+    # score-id validation, avoiding concurrent JSONL writes.
+    os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
     sys.path.insert(0, "/tmp/traceguard/src")
 
     # ---- run the monitoring CLI over the copied run ------------------------------
-    mon_cmd = [sys.executable, "-m", "traceguard.cli", "monitor",
+    mon_cmd = [sys.executable, "/tmp/traceguard/scripts/run_monitor_workers.py",
                "--config", config_yaml,
                "--run-dir", str(work_run),
                "--monitors"] + MONITORS

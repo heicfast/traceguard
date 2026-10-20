@@ -176,6 +176,13 @@ review guidance is roughly 550–650 episodes only if it also supplies the
 required independent cluster diversity and attempted positives; episode count
 alone is not evidence of power.
 
+The next pilot also uses the predeclared agent×monitor design in
+`docs/MULTIMODEL_STUDY.md`. Model size, monitor size, family, quantization,
+context budget, and tuning are separate factors. The Qwen3-4B cell remains the
+primary continuity anchor; larger/cross-family cells are robustness analyses
+until their T4 admission artifacts and exact revisions are frozen. Three
+Kaggle accounts provide independent execution quota, not pooled device memory.
+
 The generic `kaggle/gen/kernel.py` is pinned to the audited Phase 3 core commit
 and defaults to this pilot config. It uses episode-level data parallelism across
 both visible T4s and merges the two independently written shards. After that

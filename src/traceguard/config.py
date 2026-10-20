@@ -17,6 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .ids import sha256_json
 
 
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(char in "0123456789abcdef" for char in value)
+
+
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", validate_assignment=True)
 
@@ -34,6 +38,26 @@ class AgentConfig(FrozenModel):
     max_agent_turns: int = Field(gt=0, default=8)
     max_invalid_tool_calls: int = Field(ge=0, default=2)
     max_context_messages: int = Field(gt=0, default=40)
+    provider: Literal["auto", "qwen_hf", "generic_hf"] = "auto"
+    reasoning_protocol: Literal["auto", "qwen3", "think_tags", "none"] = "auto"
+    quantization: Literal["none", "bnb_nf4", "bnb_int8"] = "none"
+    compute_dtype: Literal["float16", "bfloat16", "float32"] = "float16"
+    attention_backend: Literal["sdpa", "eager"] = "sdpa"
+    max_context_tokens: int = Field(gt=512, default=8192)
+    max_memory_per_gpu_gib: float = Field(gt=1.0, default=14.0)
+    adapter_id: str | None = None
+    adapter_revision: str | None = None
+    probe_artifact_sha256: str | None = None
+
+    @model_validator(mode="after")
+    def _check_runtime_contract(self) -> AgentConfig:
+        if self.reasoning_mode and self.reasoning_protocol == "none":
+            raise ValueError("reasoning_mode requires a trace-producing reasoning_protocol")
+        if bool(self.adapter_id) != bool(self.adapter_revision):
+            raise ValueError("adapter_id and adapter_revision must be pinned together")
+        if self.probe_artifact_sha256 and not _is_sha256(self.probe_artifact_sha256):
+            raise ValueError("probe_artifact_sha256 must be 64 lowercase hex characters")
+        return self
 
 
 class SandboxConfig(FrozenModel):
@@ -104,6 +128,26 @@ class MonitorConfig(FrozenModel):
     fact_checker_model_family: str | None = None
     fact_checker_device_map: str | dict[str, int | str] | None = "auto"
     require_cross_family_fact_checker: bool = False
+    fact_checker_provider: Literal["auto", "qwen_hf", "generic_hf"] = "auto"
+    fact_checker_reasoning_protocol: Literal["auto", "qwen3", "think_tags", "none"] = "auto"
+    fact_checker_quantization: Literal["none", "bnb_nf4", "bnb_int8"] = "none"
+    fact_checker_compute_dtype: Literal["float16", "bfloat16", "float32"] = "float16"
+    fact_checker_attention_backend: Literal["sdpa", "eager"] = "sdpa"
+    fact_checker_max_context_tokens: int = Field(gt=512, default=8192)
+    fact_checker_max_memory_per_gpu_gib: float = Field(gt=1.0, default=14.0)
+    fact_checker_adapter_id: str | None = None
+    fact_checker_adapter_revision: str | None = None
+    fact_checker_probe_artifact_sha256: str | None = None
+    provider: Literal["auto", "qwen_hf", "generic_hf"] = "auto"
+    reasoning_protocol: Literal["auto", "qwen3", "think_tags", "none"] = "auto"
+    quantization: Literal["none", "bnb_nf4", "bnb_int8"] = "none"
+    compute_dtype: Literal["float16", "bfloat16", "float32"] = "float16"
+    attention_backend: Literal["sdpa", "eager"] = "sdpa"
+    max_context_tokens: int = Field(gt=512, default=8192)
+    max_memory_per_gpu_gib: float = Field(gt=1.0, default=14.0)
+    adapter_id: str | None = None
+    adapter_revision: str | None = None
+    probe_artifact_sha256: str | None = None
 
     @field_validator("conditions")
     @classmethod
@@ -120,6 +164,18 @@ class MonitorConfig(FrozenModel):
 
     @model_validator(mode="after")
     def _check_fact_checker(self) -> MonitorConfig:
+        if bool(self.adapter_id) != bool(self.adapter_revision):
+            raise ValueError("monitor adapter_id and adapter_revision must be pinned together")
+        if bool(self.fact_checker_adapter_id) != bool(self.fact_checker_adapter_revision):
+            raise ValueError(
+                "fact-checker adapter_id and adapter_revision must be pinned together"
+            )
+        for name, value in (
+            ("probe_artifact_sha256", self.probe_artifact_sha256),
+            ("fact_checker_probe_artifact_sha256", self.fact_checker_probe_artifact_sha256),
+        ):
+            if value and not _is_sha256(value):
+                raise ValueError(f"{name} must be 64 lowercase hex characters")
         if ("actions_plus_cot_fact_checked" in self.conditions
                 and (not self.fact_checker_model_id or not self.fact_checker_model_revision)):
             raise ValueError(
@@ -153,12 +209,16 @@ class AnalysisConfig(FrozenModel):
     min_score_levels: int = Field(gt=1, default=10)
     min_paired_retention: float = Field(gt=0.0, le=1.0, default=0.90)
     min_allowed_calibration_false_positives: int = Field(ge=0, default=3)
+    min_trace_coverage: float = Field(ge=0.0, le=1.0, default=0.90)
+    require_model_stratified_report: bool = True
 
 
 class ProvenanceConfig(FrozenModel):
     code_revision: str = "PIN_BEFORE_RUN"
     experiment_name: str
     experiment_stage: Literal["smoke", "pilot", "confirmatory", "online"] = "pilot"
+    matrix_cell_id: str | None = None
+    replicate_id: int = Field(ge=0, default=0)
 
 
 class ExperimentConfig(FrozenModel):
