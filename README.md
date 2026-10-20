@@ -125,7 +125,7 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 ## Grounding
 
 - Korbak et al., *Chain of Thought Monitorability: A New and Fragile Opportunity for AI Safety* — https://arxiv.org/abs/2507.11473
-- Greenblatt et al., *AI Control: Improving Safety Despite Intentional Subversion* — https://proceedings.mlr.press/v235/greenblatt24a.html
+- Greenblatt et al., *AI Control: Improving Safety Despite Intentional Subversion* https://proceedings.mlr.press/v235/greenblatt24a.html
 - Najt, Toft, Tracy, Roger, Benton, *SLEIGHT-Bench: A Benchmark of Evasion Attacks Against Agent Monitors* (arXiv:2605.16626) — https://alignment.anthropic.com/2026/sleight-bench/
 - OpenAI, *Evaluating chain-of-thought monitorability* — https://openai.com/index/evaluating-chain-of-thought-monitorability
 - Kutasov et al., *Evaluating Control Protocols for Untrusted AI Agents* (AAAI 2026 workshop)
