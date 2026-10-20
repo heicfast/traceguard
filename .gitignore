@@ -26,6 +26,10 @@ runs/*
 !runs/gpu_feasibility/
 data/generated/
 artifacts/
+# Research-run integrity manifests are evidence, not build artifacts:
+# the per-file SHA-256 manifest IS the checksum coverage the release
+# contract promises (2026-10-20 reproducibility-audit condition).
+!runs/**/artifacts/
 
 # Secrets — never commit
 # NOTE: never use broad patterns like *KAGGLE* here — it silently excluded

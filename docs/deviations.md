@@ -393,3 +393,66 @@ is append-only.
   frozen and the stated gates pass.
 - **Approval:** project owner requested implementation on a new branch; merge
   remains subject to review.
+
+### 2026-10-20 — PR #3 (Phase 3 multi-model architecture) merged after line-by-line review
+
+- **Observed:** PR #3 (branch `v6`, 7 commits, 4,346 insertions) restructures the
+  research core for Phase 3: audited model registry + fail-closed provider
+  factory with probe-artifact enforcement, generic tagged-reasoning adapter,
+  relational non-action-visible task families (`ref_target_equals` invariants),
+  four frozen attack-presentation strata, 0–100 four-component rubric,
+  structured late-fusion monitor, pairwise-complete per-comparison analysis,
+  explicit CI eligibility with exact small-cluster distributions, dual-T4 worker
+  runtimes with validated merges, QLoRA development-only tuning path, and the
+  fail-closed release contract.
+- **Review:** every commit read file-by-file against the project's
+  prior-failure checklist (merge-shard globbing, kernel copy lists, OOM
+  traps, transformers-5 compatibility, think-tag constants, provenance gates,
+  condition blindness, E-pairing). 158 tests green, ruff clean, mypy clean
+  across 52 files, CI green on the branch tip; old-pilot outcome re-grade
+  passes unchanged (64/64) on the merged core.
+- **Verified-not-broken:** worker merges use private run dirs + per-record
+  schema validation + conflicting-id detection; the monitor kernel copy list
+  now includes the completion ledger; context-budget enforcement
+  (`prompt + generation <= max_context_tokens`) closes the pilot's OOM class;
+  E-pairing remains strategy-safe because each strategy's twins share a
+  disjoint seed stream; the smoke-only calibration fallback is explicit and
+  labeled.
+- **Compatibility note (binding for archival verification):** the v6 evidence
+  window (75% head / 25% tail) and D-condition marker change view compilation.
+  Recorded monitor scores from the 64-episode pilot therefore fail an M1
+  *recompile* under v6 code (450/768 view-hash mismatches) by design;
+  re-verifying that run's views requires its own pinned monitor commit
+  (`3f63e6e` lineage). `traceguard verify`, outcome re-grading, and
+  `traceguard export` hash validation remain compatible. The M2'/M3 gate
+  failures on old data reflect v6's raised thresholds (design facts for a
+  pre-Phase-3 run), not new defects.
+- **Approval:** merged as `2cc54d0` (merge commit preserves the PR link).
+
+### 2026-10-20 — Monitoring evidentiary archive committed (reproducibility gap closed)
+
+- **Observed:** an independent audit (2026-10-20) found the pilot's monitoring
+  artifacts had never been committed: monitor scores, analysis report,
+  monitoring environment manifest, and figures existed only on Kaggle and a
+  lost local workspace. The generation record was public; the monitoring
+  evidentiary record was not. "Everything is public" was not true of GitHub.
+- **Change:** recovered the monitor kernel output from Kaggle (768/768 scores,
+  3 monitors x 4 conditions x 64 episodes, byte-identical input episodes
+  verified against the committed archive), restored the completion ledger
+  from the authoritative archive (SHA-256 equal), regenerated the analysis
+  report and figures at the merged HEAD, and committed everything under
+  `runs/pilot/` (scores, reports, `environment_monitor.json`, kernel log).
+  `traceguard export` now validates the complete release fail-closed
+  (`release_complete: true`, zero validation errors) and the per-file SHA-256
+  manifest is committed.
+- **Root cause of the original omission:** a generic `artifacts/` gitignore
+  pattern silently excluded every run's integrity manifests, and the session
+  that produced the analysis treated local download paths as durable. Fixed
+  the pattern (`!runs/**/artifacts/`) and recorded the lesson: research
+  evidence lives in the repository, not in download directories.
+- **Impact:** headline pilot numbers (holdout recall A 1.0 vs C 0.0; noise
+  0.5; shuffled 0.0; 2 benign calibration clusters; precision gate failed)
+  reproduce identically under the merged core. The archived v6 report
+  intentionally omits `fig_paired_effects.png` because all bootstrap CIs are
+  `not_estimable` at 1 positive cluster — zero-width intervals are no longer
+  drawn as if they were precision.
