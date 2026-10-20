@@ -228,3 +228,17 @@ For each monitor cell kernel (scale/cross), on completion:
 5. Compare cells in the report layer: same episodes, same frozen views, so
    recall/FPR differences across monitor models are attributable to the
    monitor, never the evidence.
+
+### 9.5 Kernel naming rule (root-caused 2026-10-20; supersedes the 409 §9.1 reading for NEW kernels)
+
+A bare 409 on pushing a NEW kernel is a **title/slug collision**, not a
+session reservation: Kaggle derives a new kernel's slug from its TITLE, so a
+title that duplicates any existing kernel's slug resolves the push against
+that kernel while the metadata id points elsewhere → conflict. Rules:
+
+1. Every kernel's title must resolve exactly to its id slug
+   (`TRACEGUARD Probe Qwen14 Agent` → `traceguard-probe-qwen14-agent`).
+2. Never reuse a title across kernels; never use underscores in ids.
+3. The §9.1 reservation-window explanation still applies to RE-pushing an
+   existing kernel shortly after a completion — distinguish the two cases by
+   whether the kernel ever existed.
