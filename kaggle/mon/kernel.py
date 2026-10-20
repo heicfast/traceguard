@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "f36d0338c6a6d4f5c6f8e1561723314b7ecbea9e"  # must be a DESCENDANT of the generation commit; diff allowlisted (gate below)
+TRACEGUARD_COMMIT = "33e9bd363a2458e0bb98c77229e67684d0ae9770"  # must be a DESCENDANT of the generation commit; diff allowlisted (gate below)
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1"]
