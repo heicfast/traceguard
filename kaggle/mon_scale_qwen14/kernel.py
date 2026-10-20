@@ -119,6 +119,13 @@ def main() -> int:
         # verify/export import graphs — the scoring path cannot read them.
         "configs/probe/qwen3_14b_agent_probe.yaml",
         "configs/probe/deepseek_r1_14b_agent_probe.yaml",
+        # 2026-10-20 fresh-program freeze: the agent-cell configs are data for
+        # OTHER cells' generation; model_matrix.py gained freeze-record
+        # annotation fields (study-design tooling). Verified not imported by
+        # any generation/scoring runtime; never read by this kernel's path.
+        "configs/phase3_agent_cells/scale_agent_qwen14.yaml",
+        "configs/phase3_agent_cells/cross_agent_deepseek14.yaml",
+        "src/traceguard/model_matrix.py",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
     changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]
