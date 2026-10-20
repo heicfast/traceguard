@@ -566,3 +566,30 @@ is append-only.
   slug; never reuse a title across kernels. The §9.1 reservation-window
   theory remains valid for post-completion re-pushes of the SAME kernel, but
   it was never the agent probes' failure mode.
+
+### 2026-10-20 — Monitor-cell kernel bring-up: three distinct root causes, all fail-closed, all fixed before any scoring occurred
+
+The cross-monitor cell kernel took three short-lived runs to reach scoring;
+each failure was a hard gate, not silent corruption, and each fix was
+committed with justification before the next push:
+
+1. **v2 — revision gate REJECTED the pin diff** (by design): owner commit
+   `20a2d6b` edits README.md and commit `25f5883` adds `configs/probe/*.yaml`
+   after the generation commit. Fix: explicit allowlist entries for the three
+   verified-inert files (probe configs are read only by `traceguard
+   probe-model`; verified absent from the monitor/analyze/verify/export import
+   graphs).
+2. **v3 — factory admission contract**: probe-required models demand
+   `TRACEGUARD_{ROLE}_PROBE_ARTIFACT` at runtime with a recomputed hash equal
+   to the config's frozen `probe_artifact_sha256`. The probe kernels set this
+   for themselves; the anchor mon kernel never needed it (4B is not
+   probe-required). Fix: both cell kernels bind the committed artifacts
+   (hash chain verified locally: claimed == computed == config).
+3. **v4 — bitsandbytes missing**: the anchor kernel pattern predates
+   quantized monitors (4B fp16 needs no bnb); NF4 loads hard-fail without
+   bitsandbytes>=0.46.1. Fix: the same install+import gate the probe kernels
+   use.
+
+No episode was scored under any failed configuration (fail-closed everywhere),
+so no contamination occurred. The scale-agent gen kernels were built with all
+three lessons applied (artifact binding + bnb gate + factory validation).
