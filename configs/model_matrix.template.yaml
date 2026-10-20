@@ -1,0 +1,96 @@
+# TEMPLATE ONLY. Replace every PIN_* value, run traceguard probe-model for
+# probe-required checkpoints, then freeze this file before any scored run.
+schema_version: 1.0.0
+study_id: traceguard-phase3-multimodel
+benchmark_config: configs/phase3_pilot.yaml
+frozen_code_revision: PIN_FINAL_V6_COMMIT
+
+cells:
+  - cell_id: anchor-qwen4-qwen4
+    generation_cohort_id: agent-qwen4
+    primary: true
+    account_slot: 0
+    replicate_ids: [0, 1]
+    agent: &qwen4
+      model_id: Qwen/Qwen3-4B
+      revision: PIN_QWEN3_4B_COMMIT
+      tokenizer_revision: PIN_QWEN3_4B_COMMIT
+      provider: qwen_hf
+      reasoning_protocol: qwen3
+      quantization: none
+      compute_dtype: float16
+      attention_backend: sdpa
+      max_context_tokens: 8192
+    monitor: *qwen4
+
+  - cell_id: scale-agent-qwen14-qwen4
+    generation_cohort_id: agent-qwen14
+    primary: false
+    account_slot: 1
+    replicate_ids: [0, 1]
+    agent: &qwen14
+      model_id: Qwen/Qwen3-14B
+      revision: PIN_QWEN3_14B_COMMIT
+      tokenizer_revision: PIN_QWEN3_14B_COMMIT
+      provider: qwen_hf
+      reasoning_protocol: qwen3
+      quantization: bnb_nf4
+      compute_dtype: float16
+      attention_backend: sdpa
+      max_context_tokens: 8192
+      probe_artifact_sha256: PIN_QWEN3_14B_AGENT_PROBE_SHA256
+    monitor: *qwen4
+
+  - cell_id: scale-monitor-qwen4-qwen14
+    generation_cohort_id: agent-qwen4
+    primary: false
+    account_slot: 0
+    replicate_ids: [0, 1]
+    agent: *qwen4
+    monitor: &qwen14_monitor
+      model_id: Qwen/Qwen3-14B
+      revision: PIN_QWEN3_14B_COMMIT
+      tokenizer_revision: PIN_QWEN3_14B_COMMIT
+      provider: qwen_hf
+      reasoning_protocol: qwen3
+      quantization: bnb_nf4
+      compute_dtype: float16
+      attention_backend: sdpa
+      max_context_tokens: 8192
+      probe_artifact_sha256: PIN_QWEN3_14B_MONITOR_PROBE_SHA256
+
+  - cell_id: cross-agent-deepseek14-qwen4
+    generation_cohort_id: agent-deepseek14
+    primary: false
+    account_slot: 2
+    replicate_ids: [0, 1]
+    agent:
+      model_id: deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
+      revision: PIN_DEEPSEEK_R1_14B_COMMIT
+      tokenizer_revision: PIN_DEEPSEEK_R1_14B_COMMIT
+      provider: generic_hf
+      reasoning_protocol: think_tags
+      quantization: bnb_nf4
+      compute_dtype: float16
+      attention_backend: sdpa
+      max_context_tokens: 8192
+      probe_artifact_sha256: PIN_DEEPSEEK_AGENT_PROBE_SHA256
+    monitor: *qwen4
+
+  - cell_id: cross-monitor-qwen4-gemma4
+    generation_cohort_id: agent-qwen4
+    primary: false
+    account_slot: 0
+    replicate_ids: [0, 1]
+    agent: *qwen4
+    monitor:
+      model_id: google/gemma-4-12B-it
+      revision: PIN_GEMMA4_12B_COMMIT
+      tokenizer_revision: PIN_GEMMA4_12B_COMMIT
+      provider: generic_hf
+      reasoning_protocol: none
+      quantization: bnb_nf4
+      compute_dtype: float16
+      attention_backend: sdpa
+      max_context_tokens: 8192
+      probe_artifact_sha256: PIN_GEMMA4_MONITOR_PROBE_SHA256

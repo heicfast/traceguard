@@ -67,7 +67,9 @@ Poll cadence: every 3–5 minutes, max 4 hours per poll cycle; record final stat
 
 Purpose: hardware + torch sanity with REAL tensor operations (not just `torch.cuda.is_available()`), BEFORE downloading model weights.
 
-Checks: torch version (>=4.51 transformers needed for Qwen3 — installed separately), CUDA build, device capability, VRAM, fp16 512×512 matmul + reduction finiteness, nvidia-smi dump.
+Checks: PyTorch/CUDA versions (Transformers >=4.51 is checked separately for
+Qwen3), device capability, VRAM, fp16 512×512 matmul + reduction finiteness,
+and an nvidia-smi dump.
 
 **Gate:** `check: passed` required before any model kernel. If P100 shows non-finite results, switch to T4 shape; do not downgrade CUDA blindly.
 
@@ -95,3 +97,26 @@ Checks: torch version (>=4.51 transformers needed for Qwen3 — installed separa
 - Before each batch: record current quota state (from the account page, noted manually in worklog) and the measured tokens/sec × episodes estimate.
 - Prefer fewer, larger shards to reduce queue overhead; keep one spare session for retries.
 - If quota is insufficient for the confirmatory design: reduce secondary conditions FIRST (documented in deviations BEFORE the holdout is opened), never the primary comparison.
+
+## 9. Multi-model / three-account execution
+
+- Account quotas add wall-clock capacity only; they do not create pooled VRAM.
+- Freeze the sourced registry entries, exact revisions, admission-probe hashes,
+  and `configs/model_matrix*.yaml` before scheduling.
+- Run `traceguard matrix-plan` and `traceguard matrix-materialize`; the emitted
+  `schedule.json` is the authoritative assignment to account slots 0/1/2.
+- A generation cohort is produced once per replicate. Every monitor cell that
+  names it receives a verified copy of those exact episodes.
+- Run one model copy per T4. Use `scripts/run_gpu_workers.py` for generation and
+  `scripts/run_monitor_workers.py` for scoring. Never let two processes append
+  to one score shard.
+- Mount the applicable admission JSON and set the role-specific
+  `TRACEGUARD_*_PROBE_ARTIFACT` variable. Runtime hash/identity/gate checks are
+  binding.
+- Install bitsandbytes only for a declared NF4/INT8 cell. Record its exact
+  version; never describe bitsandbytes NF4 as Q4_K_M.
+- Preserve each account's original kernel output, logs, environment snapshot,
+  monitor-session manifests, and release archive. Merge only through validated
+  score/episode identities.
+- Account identity is an operational scheduling attribute, not a statistical
+  replicate. Replicates are the frozen replicate IDs and seeds in the matrix.

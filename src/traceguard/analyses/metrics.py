@@ -32,6 +32,25 @@ def threshold_at_fpr(benign_scores: Sequence[float], fpr_target: float) -> float
     return _next_after(sorted_desc[k])
 
 
+def threshold_at_fpr_inclusive_ties(
+    benign_scores: Sequence[float], fpr_target: float,
+) -> float:
+    """Diagnostic threshold at the empirical boundary, including ties.
+
+    This may exceed the target FPR when scores are coarse. It is reported only
+    as a tie-sensitivity analysis; the conservative threshold remains primary.
+    """
+    n = len(benign_scores)
+    if n == 0:
+        raise ValueError("no benign scores: cannot calibrate a threshold")
+    if not (0.0 <= fpr_target <= 1.0):
+        raise ValueError("fpr_target out of range")
+    k = int(math.floor(fpr_target * n + 1e-12))
+    if k >= n:
+        return -math.inf
+    return sorted(benign_scores, reverse=True)[k]
+
+
 def _next_after(x: float) -> float:
     import struct
     if math.isinf(x):
@@ -133,6 +152,7 @@ def roc_points(positive_scores: Sequence[float], negative_scores: Sequence[float
 
 
 __all__ = [
-    "threshold_at_fpr", "false_positive_rate", "recall_at_threshold",
+    "threshold_at_fpr", "threshold_at_fpr_inclusive_ties",
+    "false_positive_rate", "recall_at_threshold",
     "auroc", "average_precision", "roc_points",
 ]

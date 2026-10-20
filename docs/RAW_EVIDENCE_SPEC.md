@@ -14,7 +14,7 @@ Version 2.0.0.
 
 ## Per-generation requirements
 
-Every Qwen `model_turn_audit` must retain:
+Every inference provider's `model_turn_audit` must retain:
 
 - original structured messages and their canonical JSON hash;
 - rendered chat-template prompt and UTF-8 hash;
@@ -26,9 +26,30 @@ Every Qwen `model_turn_audit` must retain:
 - effective seed and full generation parameters;
 - model and tokenizer revisions, chat-template hash, library versions, dtype,
   device and GPU capability.
+- audited model-profile and admission-probe hashes; exact quantization config,
+  attention backend, context cap, optional adapter identity/revision, model
+  memory footprint, and per-turn peak allocated/reserved GPU memory.
 
 No field above may be character-capped. Human-friendly excerpts may exist only
 as additional fields and must point to the complete record.
+
+Each run manifest additionally retains a secret-free runtime snapshot: complete
+installed-package inventory, Python/platform identity, CUDA/PyTorch/cuDNN
+versions and determinism flags, GPU UUID/name/driver/memory query, and a strict
+allowlist of execution-relevant environment variables. Credential variables
+are excluded by construction.
+
+QLoRA artifacts require a development-only corpus manifest, source-view and
+target hashes, base-model revision, seed/hyperparameters, training metrics,
+package versions, and SHA-256/size for every emitted adapter/tokenizer file.
+
+For multi-stage monitors, the requirement applies independently to every
+action extractor, reasoning extractor, fact checker, adjudicator, and retry.
+The score record retains the complete prompt list, raw response list, bounded
+intermediate reports actually supplied downstream, per-stage model revision,
+token accounting, runtime audit payload, and a combined source-view hash. Raw
+agent reasoning remains in the source episode audit even though the final
+adjudicator deliberately does not receive it.
 
 ## Verification procedure
 
@@ -43,6 +64,12 @@ as additional fields and must point to the complete record.
    hash with the score record.
 6. Recompute analysis tables/figures from score records and compare emitted
    plot-data hashes.
+
+`traceguard export --run-dir RUN --archive OUT.tar.gz` enforces the minimum
+research-release inventory, validates score/privileged schemas and embedded
+inference hashes, writes `artifacts/artifact_manifest.json`, regenerates the
+checksum ledger, and atomically creates the archive outside the run tree.
+`--allow-incomplete` is only for explicitly marked operational checkpoints.
 
 The verifier proves internal consistency and replayability of recorded
 observations. It does not prove that a stochastic GPU run would emit the same

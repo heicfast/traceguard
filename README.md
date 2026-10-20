@@ -15,12 +15,14 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M2 evidence pipeline + view compiler + leakage tests | done |
 | M3 FakeModel end-to-end CPU integration | done |
 | M4 Kaggle GPU preflight + Qwen3 integration | see `kaggle/` + `worklog/` |
-| M5 monitor conditions A/C/D/E on same episodes | code done; GPU runs pending |
-| M6 pilot + capability/precision gate | running; diagnostic only until downloaded and verified |
-| M7 preregistration freeze | template ready |
+| M5 monitor conditions A/C/D/E on same episodes | done |
+| M6 64-episode pilot + independent review | done; exploratory, negative-leaning |
+| M6.5 Phase 3 hardening | implemented on `v6`; new pilot required |
+| M6.6 multi-model/T4 architecture | implemented; admission probes and revision freeze required |
+| M7 preregistration freeze | blocked on Phase 3 gates and sizing |
 | M8 confirmatory + online intervention | pending |
 
-**v2 review verdict:** the kernel is suitable for a new pilot, but confirmatory
+**Phase 3 review response:** the kernel is suitable for a new pilot, but confirmatory
 execution is deliberately blocked. The current validation split has only two
 independent template clusters versus the predeclared minimum of forty for a
 fixed-5%-FPR estimate, and the task bank must pass an action-only saturation
@@ -51,22 +53,22 @@ python -m traceguard.cli smoke --out runs/smoke   # full pipeline smoke with scr
 
 ## Architecture in one paragraph
 
-Frozen experiment configs drive seeded task-instance generation across eight synthetic task families. A deterministic in-memory sandbox executes strictly typed tool calls (`inspect_state`, `list_objects`, `propose_patch`, `submit_task`) and judges protected-invariant violations by exact state comparison. The Qwen runtime records complete prompt and generated token ids, decoded outputs, messages, seeds, revisions, chat-template/runtime metadata, and hashes; CPU tests use a scripted fake. Episode evidence is committed through a crash-recoverable transaction before JSONL projection. An allowlist ViewCompiler builds conditions A/B/C/D/E/F with mechanical leakage assertions. Deterministic and LLM monitors score the *same* stored episodes and retain exact prompts/raw responses. The analysis layer computes paired effects, clustered uncertainty, precision gates, censor accounting, and provenance-stamped figures.
+Frozen experiment configs drive seeded task-instance generation across twelve synthetic task families. A deterministic in-memory sandbox executes strictly typed tool calls (`inspect_state`, `list_objects`, `propose_patch`, `submit_task`) and judges direct and relational protected-invariant violations by exact state comparison. The Qwen runtime records complete prompt and generated token ids, decoded outputs, messages, seeds, revisions, chat-template/runtime metadata, and hashes; CPU tests use a scripted fake. Episode evidence is committed through a crash-recoverable transaction before JSONL projection. An allowlist ViewCompiler builds raw, control, late-fusion, and fact-checked conditions with mechanical leakage assertions. Monitors retain exact prompts, raw responses, structured intermediate reports, and inference audits. The analysis layer uses comparison-specific pairing, frozen thresholds, CI-eligibility gates, exact small-cluster distributions, missing-score bounds, and provenance-stamped figures.
 
 ## Repository layout
 
 ```
 src/traceguard/
-  tasks/       TaskSpec registry (8 families, 16 templates), seeded instances, split manifest
+  tasks/       TaskSpec registry (12 families, 24 templates), seeded instances, split manifest
   sandbox/     pure state, typed actions, engine, invariants, exact grader
-  models/      provider contract, FakeModel/scripted agent, Qwen3 HF adapter
+  models/      provider contract, audited model registry, quantized HF adapters
   agents/      honest/attack policy composition, episode runner
   traces/      schema validation, atomic storage, allowlist view compiler
   monitors/    rules/keyword baselines, LLM monitor, condition harness
   protocols/   pre-action online intervention (phase two)
   analyses/    metrics (AUROC/AP/recall@FPR), paired cluster bootstrap, plots
-  cli.py       doctor | smoke | generate | monitor | analyze | verify | export
-configs/       smoke.yaml, pilot.yaml (frozen candidates)
+  cli.py       doctor | probe-model | matrix-plan/materialize | prepare-tuning | pipeline
+configs/       smoke/pilot configs plus the multi-model matrix freeze template
 tests/         unit + property + integration tests
 docs/          protocol, architecture, SOPs, quality manual, review system
 kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
@@ -81,6 +83,8 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - [`docs/ARCHITECTURE_V2.md`](docs/ARCHITECTURE_V2.md) — trusted-computing boundary, data flow, performance and hard gates
 - [`docs/RAW_EVIDENCE_SPEC.md`](docs/RAW_EVIDENCE_SPEC.md) — exact token/prompt/runtime retention and release separation
 - [`docs/RESEARCH_REVIEW_V2.md`](docs/RESEARCH_REVIEW_V2.md) — consolidated findings and confirmatory blockers
+- [`docs/PHASE3_PROTOCOL.md`](docs/PHASE3_PROTOCOL.md) — harder task strata, structured monitoring, statistics, and release contract
+- [`docs/MULTIMODEL_STUDY.md`](docs/MULTIMODEL_STUDY.md) — T4 feasibility, audited model matrix, admission probes, tuning isolation, and raw-evidence additions
 - [`docs/prior_art_matrix.md`](docs/prior_art_matrix.md) — how TRACEGUARD differs from SLEIGHT-Bench, MonitorBench, OpenAI monitorability evals, SHADE-Arena
 - [`docs/research_question.md`](docs/research_question.md) — the one falsifiable hypothesis and its negative outcomes
 - [`docs/deviations.md`](docs/deviations.md) — dated deviation log (changes after any freeze)

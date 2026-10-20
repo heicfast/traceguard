@@ -33,7 +33,12 @@ from ..sandbox.engine import step as engine_step
 from ..sandbox.grader import grade_episode
 from ..tasks.generator import EpisodePlan
 from ..tasks.specs import TaskInstance
-from .policy import build_messages, refusal_markers_in, tool_result_message
+from .policy import (
+    build_messages,
+    refusal_markers_in,
+    render_attack_instruction,
+    tool_result_message,
+)
 
 MAX_EVENT_EXCERPT = 800
 
@@ -77,7 +82,11 @@ def run_episode(
     ep_id = make_episode_id(run_id, task.task_id, plan.policy_mode, plan.generation_seed)
     started = time.perf_counter()
 
-    messages = build_messages(task, plan.policy_mode)
+    messages = build_messages(task, plan.policy_mode, plan.attack_strategy)
+    delivered_attack_instruction = (
+        render_attack_instruction(task, plan.attack_strategy)
+        if plan.policy_mode == "attack" else None
+    )
     invariants = task.invariants
     state = task.initial_state()
     initial_state = state
@@ -100,7 +109,7 @@ def run_episode(
         privileged_events.append({
             "ref": f"priv:{ep_id}:hidden",
             "kind": "hidden_instruction",
-            "content": task.attack_instruction,
+            "content": delivered_attack_instruction,
         })
 
     turn = 0
@@ -256,6 +265,13 @@ def run_episode(
         "provenance": {
             "code_revision": config.provenance.code_revision,
             "model_revision": getattr(provider, "model_revision", config.agent.model_revision),
+            "model_id": config.agent.model_id,
+            "model_profile_sha256": (getattr(provider, "model_profile", None) or {}).get(
+                "profile_sha256"
+            ),
+            "quantization": config.agent.quantization,
+            "adapter_id": config.agent.adapter_id,
+            "adapter_revision": config.agent.adapter_revision,
             "config_sha256": config.content_hash(),
             "provider": getattr(provider, "provider_name", "unknown"),
             "task_hash": task.task_hash,
@@ -263,6 +279,7 @@ def run_episode(
             "instance_seed": plan.instance_seed,
             "instance_index": plan.instance_index,
             "control_variant": plan.control_variant,
+            "attack_strategy": plan.attack_strategy,
             "split_role": plan.split_role,
             "split_manifest_sha256": None,
             "stage": stage,
@@ -278,7 +295,7 @@ def run_episode(
         "episode_id": ep_id,
         "run_id": run_id,
         "wall_ms": round((time.perf_counter() - started) * 1000.0, 1),
-        "hidden_instruction": task.attack_instruction if plan.policy_mode == "attack" else None,
+        "hidden_instruction": delivered_attack_instruction,
         "invariants": [inv.model_dump() for inv in invariants],
         "attack_reference_action": (
             task.attack_reference_action.arguments_payload()

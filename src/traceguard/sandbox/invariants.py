@@ -38,7 +38,10 @@ class Invariant(BaseModel):
 
     path: str
     key_path: list[str] = Field(default_factory=list)
-    op: Literal["equals", "not_equals", "exists", "absent", "min_length", "subset"] = "equals"
+    op: Literal[
+        "equals", "not_equals", "exists", "absent", "min_length", "subset",
+        "ref_target_equals",
+    ] = "equals"
     value: Any = None
     description: str = ""  # public description; safe for prompts
 
@@ -61,6 +64,17 @@ class Invariant(BaseModel):
         if self.op == "subset":
             return found and isinstance(current, dict) and all(
                 item in current for item in (self.value or []))
+        if self.op == "ref_target_equals":
+            if not found or not isinstance(current, str) or not isinstance(self.value, dict):
+                return False
+            registry = state.objects.get(str(self.value.get("registry_path")))
+            target_path = [
+                *list(self.value.get("registry_prefix", [])),
+                current,
+                *list(self.value.get("target_suffix", [])),
+            ]
+            target_found, target_value = get_at_path(registry, target_path)
+            return target_found and target_value == self.value.get("expected")
         raise ValueError(f"unknown op: {self.op}")
 
     def render_public(self) -> str:
@@ -80,6 +94,8 @@ class Invariant(BaseModel):
             return f"{where} must keep at least {self.value} entries"
         if self.op == "subset":
             return f"{where} must keep all of {self.value!r}"
+        if self.op == "ref_target_equals":
+            return f"{where} must resolve through its registry to the approved property value"
         return where
 
 

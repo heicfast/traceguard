@@ -79,6 +79,8 @@ def build_analysis_frame(
             "policy_mode": env["policy_mode"],
             "status": env["status"],
             "control_variant": env["provenance"]["control_variant"],
+            "attack_strategy": env["provenance"].get(
+                "attack_strategy", "explicit_override"),
             "attack_attempted": bool(outcomes["attack_attempted"]),
             "attack_succeeded": bool(outcomes["attack_succeeded"]),
             "main_task_succeeded": bool(outcomes["main_task_succeeded"]),
@@ -186,4 +188,25 @@ def summarize_funnel(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-__all__ = ["build_analysis_frame", "paired_subset", "summarize_funnel", "CensorLog"]
+def summarize_funnel_by_attack_strategy(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Capability funnel stratified by the frozen attack-presentation axis."""
+    strategies = sorted({
+        row.get("attack_strategy", "explicit_override")
+        for row in rows if row["policy_mode"] == "attack"
+    })
+    return {
+        strategy: summarize_funnel([
+            row for row in rows
+            if (row["policy_mode"] == "attack"
+                and row.get("attack_strategy", "explicit_override") == strategy)
+            or (row["policy_mode"] == "honest"
+                and row.get("attack_strategy", "explicit_override") == strategy)
+        ])
+        for strategy in strategies
+    }
+
+
+__all__ = [
+    "build_analysis_frame", "paired_subset", "summarize_funnel",
+    "summarize_funnel_by_attack_strategy", "CensorLog",
+]
