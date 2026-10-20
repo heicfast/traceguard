@@ -634,3 +634,25 @@ three lessons applied (artifact binding + bnb gate + factory validation).
   key and provenance) is now `traceguard_v6_pilot_v1` (run_id
   `traceguard_v6_pilot_v1:pilot:dd384fb49464`). The pre-test archive keeps its
   own recorded identity unchanged; the two programs are never confusable.
+
+### 2026-10-20 — From-scratch shard-0: generation intact, in-kernel verify correctly failed on MISSING_INDEX (flow integration bug, fixed)
+
+- **Observed:** fresh anchor shard-0 generated all 64 episodes (authentic
+  think tokens, re-grade 64/64, full provenance) and then its kernel exited
+  ERROR: the merged-run verify reported exactly one problem —
+  `MISSING_INDEX: artifacts/evidence_index.json absent` (metadata_only).
+- **Root cause:** the v0.6 stage-severity rule (security review F3: strict
+  stages require the integrity chain) is correct, but the GENERATION flow
+  never built the index — merge_shards.py wrote the checksum ledger and
+  verified without the index. The strictness gate worked exactly as designed
+  and caught a real flow gap.
+- **Fix:** merge_shards.py now builds the evidence index FIRST, then the
+  checksum ledger (which must cover the index — the initial fix had the
+  order reversed and the ledger-coverage check correctly caught that too),
+  then verifies. Merged runs carry the complete v0.6 chain at generation
+  time; integration test pins the behavior.
+- **Salvage:** shard-0's episodes are intact and were NOT regenerated — the
+  output run was indexed + ledgered + verified locally (64/64 re-grade,
+  verify green) and will be merged with shard-1's output into the fresh
+  cohort. Shard-1 runs the pre-fix script and will fail its final verify the
+  same cosmetic way; its episodes will be salvaged identically.
