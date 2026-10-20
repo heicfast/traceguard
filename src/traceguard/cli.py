@@ -23,7 +23,6 @@ from pathlib import Path
 
 from . import SCHEMA_VERSION, __version__
 from .config import load_config
-from .traces.storage import RunStore
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
@@ -132,18 +131,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
-    """Write checksums + provenance bundle for a run directory."""
-    store = RunStore(args.run_dir)
-    manifest = store.read_run_manifest()
-    store.write_checksums()
-    bundle = {
-        "run_manifest": manifest,
-        "episode_count": len(store.completed_episode_ids()),
-    }
-    (Path(args.run_dir) / "artifacts" / "export_bundle.json").write_text(
-        json.dumps(bundle, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"ok": True, **bundle}, indent=2))
-    return 0
+    """Validate and package a self-verifying research release."""
+    from .release import build_release
+
+    result = build_release(
+        args.run_dir,
+        archive_path=args.archive,
+        allow_incomplete=args.allow_incomplete,
+    )
+    print(json.dumps(result, indent=2, sort_keys=True, default=str))
+    return 0 if result["ok"] or args.allow_incomplete else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -192,6 +189,10 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("export", help="checksums and export bundle")
     p.add_argument("--run-dir", required=True)
+    p.add_argument("--archive", default=None,
+                   help="optional .tar.gz path outside the run directory")
+    p.add_argument("--allow-incomplete", action="store_true",
+                   help="export an explicitly marked operational checkpoint")
     p.set_defaults(func=cmd_export)
 
     args = parser.parse_args(argv)

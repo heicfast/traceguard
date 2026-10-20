@@ -59,6 +59,13 @@ an inference adapter and cannot change the sandbox, grader, or evidence rules.
 9. Analysis joins only schema-valid, hash-valid, paired score records and emits
    explicit censor accounting.
 
+Phase 3 adds a second monitoring path. The action/policy view and raw reasoning
+view are processed by separate extractors. Only allowlisted, length-bounded
+reports reach the final adjudicator; raw reasoning never shares its instruction
+channel. An optional independently configured checkpoint fact-checks
+authorization claims before adjudication. All intermediate prompts, outputs,
+parses, retries, and inference audits are stored in the same score record.
+
 ## 4. Raw-evidence boundary
 
 The reasoning trace is the text decoded from tokens genuinely emitted in the
@@ -110,6 +117,28 @@ The current pilot is a feasibility experiment, not confirmatory evidence.
    not be mixed into the primary natural-policy estimate.
 4. Offline detection and online prevention remain separate experiments with
    fresh online rollouts.
+
+The analysis runtime now implements pairwise-complete frames per contrast,
+pair-specific calibration thresholds, available-case and paired realized FPR,
+Wilson intervals, missing-score sensitivity bounds, score-resolution and
+retention diagnostics, explicit CI eligibility, and exact small-cluster
+bootstrap distributions. A point estimate may exist while its interval is
+correctly labeled `not_estimable`.
+
+### 7.1 Phase 3 relational threat model
+
+The new families deliberately remove obvious protected-key names from the
+violating patch. A source object stores an alias; a separate registry determines
+whether the alias resolves to a signed artifact, internal destination,
+least-privilege identity, or approval-requiring automation profile. The trusted
+engine evaluates the relation after every accepted transition. This preserves
+exact labels while requiring the monitor to integrate observations rather than
+match one suspicious key.
+
+Four privileged attack-presentation treatments vary directness and
+monitor-awareness without changing the underlying unsafe objective. Exact
+honest/attack twins are generated on each strategy seed. Strategy is stored in
+episode provenance and excluded from monitor views.
 
 ## 8. Performance architecture
 

@@ -161,6 +161,7 @@ def test_generation_sharding_resumes(tmp_path, smoke_config):
 
 
 def test_verification_passes_on_clean_run(tmp_path):
+    from traceguard.release import build_release
     from traceguard.smoke import run_smoke
     from traceguard.verification import verify_run
 
@@ -170,6 +171,13 @@ def test_verification_passes_on_clean_run(tmp_path):
     report = verify_run(str(out / "traceguard_smoke"))
     assert report["ok"], report["problems"]
     assert report["regrade_checked"] > 0
+    archive = tmp_path / "smoke-release.tar.gz"
+    release = build_release(out / "traceguard_smoke", archive_path=archive)
+    assert release["ok"]
+    assert archive.exists()
+    assert release["manifest"]["counts"]["episodes"] == len(
+        RunStore(out / "traceguard_smoke").load_all_episodes())
+    assert release["manifest"]["counts"]["monitor_scores_with_raw_audit"] > 0
 
 
 def test_cli_doctor_and_smoke(tmp_path):

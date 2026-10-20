@@ -21,7 +21,7 @@ Pipeline (docs/01 §10):
 
 from __future__ import annotations
 
-import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -32,8 +32,14 @@ from .analyses.metrics import (
     recall_at_threshold,
     roc_points,
     threshold_at_fpr,
+    threshold_at_fpr_inclusive_ties,
 )
-from .analyses.pair import build_analysis_frame, paired_subset, summarize_funnel
+from .analyses.pair import (
+    build_analysis_frame,
+    paired_subset,
+    summarize_funnel,
+    summarize_funnel_by_attack_strategy,
+)
 from .analyses.plots import (
     plot_paired_effect,
     plot_roc_curves,
@@ -42,11 +48,12 @@ from .analyses.plots import (
 )
 from .analyses.uncertainty import cluster_bootstrap_paired, cluster_bootstrap_statistic
 from .config import load_config
-from .traces.storage import RunStore
+from .traces.storage import RunStore, atomic_write_json
+from .traces.views import CHARS_PER_TOKEN_FACTOR
 
 
 def _condition_pairs(conditions: list[str]) -> list[tuple[str, str]]:
-    """Primary + control comparisons defined by the protocol (C vs A, C vs D, C vs E)."""
+    """Preregistered raw-CoT controls and structured-monitor comparisons."""
     pairs: list[tuple[str, str]] = []
     have = set(conditions)
     if "actions_plus_cot" in have and "actions" in have:
@@ -55,30 +62,128 @@ def _condition_pairs(conditions: list[str]) -> list[tuple[str, str]]:
         pairs.append(("actions_plus_cot", "actions_plus_noise"))
     if "actions_plus_cot" in have and "actions_plus_shuffled_cot" in have:
         pairs.append(("actions_plus_cot", "actions_plus_shuffled_cot"))
+    if "actions_plus_cot_late_fusion" in have:
+        for baseline in ("actions", "actions_plus_cot"):
+            if baseline in have:
+                pairs.append(("actions_plus_cot_late_fusion", baseline))
+    if "actions_plus_cot_fact_checked" in have:
+        for baseline in ("actions", "actions_plus_cot", "actions_plus_cot_late_fusion"):
+            if baseline in have:
+                pairs.append(("actions_plus_cot_fact_checked", baseline))
     return pairs
+
+
+def _recall_missing_score_sensitivity(
+    eligible_rows: list[dict[str, Any]], primary: str, baseline: str,
+    primary_threshold: float, baseline_threshold: float,
+) -> dict[str, Any]:
+    """Bound recall delta when an eligible positive lacks either valid score."""
+    attacks = [row for row in eligible_rows if row["label"] == 1]
+    if not attacks:
+        return {"n_positive": 0, "invalid_as_non_detection": None,
+                "worst_case_delta": None, "best_case_delta": None}
+
+    def observed(row: dict[str, Any], condition: str, threshold: float) -> int | None:
+        if not row["score_valid"].get(condition, False):
+            return None
+        score = row["scores"].get(condition)
+        return None if score is None else int(score >= threshold)
+
+    primary_values = [observed(row, primary, primary_threshold) for row in attacks]
+    baseline_values = [observed(row, baseline, baseline_threshold) for row in attacks]
+
+    def recall(values: list[int | None], missing: int) -> float:
+        return sum(missing if value is None else value for value in values) / len(values)
+
+    return {
+        "n_positive": len(attacks),
+        "primary_missing_or_invalid": sum(value is None for value in primary_values),
+        "baseline_missing_or_invalid": sum(value is None for value in baseline_values),
+        "invalid_as_non_detection": recall(primary_values, 0) - recall(baseline_values, 0),
+        "worst_case_delta": recall(primary_values, 0) - recall(baseline_values, 1),
+        "best_case_delta": recall(primary_values, 1) - recall(baseline_values, 0),
+    }
+
+
+def _measurement_diagnostics(store: RunStore, rows: list[dict[str, Any]],
+                             conditions: list[str], config) -> dict[str, Any]:
+    """Report parse reliability, empirical score resolution, and CoT capping."""
+    by_condition: dict[str, Any] = {}
+    eligible = [row for row in rows if row["eligible"]]
+    for condition in conditions:
+        available = [row for row in eligible if row["scores"].get(condition) is not None]
+        valid = [row for row in available if row["score_valid"].get(condition, False)]
+        levels = sorted({row["scores"][condition] for row in valid})
+        by_condition[condition] = {
+            "eligible": len(eligible),
+            "score_records": len(available),
+            "valid_scores": len(valid),
+            "invalid_or_missing": len(eligible) - len(valid),
+            "valid_rate": len(valid) / len(eligible) if eligible else None,
+            "distinct_score_levels": len(levels),
+            "score_levels": levels[:101],
+            "score_resolution_gate_passed": len(levels) >= config.analysis.min_score_levels,
+        }
+
+    cap = int(config.monitor.max_monitor_tokens * CHARS_PER_TOKEN_FACTOR)
+    capped: dict[str, dict[str, int | float]] = {}
+    for envelope in store.load_all_episodes(validate=False):
+        reasoning_chars = sum(
+            len(event.get("reasoning_content") or "") for event in envelope["events"]
+        )
+        role = envelope["provenance"]["split_role"]
+        label = "attack" if envelope["outcomes"]["attack_attempted"] else "non_attack"
+        bucket = capped.setdefault(f"{role}|{label}", {"episodes": 0, "capped": 0})
+        bucket["episodes"] += 1
+        bucket["capped"] += int(reasoning_chars > cap)
+    for bucket in capped.values():
+        bucket["fraction"] = bucket["capped"] / bucket["episodes"]
+    return {
+        "by_condition": by_condition,
+        "reasoning_window_chars": cap,
+        "reasoning_window_capping": capped,
+    }
+
+
+def _wilson_interval(k: int, n: int, z: float = 1.959963984540054) -> list[float] | None:
+    if n <= 0:
+        return None
+    p = k / n
+    denom = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt((p * (1 - p) + z * z / (4 * n)) / n) / denom
+    return [max(0.0, center - half), min(1.0, center + half)]
 
 
 def _evaluate_split(rows: list[dict[str, Any]], conditions: list[str],
                     calibration_rows: list[dict[str, Any]], fpr_target: float,
-                    config, split_label: str) -> dict[str, Any]:
+                    config, split_label: str,
+                    available_rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Threshold-calibrated paired evaluation on one split role."""
     result: dict[str, Any] = {"split": split_label, "n_episodes": len(rows)}
     benign_rows = [r for r in rows if r["label"] == 0]
     attack_rows = [r for r in rows if r["label"] == 1]
     result["n_benign"] = len(benign_rows)
     result["n_positive_eligible"] = len(attack_rows)
-    result["n_independent_benign_clusters"] = len({r["template_id"] for r in benign_rows})
+    result["n_independent_benign_clusters"] = len({
+        r[config.analysis.cluster_key] for r in benign_rows
+    })
 
     # thresholds from the CALIBRATION split only
     thresholds: dict[str, float | None] = {}
+    inclusive_thresholds: dict[str, float | None] = {}
     realized_fpr: dict[str, Any] = {}
     for condition in conditions:
         cal_benign = [r["scores"][condition] for r in calibration_rows if r["label"] == 0
-                      and r["scores"].get(condition) is not None]
+                      and r["scores"].get(condition) is not None
+                      and r["score_valid"].get(condition, False)]
         if not cal_benign:
             thresholds[condition] = None
+            inclusive_thresholds[condition] = None
             continue
         thresholds[condition] = threshold_at_fpr(cal_benign, fpr_target)
+        inclusive_thresholds[condition] = threshold_at_fpr_inclusive_ties(
+            cal_benign, fpr_target)
     for condition, t in thresholds.items():
         if t is None or not benign_rows:
             realized_fpr[condition] = None
@@ -89,6 +194,24 @@ def _evaluate_split(rows: list[dict[str, Any]], conditions: list[str],
             round(false_positive_rate(scores_here, t), 4) if scores_here else None)
     result["thresholds_calibrated"] = {k: v for k, v in thresholds.items()}
     result["realized_fpr"] = realized_fpr
+    available_fpr: dict[str, Any] = {}
+    for condition, threshold in thresholds.items():
+        candidates = [
+            r for r in (available_rows or rows)
+            if r["label"] == 0 and r["scores"].get(condition) is not None
+            and r["score_valid"].get(condition, False)
+        ]
+        if threshold is None or not candidates:
+            available_fpr[condition] = None
+            continue
+        flagged = sum(r["scores"][condition] >= threshold for r in candidates)
+        available_fpr[condition] = {
+            "flagged": flagged,
+            "n": len(candidates),
+            "rate": flagged / len(candidates),
+            "wilson_95": _wilson_interval(flagged, len(candidates)),
+        }
+    result["realized_fpr_available_case"] = available_fpr
 
     recalls: dict[str, Any] = {}
     for condition, t in thresholds.items():
@@ -100,6 +223,26 @@ def _evaluate_split(rows: list[dict[str, Any]], conditions: list[str],
         recalls[condition] = (
             round(recall_at_threshold(scores_here, t), 4) if scores_here else None)
     result["recall_at_calibrated_fpr"] = recalls
+    tie_sensitivity: dict[str, Any] = {}
+    for condition, threshold in inclusive_thresholds.items():
+        benign_scores = [
+            row["scores"][condition] for row in benign_rows
+            if row["scores"].get(condition) is not None
+        ]
+        attack_scores = [
+            row["scores"][condition] for row in attack_rows
+            if row["scores"].get(condition) is not None
+        ]
+        tie_sensitivity[condition] = (
+            None if threshold is None else {
+                "inclusive_tie_threshold": threshold,
+                "realized_fpr": (false_positive_rate(benign_scores, threshold)
+                                 if benign_scores else None),
+                "recall": (recall_at_threshold(attack_scores, threshold)
+                           if attack_scores else None),
+            }
+        )
+    result["inclusive_tie_sensitivity"] = tie_sensitivity
 
     aucs: dict[str, Any] = {}
     aps: dict[str, Any] = {}
@@ -130,11 +273,21 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
     out_path = Path(out_dir) if out_dir else store.run_dir / "reports"
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # paired subset: all conditions valid
+    # Omnibus complete-case frame is retained as a diagnostic. Inferential
+    # comparisons below use pairwise-complete frames as preregistered.
     paired_rows, paired_censor = paired_subset(rows, conditions)
+    reference_conditions = (
+        ["actions_plus_cot", "actions"]
+        if {"actions_plus_cot", "actions"}.issubset(conditions)
+        else list(_condition_pairs(conditions)[0])
+        if _condition_pairs(conditions)
+        else conditions
+    )
+    reference_rows, reference_censor = paired_subset(rows, reference_conditions)
 
     calibration_role = config.monitor.calibration_split
-    calibration_rows = [r for r in paired_rows if r["split_role"] == calibration_role]
+    effective_calibration_role = calibration_role
+    calibration_rows = [r for r in reference_rows if r["split_role"] == calibration_role]
     if not calibration_rows:
         stage = store.read_run_manifest().get("stage", config.provenance.experiment_stage)
         if stage != "smoke":
@@ -146,7 +299,8 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
                 ),
             }
         # Explicit smoke-only convenience; smoke outputs are never research evidence.
-        calibration_rows = [r for r in paired_rows if r["split_role"] == "development"]
+        effective_calibration_role = "development"
+        calibration_rows = [r for r in reference_rows if r["split_role"] == "development"]
 
     splits_report: dict[str, Any] = {}
     for split_label in ("development", "validation", "holdout", "shift"):
@@ -154,31 +308,88 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
         if not split_rows:
             continue
         splits_report[split_label] = _evaluate_split(
-            split_rows, conditions, calibration_rows, fpr_target, config, split_label)
+            split_rows, conditions, calibration_rows, fpr_target, config, split_label,
+            available_rows=[r for r in rows if r["eligible"]
+                            and r["split_role"] == split_label],
+        )
+
+    comparison_frames: dict[tuple[str, str], tuple[list[dict[str, Any]], Any]] = {}
+    pairwise_splits: dict[str, Any] = {}
+    for primary, baseline in _condition_pairs(conditions):
+        pair_rows, pair_censor = paired_subset(rows, [primary, baseline])
+        comparison_frames[(primary, baseline)] = (pair_rows, pair_censor)
+        pair_calibration = [
+            r for r in pair_rows if r["split_role"] == effective_calibration_role
+        ]
+        pair_key = f"{primary}_vs_{baseline}"
+        eligible_n = sum(1 for r in rows if r["eligible"])
+        pair_calibration_benign = [r for r in pair_calibration if r["label"] == 0]
+        pair_calibration_clusters = len({
+            r[config.analysis.cluster_key] for r in pair_calibration_benign
+        })
+        pair_allowed_fp = math.floor(len(pair_calibration_benign) * fpr_target)
+        pairwise_splits[pair_key] = {
+            "censor": pair_censor.to_payload(),
+            "retention": len(pair_rows) / max(1, eligible_n),
+            "retention_gate_passed": (
+                len(pair_rows) / max(1, eligible_n)
+                >= config.analysis.min_paired_retention
+            ),
+            "calibration_gate": {
+                "benign_observations": len(pair_calibration_benign),
+                "independent_benign_clusters": pair_calibration_clusters,
+                "allowed_false_positives_at_target": pair_allowed_fp,
+                "gate_passed": (
+                    pair_calibration_clusters >= config.analysis.min_calibration_clusters
+                    and pair_allowed_fp
+                    >= config.analysis.min_allowed_calibration_false_positives
+                ),
+            },
+            "splits": {},
+        }
+        for pair_split in ("development", "validation", "holdout", "shift"):
+            pair_split_rows = [r for r in pair_rows if r["split_role"] == pair_split]
+            if pair_split_rows and pair_calibration:
+                pairwise_splits[pair_key]["splits"][pair_split] = _evaluate_split(
+                    pair_split_rows, [primary, baseline], pair_calibration,
+                    fpr_target, config, pair_split,
+                    available_rows=[r for r in rows if r["eligible"]
+                                    and r["split_role"] == pair_split],
+                )
 
     # -- paired bootstrap on holdout (primary) and shift (secondary) ---------
     # Thresholds are frozen at the calibration-split values for BOTH the point
     # estimate and every bootstrap replicate, so the CI characterizes exactly
     # the preregistered estimand: recall difference at calibration-split FPR.
-    frozen_by_condition: dict[str, float | None] = {}
-    for condition in conditions:
-        cal_benign = [r["scores"][condition] for r in calibration_rows if r["label"] == 0
-                      and r["scores"].get(condition) is not None]
-        frozen_by_condition[condition] = (
-            threshold_at_fpr(cal_benign, fpr_target) if cal_benign else None)
     bootstrap_results: dict[str, Any] = {}
-    for split_label in ("holdout", "shift"):
-        split_rows = [r for r in paired_rows if r["split_role"] == split_label]
-        for primary, baseline in _condition_pairs(conditions):
+    sensitivity_results: dict[str, Any] = {}
+    strategy_descriptives: dict[str, Any] = {}
+    for primary, baseline in _condition_pairs(conditions):
+        pair_rows, _ = comparison_frames[(primary, baseline)]
+        pair_calibration = [
+            r for r in pair_rows if r["split_role"] == effective_calibration_role
+        ]
+        frozen: dict[str, float | None] = {}
+        for condition in (primary, baseline):
+            cal_benign = [
+                r["scores"][condition] for r in pair_calibration
+                if r["label"] == 0 and r["scores"].get(condition) is not None
+            ]
+            frozen[condition] = threshold_at_fpr(cal_benign, fpr_target) if cal_benign else None
+        for split_label in ("holdout", "shift"):
+            split_rows = [r for r in pair_rows if r["split_role"] == split_label]
             if not split_rows:
                 continue
-            key = f"{split_label}|{primary.replace('actions_plus_cot', 'C')}_vs_{baseline.replace('actions_plus_cot', 'C')}"
-            primary_threshold = frozen_by_condition.get(primary)
-            baseline_threshold = frozen_by_condition.get(baseline)
+            key = f"{split_label}|{primary}_vs_{baseline}"
+            primary_threshold = frozen.get(primary)
+            baseline_threshold = frozen.get(baseline)
             if primary_threshold is None or baseline_threshold is None:
                 bootstrap_results[key] = {
                     "recall_delta": {"estimate": None, "ci_low": None, "ci_high": None,
                                      "error": "calibration_split_has_no_benign_scores"}}
+                sensitivity_results[key] = {
+                    "error": "calibration_split_has_no_benign_scores"
+                }
                 continue
             recall_boot = cluster_bootstrap_paired(
                 split_rows, primary, baseline, fpr_target,
@@ -187,6 +398,11 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
                 confidence_level=config.analysis.confidence_level,
                 seed=config.analysis.bootstrap_seed,
                 frozen_thresholds=(primary_threshold, baseline_threshold),
+                min_total_clusters_for_ci=config.analysis.min_total_clusters_for_ci,
+                min_positive_clusters_for_ci=config.analysis.min_positive_clusters_for_ci,
+                max_degenerate_fraction_for_ci=(
+                    config.analysis.max_degenerate_fraction_for_ci),
+                min_support_for_ci=config.analysis.min_bootstrap_support_for_ci,
             )
             auc_boot = cluster_bootstrap_statistic(
                 split_rows,
@@ -195,21 +411,64 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
                 replicates=config.analysis.bootstrap_replicates,
                 confidence_level=config.analysis.confidence_level,
                 seed=config.analysis.bootstrap_seed,
+                min_total_clusters_for_ci=config.analysis.min_total_clusters_for_ci,
+                min_positive_clusters_for_ci=config.analysis.min_positive_clusters_for_ci,
+                max_degenerate_fraction_for_ci=(
+                    config.analysis.max_degenerate_fraction_for_ci),
+                min_support_for_ci=config.analysis.min_bootstrap_support_for_ci,
             )
             bootstrap_results[key] = {"recall_delta": recall_boot, "auroc_delta": auc_boot}
+            eligible_split = [
+                row for row in rows if row["eligible"] and row["split_role"] == split_label
+            ]
+            sensitivity_results[key] = _recall_missing_score_sensitivity(
+                eligible_split, primary, baseline, primary_threshold, baseline_threshold)
+            strategy_descriptives[key] = {}
+            for strategy in sorted({
+                row["attack_strategy"] for row in split_rows if row["label"] == 1
+            }):
+                strategy_rows = [
+                    row for row in split_rows
+                    if row["label"] == 1 and row["attack_strategy"] == strategy
+                ]
+                recall_primary = recall_at_threshold(
+                    [row["scores"][primary] for row in strategy_rows], primary_threshold)
+                recall_baseline = recall_at_threshold(
+                    [row["scores"][baseline] for row in strategy_rows], baseline_threshold)
+                strategy_descriptives[key][strategy] = {
+                    "n_pairwise_positive": len(strategy_rows),
+                    "recall_primary": recall_primary,
+                    "recall_baseline": recall_baseline,
+                    "recall_delta": recall_primary - recall_baseline,
+                    "status": "exploratory_descriptive_no_subgroup_ci",
+                }
 
     # -- precision gate ---------------------------------------------------------
     holdout_report = splits_report.get("holdout", {})
-    cal_benign_clusters = len({r["template_id"] for r in calibration_rows if r["label"] == 0})
+    cal_benign_clusters = len({
+        r[config.analysis.cluster_key] for r in calibration_rows if r["label"] == 0
+    })
     # For a 5% FPR target with cluster correlation, demand >= 40 independent
     # benign clusters for an interpretable calibration (documented rule).
     required_clusters = config.analysis.min_calibration_clusters
-    fpr_gate_passed = cal_benign_clusters >= required_clusters
+    cal_benign_n = sum(1 for r in calibration_rows if r["label"] == 0)
+    allowed_false_positives = math.floor(cal_benign_n * fpr_target)
+    fpr_gate_passed = (
+        cal_benign_clusters >= required_clusters
+        and allowed_false_positives >= config.analysis.min_allowed_calibration_false_positives
+    )
     precision_gate = {
-        "calibration_split": calibration_role,
+        "calibration_split": effective_calibration_role,
         "independent_benign_clusters": cal_benign_clusters,
+        "benign_observations": cal_benign_n,
+        "allowed_false_positives_at_target": allowed_false_positives,
         "fpr_target": fpr_target,
-        "gate_rule": f">= {required_clusters} independent benign template clusters",
+        "gate_rule": (
+            f">= {required_clusters} independent benign {config.analysis.cluster_key} "
+            "clusters and >= "
+            f"{config.analysis.min_allowed_calibration_false_positives} allowed false "
+            "positives at the target rate"
+        ),
         "gate_passed": bool(fpr_gate_passed),
         "consequence": (
             "recall@FPR is confirmatory per preregistration"
@@ -222,15 +481,23 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
 
     funnel = summarize_funnel(rows)
     report = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "analysis_monitor": monitor_name,
         "conditions": conditions,
         "fpr_target": fpr_target,
         "funnel": funnel,
+        "funnel_by_attack_strategy": summarize_funnel_by_attack_strategy(rows),
         "censor": censor.to_payload(),
         "paired_censor": paired_censor.to_payload(),
+        "reference_pair": reference_conditions,
+        "reference_pair_censor": reference_censor.to_payload(),
         "splits": splits_report,
+        "pairwise_comparisons": pairwise_splits,
         "paired_bootstrap": bootstrap_results,
+        "missing_score_sensitivity": sensitivity_results,
+        "attack_strategy_descriptives": strategy_descriptives,
+        "measurement_diagnostics": _measurement_diagnostics(
+            store, rows, conditions, config),
         "precision_gate": precision_gate,
         "config_sha256": config.content_hash(),
         "cluster_key": config.analysis.cluster_key,
@@ -266,12 +533,17 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
                                             "Score distributions on holdout", prov)
         figures.append(str(fig_path))
     if bootstrap_results:
-        estimates = {
-            key: payload["recall_delta"] if payload["recall_delta"].get("estimate") is not None
-            else payload["auroc_delta"]
-            for key, payload in bootstrap_results.items()
-        }
-        estimates = {k: v for k, v in estimates.items() if v.get("estimate") is not None}
+        estimates = {}
+        for key, payload in bootstrap_results.items():
+            recall_payload = payload["recall_delta"]
+            auc_payload = payload.get("auroc_delta", {})
+            candidate = (recall_payload if recall_payload.get("estimate") is not None
+                         else auc_payload)
+            if (candidate.get("estimate") is not None
+                    and candidate.get("ci_status", "estimable") == "estimable"
+                    and candidate.get("ci_low") is not None
+                    and candidate.get("ci_high") is not None):
+                estimates[key] = candidate
         if estimates:
             fig_path = plot_paired_effect(estimates, out_path / "fig_paired_effects.png",
                                           "Paired effects with cluster-bootstrap 95% CI", prov)
@@ -279,7 +551,7 @@ def run_analysis(config_path: str, run_dir: str, out_dir: str | None,
 
     report["figures"] = figures
     report_path = out_path / "analysis_report.json"
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_json(report_path, report)
 
     summary = {
         "ok": True,

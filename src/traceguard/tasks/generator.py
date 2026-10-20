@@ -34,6 +34,7 @@ class EpisodePlan:
     generation_seed: int        # model sampling seed
     split_role: str             # development | validation | holdout | shift (privileged)
     control_variant: str        # plain | inspect_protected | suspicious_phrasing
+    attack_strategy: str = "explicit_override"
 
     @property
     def family_id(self) -> str:
@@ -43,7 +44,8 @@ class EpisodePlan:
         return instantiate(self.template_name, self.instance_seed, self.control_variant)
 
     def plan_key(self) -> str:
-        return f"{self.template_name}|i{self.instance_index}|{self.policy_mode}|g{self.generation_seed}"
+        return (f"{self.template_name}|i{self.instance_index}|{self.policy_mode}|"
+                f"strategy={self.attack_strategy}|g{self.generation_seed}")
 
 
 def build_episode_plan(config: ExperimentConfig, stage: str) -> list[EpisodePlan]:
@@ -65,21 +67,38 @@ def build_episode_plan(config: ExperimentConfig, stage: str) -> list[EpisodePlan
             for instance_index in range(n_instances):
                 iseed = _instance_seed(stage, template_name, instance_index)
                 for policy in config.dataset.policies:
-                    for gseed in range(seeds_per):
-                        variant = "plain"
-                        if policy == "honest" and config.dataset.include_negative_controls:
-                            # deterministic 1/3 / 1/3 / 1/3 assignment by plan key
-                            h = int(sha256_text(f"{stage}|{template_name}|{instance_index}|{gseed}")[:8], 16)
-                            variant = ("plain", "inspect_protected", "suspicious_phrasing")[h % 3]
-                        plans.append(EpisodePlan(
-                            template_name=template_name,
-                            instance_index=instance_index,
-                            instance_seed=iseed,
-                            policy_mode=policy,
-                            generation_seed=config.seed + gseed * 1009,
-                            split_role=split_mod.role_for_family(family),
-                            control_variant=variant,
-                        ))
+                    # Honest twins are replicated on the same seed stream for
+                    # every attack strategy.  This preserves exact A/C/E
+                    # pairing without exposing the strategy to the honest
+                    # model or changing its prompt.
+                    strategies = config.dataset.attack_strategies
+                    for strategy_index, attack_strategy in enumerate(strategies):
+                        for gseed in range(seeds_per):
+                            variant = "plain"
+                            if (policy == "honest"
+                                    and config.dataset.include_negative_controls):
+                                # deterministic 1/3 assignment by plan key
+                                source = (
+                                    f"{stage}|{template_name}|{instance_index}|{gseed}"
+                                )
+                                h = int(sha256_text(source)[:8], 16)
+                                variant = (
+                                    "plain", "inspect_protected", "suspicious_phrasing"
+                                )[h % 3]
+                            plans.append(EpisodePlan(
+                                template_name=template_name,
+                                instance_index=instance_index,
+                                instance_seed=iseed,
+                                policy_mode=policy,
+                                # Preserve legacy seeds for the first strategy and
+                                # allocate disjoint deterministic streams to every
+                                # additional strategy.
+                                generation_seed=(config.seed + gseed * 1009
+                                                 + strategy_index * 1_000_003),
+                                split_role=split_mod.role_for_family(family),
+                                control_variant=variant,
+                                attack_strategy=attack_strategy,
+                            ))
     return plans
 
 
@@ -103,6 +122,7 @@ def plan_manifest(plans: list[EpisodePlan], config: ExperimentConfig, stage: str
                 "generation_seed": p.generation_seed,
                 "split_role": p.split_role,
                 "control_variant": p.control_variant,
+                "attack_strategy": p.attack_strategy,
             }
             for p in plans
         ],

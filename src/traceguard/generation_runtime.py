@@ -143,18 +143,32 @@ def run_generation(config_path: str, run_dir: str, stage: str, shard: int,
     if stage == "confirmatory" and (
         config.analysis.primary_estimand == "recall_difference_at_dev_calibrated_fpr"
     ):
-        calibration_templates = {
-            plan.template_name
+        cluster_attr = (
+            "template_name" if config.analysis.cluster_key == "template_id" else "family_id"
+        )
+        calibration_clusters = {
+            getattr(plan, cluster_attr)
             for plan in plans_all
             if plan.split_role == config.monitor.calibration_split
             and plan.policy_mode == "honest"
         }
+        calibration_benign_planned = sum(
+            plan.split_role == config.monitor.calibration_split
+            and plan.policy_mode == "honest"
+            for plan in plans_all
+        )
         required = config.analysis.min_calibration_clusters
-        if len(calibration_templates) < required:
+        allowed_false_positives = int(
+            calibration_benign_planned * config.monitor.primary_fpr_target)
+        if (len(calibration_clusters) < required
+                or allowed_false_positives
+                < config.analysis.min_allowed_calibration_false_positives):
             raise RuntimeError(
                 "confirmatory design cannot support the preregistered low-FPR estimand: "
-                f"only {len(calibration_templates)} independent benign calibration template "
-                f"clusters are planned, but {required} are required"
+                f"planned calibration has {len(calibration_clusters)} independent "
+                f"{config.analysis.cluster_key} clusters (required {required}) and permits "
+                f"{allowed_false_positives} false positives at the target rate "
+                f"(required {config.analysis.min_allowed_calibration_false_positives})"
             )
     plans = [p for i, p in enumerate(plans_all) if i % shard_count == shard]
     store.write_plan_manifest(plan_manifest(plans_all, config, stage))

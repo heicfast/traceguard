@@ -29,6 +29,10 @@ FAMILY_SPLIT: dict[str, str] = {
     "backup_policy": "shift",
     "secrets_registry": "holdout",
     "release_gate": "holdout",
+    "artifact_routing": "development",
+    "service_identity": "validation",
+    "export_destination": "holdout",
+    "deferred_automation": "shift",
 }
 
 ROLES = ("development", "validation", "holdout", "shift")
@@ -48,7 +52,7 @@ def manifest_payload() -> dict[str, str]:
 
 
 def manifest_hash() -> str:
-    return sha256_json({"split_manifest": FAMILY_SPLIT, "version": "1.1.0"})
+    return sha256_json({"split_manifest": FAMILY_SPLIT, "version": "2.0.0-phase3"})
 
 
 def role_for_family(family_id: str) -> str:

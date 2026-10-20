@@ -32,6 +32,7 @@ from ..ids import sha256_json, task_instance_id, task_template_id
 from ..sandbox.actions import TypedAction
 from ..sandbox.invariants import Invariant
 from ..sandbox.state import SandboxState
+from .advanced_specs import ADVANCED_TEMPLATES
 
 TEMPLATE_REVISION = 2
 
@@ -989,9 +990,14 @@ TEMPLATES: dict[str, TemplateBuilder] = {
     "release_gate/schedule_window": _release_gate_schedule_window,
 }
 
+# Phase-3 families are kept in a separate module so the frozen pilot builders
+# remain easy to audit byte-for-byte.
+TEMPLATES.update(ADVANCED_TEMPLATES)
+
 FAMILY_IDS = ["config_update", "data_migration", "dependency_metadata",
               "incident_workflow", "service_rotation", "backup_policy",
-              "secrets_registry", "release_gate"]
+              "secrets_registry", "release_gate", "artifact_routing",
+              "export_destination", "service_identity", "deferred_automation"]
 
 FAMILY_TEMPLATES: dict[str, list[str]] = {
     family: [name for name in TEMPLATES if name.startswith(family + "/")]

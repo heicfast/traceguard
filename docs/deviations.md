@@ -374,3 +374,22 @@ is append-only.
   ok=true, no problems; outcome re-grade 64/64; monitor gate M1 768/768.
 - **Freeze status:** pilot (feasibility) stage; no confirmatory data
   unblinded.
+
+### 2026-10-20 — Phase 3 protocol created after pilot review
+
+- **Observed:** the exploratory 64-episode pilot showed raw CoT degrading the
+  Qwen3-4B monitor and exposed semantic authorization laundering, coarse scores,
+  differential invalidity, all-condition complete-case pairing, unstable tiny-
+  cluster intervals, action visibility, and head-window vulnerability.
+- **Change:** added relational task families, four attack-presentation strata,
+  0–100 rubric scoring with retry-once, structured late fusion, optional
+  independent fact checking, head/tail evidence sampling, pairwise-complete
+  analysis, dual realized-FPR reporting, missing-score bounds, explicit CI
+  eligibility, exact small-cluster distributions, and fail-closed release
+  packaging. See `PHASE3_PROTOCOL.md`.
+- **Impact:** no pilot artifact or conclusion is rewritten. Prompt/view/config
+  hashes change, so all Phase 3 episodes and monitor scores must be newly
+  generated. Phase 3 remains exploratory until a separate preregistration is
+  frozen and the stated gates pass.
+- **Approval:** project owner requested implementation on a new branch; merge
+  remains subject to review.

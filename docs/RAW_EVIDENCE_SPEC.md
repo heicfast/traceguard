@@ -30,6 +30,14 @@ Every Qwen `model_turn_audit` must retain:
 No field above may be character-capped. Human-friendly excerpts may exist only
 as additional fields and must point to the complete record.
 
+For multi-stage monitors, the requirement applies independently to every
+action extractor, reasoning extractor, fact checker, adjudicator, and retry.
+The score record retains the complete prompt list, raw response list, bounded
+intermediate reports actually supplied downstream, per-stage model revision,
+token accounting, runtime audit payload, and a combined source-view hash. Raw
+agent reasoning remains in the source episode audit even though the final
+adjudicator deliberately does not receive it.
+
 ## Verification procedure
 
 1. Validate public, privileged, and score records against their committed JSON
@@ -43,6 +51,12 @@ as additional fields and must point to the complete record.
    hash with the score record.
 6. Recompute analysis tables/figures from score records and compare emitted
    plot-data hashes.
+
+`traceguard export --run-dir RUN --archive OUT.tar.gz` enforces the minimum
+research-release inventory, validates score/privileged schemas and embedded
+inference hashes, writes `artifacts/artifact_manifest.json`, regenerates the
+checksum ledger, and atomically creates the archive outside the run tree.
+`--allow-incomplete` is only for explicitly marked operational checkpoints.
 
 The verifier proves internal consistency and replayability of recorded
 observations. It does not prove that a stochastic GPU run would emit the same

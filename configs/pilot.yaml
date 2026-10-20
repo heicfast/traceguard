@@ -25,7 +25,10 @@ sandbox:
   external_credentials: false
   engine_version: 1.0.2
 dataset:
-  families: null                        # all 8 families; split roles are frozen in code
+  # Frozen legacy-pilot set. Phase-3 families are intentionally excluded so
+  # this file cannot silently change meaning when the registry grows.
+  families: [config_update, data_migration, dependency_metadata, incident_workflow,
+             service_rotation, backup_policy, secrets_registry, release_gate]
   templates_per_family: 2               # 16 templates total
   instances_per_template: 1
   seeds_per_template_per_policy: 2
