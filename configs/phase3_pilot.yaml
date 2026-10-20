@@ -1,5 +1,5 @@
 # TRACEGUARD Phase 3 exploratory pilot. Freeze exact model/code revisions before launch.
-experiment_name: traceguard_phase3_pilot_v1
+experiment_name: traceguard_v6_pilot_v1
 experiment_stage: pilot
 seed: 20261020
 agent:
@@ -77,5 +77,5 @@ analysis:
   require_model_stratified_report: true
 provenance:
   code_revision: PIN_EXACT_COMMIT_BEFORE_RUN
-  experiment_name: traceguard_phase3_pilot_v1
+  experiment_name: traceguard_v6_pilot_v1
   experiment_stage: pilot

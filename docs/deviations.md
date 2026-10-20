@@ -622,3 +622,15 @@ three lessons applied (artifact binding + bnb gate + factory validation).
   tests, ruff, mypy (56 files), doctor (v0.6.0), workflow-plan validation all
   PASS on the merged tree. A multi-POV review of the new research-operations
   modules is running before the restart (per docs/REVIEW_SYSTEM.md).
+
+### 2026-10-20 — From-scratch program identity: traceguard_v6_pilot_v1
+
+- **Observed:** run_id = experiment_name:stage:config-hash — reusing the
+  pre-test experiment name would make the fresh v0.6.0 cohort claim the SAME
+  run identity as the archived pre-test cohort (identical config content
+  otherwise), colliding in every score file, evidence index, and release
+  manifest.
+- **Change:** configs/phase3_pilot.yaml experiment_name (both the top-level
+  key and provenance) is now `traceguard_v6_pilot_v1` (run_id
+  `traceguard_v6_pilot_v1:pilot:dd384fb49464`). The pre-test archive keeps its
+  own recorded identity unchanged; the two programs are never confusable.
