@@ -145,3 +145,11 @@ and an nvidia-smi dump.
   anchor cell), acct1 `umar0x/traceguard-probe-qwen14` (monitor-scale
   admission probe), acct2 `heicfast/traceguard-probe-deepseek14`
   (monitor-transfer admission probe).
+- Queue-behavior protocol (owner-validated 2026-10-19/20): batch queues are
+  erratic (instant admission on some pushes, 30+ minutes on others). The API
+  token lacks `kernelSessions.cancel` scope, so the programmatic equivalent of
+  cancel+re-push is `kaggle kernels delete <ref> -y` followed by an immediate
+  re-push — applied successfully to all three fleet kernels on 2026-10-20
+  (the pilot generation kernel admitted to RUNNING immediately after the
+  cycle). Deleting a kernel with no recorded output loses nothing; never
+  delete a kernel whose output has not been downloaded and verified.
