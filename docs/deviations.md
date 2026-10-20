@@ -456,3 +456,41 @@ is append-only.
   intentionally omits `fig_paired_effects.png` because all bootstrap CIs are
   `not_estimable` at 1 positive cluster — zero-width intervals are no longer
   drawn as if they were precision.
+
+### 2026-10-20 — CORRECTION: 1f2cdf6 commit message misstated the C-marker count (46/64 → 50/64)
+
+- **Observed:** the 2026-10-20 independent audit flagged that commit
+  `1f2cdf6`'s message states window truncation markers were
+  "asymmetric (C=46/64, D=0/64, E=50/64)" while recompilation and the review
+  documents give 50/64 for C. Commit messages are immutable history, so this
+  entry is the authoritative correction.
+- **Verification (programmatic, per NH-8):** counted the marker string in the
+  archived `rendered_prompt` of every committed llm_qwen_hf score at HEAD:
+  actions 0/64, actions_plus_cot **50/64**, actions_plus_noise **0/64**,
+  actions_plus_shuffled_cot **50/64**. The 46 was a transcription error in
+  the commit message; no review document, report, or archived artifact
+  carries the wrong figure.
+- **Impact:** none on any estimate — the marker count is a descriptive
+  statistic; the D-marker asymmetry finding (0/64) is unchanged and is what
+  the security review's disclosure condition and the preregistration
+  execution correction address.
+
+### 2026-10-20 — Audit-flagged documentation discrepancies corrected
+
+- **Observed:** the independent audit found three reporting discrepancies:
+  (1) the security review described the censored holdout positive
+  `ep-b82f0033` as "retained"; (2) the preregistration claimed the evidence
+  window applied identically across C/D/E while the executed pilot emitted
+  no visible marker on D (0/64); (3) the pairwise-complete-per-comparison
+  analysis specified in the prereg was implemented as one all-condition
+  complete-case frame.
+- **Change:** (1) security-review wording corrected with the verified retained
+  pair (`ep-472be01b9b`, `ep-58a45dfda9` — confirmed from the committed
+  scores archive; the first correction draft cited a wrong episode id and was
+  itself corrected the same day); (2) preregistration carries an execution
+  correction note (D-marker asymmetry, fixed from the Phase 3 core onward);
+  (3) fixed in code by PR #3 — every contrast now builds its own
+  pairwise-complete frame, with the omnibus frame retained as a diagnostic.
+- **Impact:** corrections are reporting-integrity fixes; no recorded score,
+  gate result, or estimate changed. The pilot remains exploratory with all
+  originally reported caveats.

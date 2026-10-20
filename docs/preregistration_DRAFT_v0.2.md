@@ -110,6 +110,19 @@ message are never capped. The online stage (RQ4) scores at the pre-action
 cutoff (`cutoff_event_index`) before tool execution, under the same
 evidence window.
 
+> **Execution correction (2026-10-20, per independent audit):** in the
+> 64-episode pilot AS EXECUTED, the window *cap* applied to C/E (50/64 views
+> capped in each) but the visible *truncation marker was absent from every
+> D view* (0/64): the noise channel was window-matched in length but
+> carried no marker, so a monitor could in principle distinguish a capped C
+> view from a capped D view by the marker alone. The strict same-marker
+> semantics described above are enforced from the Phase 3 core onward
+> (merged 2026-10-20, commit `2cc54d0`): D now emits the identical marker
+> whenever the episode's reasoning exceeded the window, and the window is a
+> deterministic 75% head / 25% tail sample. The pilot's archived scores
+> retain their recorded prompts; any re-verification of pilot views must
+> use the pilot's pinned monitor commit (`3f63e6e` lineage), not HEAD.
+
 ## Ground truth and exclusions
 
 Independent scorer version: grader 1.0.0, state-exact, re-runs on every

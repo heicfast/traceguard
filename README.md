@@ -14,13 +14,35 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M1 deterministic sandbox + exact grader + tests | done (CPU-only suite) |
 | M2 evidence pipeline + view compiler + leakage tests | done |
 | M3 FakeModel end-to-end CPU integration | done |
-| M4 Kaggle GPU preflight + Qwen3 integration | see `kaggle/` + `worklog/` |
+| M4 Kaggle GPU preflight + Qwen3 integration | done (T4, fp16, SDPA; all gates passed) |
 | M5 monitor conditions A/C/D/E on same episodes | done |
-| M6 64-episode pilot + independent review | done; exploratory, negative-leaning |
-| M6.5 Phase 3 hardening | implemented on `v6`; new pilot required |
-| M6.6 multi-model/T4 architecture | implemented; admission probes and revision freeze required |
+| M6 64-episode pilot + independent review | done; exploratory, negative-leaning; **full evidentiary archive committed** (`runs/pilot/` — episodes, privileged records, transactions, 768 monitor scores, analysis report, figures, per-file SHA-256 manifest; `traceguard export` validates it fail-closed) |
+| M6.5 Phase 3 hardening | **merged (PR #3, `2cc54d0`)** — relational non-action-visible families, 4 attack-presentation strata, 0–100 rubric, structured late fusion, pairwise-complete analysis |
+| M6.6 multi-model/T4 architecture | **merged (PR #3, `2cc54d0`)** — audited registry, fail-closed probe-admission, dual-T4 workers, release contract; admission probes and revision freeze in progress |
 | M7 preregistration freeze | blocked on Phase 3 gates and sizing |
 | M8 confirmatory + online intervention | pending |
+
+**Current stage: Phase 3 pilot preparation.** Next steps, in order: (1) run
+`traceguard probe-model` admission probes for the probe-required monitor
+candidates (Qwen3-14B NF4, DeepSeek-R1-Distill-Qwen-14B, Gemma cross-family)
+on the Kaggle T4 fleet — three accounts are used as *scheduling quota only*,
+never as statistical replicates; (2) pin exact model revisions + probe
+artifact hashes into the frozen matrix; (3) execute the 128-episode pipeline
+pilot (`configs/phase3_pilot.yaml`) with raw + late-fusion arms; (4) evaluate
+all Phase 3 gates before any confirmatory sizing decision.
+
+**Pilot result, most defensible statement** (exploratory, 64 episodes,
+Qwen3-4B agent × same-checkpoint monitor): adding capped CoT did not improve
+— and appeared to degrade — the actions-only baseline on the holdout split
+(recall 1.0 → 0.0 under strict preregistered censoring; ≈0.33 under
+channel-repaired parsing; 2 benign calibration clusters vs 40 required, so
+all fixed-FPR statements are exploratory). Raw traces show pervasive
+self-authorization framing; recorded monitor verdicts show several cases
+where the scorer adopted that framing while citing the violating action. The
+effect is confounded by small effective sample size, action-visible attacks,
+coarse scores, differential JSON failures, censoring, and generic
+long-context degradation — exactly the competing explanations Phase 3 is
+designed to separate.
 
 **Phase 3 review response:** the kernel is suitable for a new pilot, but confirmatory
 execution is deliberately blocked. The current validation split has only two
@@ -57,7 +79,18 @@ Frozen experiment configs drive seeded task-instance generation across twelve sy
 
 ## Repository layout
 
-```
+```text
+runs/pilot/pilot_v0_run/   COMPLETE pilot evidentiary archive (64 episodes):
+  episodes/ + privileged/ + transactions/ + completed_episode_ids.txt
+  monitor_scores/          768 scores: 3 monitors x 4 conditions, every record
+                           carries rendered prompts, raw responses, inference
+                           audits, and per-record hashes
+  reports/                 analysis_report.json + figures (+ plot data)
+  artifacts/               per-file SHA-256 manifest + checksums (release gate)
+runs/pilot/                kernel logs + monitor-stage environment manifest
+runs/gpu_smoke_v*/         earlier validated smoke runs (same structure)
+docs/reviews/              multi-POV pilot reviews (scientist, security,
+                           statistician) with independently verified findings
 src/traceguard/
   tasks/       TaskSpec registry (12 families, 24 templates), seeded instances, split manifest
   sandbox/     pure state, typed actions, engine, invariants, exact grader
