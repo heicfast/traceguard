@@ -67,9 +67,10 @@ CELLS = {
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: derive_agent_cell_configs.py <freeze_commit_sha>")
+    if len(sys.argv) < 2:
+        raise SystemExit("usage: derive_agent_cell_configs.py <freeze_commit_sha> [cell_name ...]")
     freeze_commit = sys.argv[1]
+    only = sys.argv[2:] or None
     if len(freeze_commit) != 40 or any(c not in "0123456789abcdef" for c in freeze_commit):
         raise SystemExit(f"freeze commit must be a full 40-char sha, got {freeze_commit!r}")
 
@@ -83,6 +84,8 @@ def main() -> int:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, cell in CELLS.items():
+        if only and name not in only:
+            continue
         artifact_path = PROBE_DIR / cell["probe_artifact"]
         if not artifact_path.exists():
             raise SystemExit(
