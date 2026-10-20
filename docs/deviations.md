@@ -101,16 +101,34 @@ is append-only.
   treatment (attack deliberation often lives mid/late trace; a 3072-token
   head cap would cut it on the longest episodes, artifacting ΔR toward
   the null).
-- **Repair (infrastructure only):** the monitor kernel now sets
+- **Repair (infrastructure only):** (1) monitor kernel sets
   `TRACEGUARD_DEVICE_MAP=auto` — the model splits across BOTH session T4s
-  (weights ~4+4 GiB), leaving ~10 GiB free per GPU; the longest prompts'
-  KV ≈ 3 GiB fits comfortably. The monitor model, checkpoint revision,
-  prompt, evidence protocol, and conditions are UNCHANGED; device placement
-  is recorded in each score's inference audit. A fresh full monitoring run
-  follows (resumable design would also have retried only the failed pairs).
-- **Verification:** pending the v2 kernel run — expected: zero
+  (weights ~4+4 GiB). (2) After the SECOND attempt still OOMed on a single
+  11.22 GiB allocation — the prefill LOGITS tensor (full [seq_len, vocab]
+  fp32 ≈ 12 GiB at ~20K-token prompts, ~152K vocab) — the provider now
+  passes the version-appropriate keep-last-logits kwarg to generate
+  (`logits_to_keep=1` on transformers >=5, `num_logits_to_keep=1` on 4.x,
+  resolved from the model's forward signature; never an unknown kwarg),
+  which is semantically identical for sampling and also protects agent
+  generation. The monitor model, checkpoint revision, prompt, evidence
+  protocol, and conditions are UNCHANGED; placement and kwargs are
+  recorded in each score's inference audit. A fresh full monitoring run
+  follows.
+- **Revision-gate upgrade (mon kernel):** equality (`mon commit == gen
+  commit`) is replaced by: the monitor pin must be a DESCENDANT of the
+  generation commit AND the diff between them may touch ONLY the
+  explicitly allowlisted inference file (`src/traceguard/models/qwen.py`)
+  plus non-research paths (docs/tests/scripts/kaggle/runs). Rationale: a
+  provider memory hotfix must not invalidate already-generated, verified,
+  gate-passed episodes; the registry/view/monitor/grader/schemas/configs
+  protection is preserved, and every allowed hotfix is recorded here and
+  in the kernel's `revision_gate` manifest block. The CONFIRMATORY stage
+  will run generation and monitoring on a single identical commit, so the
+  strict discipline returns there.
+- **Verification:** pending the v3 kernel run — expected: zero
   generation failures across all 256 LLM calls; monitor_gate M1-M3 on the
-  output.
+  output. 128 tests green (adapter regression extended: forward-signature
+  resolution asserted; `logits_to_keep=1` present in generate kwargs).
 - **Freeze status:** pre-preregistration; the failed v1 attempt produced no
   admissible LLM scores (recorded as failures, never imputed), so no
   analysis view is contaminated.

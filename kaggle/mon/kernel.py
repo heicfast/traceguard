@@ -65,20 +65,45 @@ def main() -> int:
 
     # ---- REVISION CONSISTENCY GATE -------------------------------------------
     # The episodes embed task instances from the code registry at generation
-    # time; scoring them with a different code revision silently corrupts
-    # every view (e.g. r1 vs r2 goal wording). The monitor code revision MUST
-    # match the generation code revision recorded in the run manifest.
+    # time; scoring them with a changed template registry / view compiler /
+    # monitor definition would silently corrupt every view. The monitor commit
+    # must therefore be a DESCENDANT of the generation commit AND the diff
+    # between them may touch ONLY the explicitly allowlisted inference-layer
+    # files (recorded in docs/deviations.md per hotfix). Equality still passes.
     gen_code_revision = config_payload.get("provenance", {}).get("code_revision")
     if not gen_code_revision or str(gen_code_revision).startswith("PIN"):
         raise SystemExit(
             f"generation manifest has no resolved code_revision (got {gen_code_revision!r}); "
             f"refusing to score with unverifiable template registry state")
-    if gen_code_revision != TRACEGUARD_COMMIT:
+    anc = run(["git", "-C", "/tmp/traceguard", "merge-base", "--is-ancestor",
+               gen_code_revision, TRACEGUARD_COMMIT])
+    if anc.returncode != 0:
         raise SystemExit(
-            f"code revision mismatch: generation ran {gen_code_revision[:10]} but this "
-            f"monitor kernel is pinned to {TRACEGUARD_COMMIT[:10]}; repin the monitor "
-            f"kernel to the generation commit and re-push")
+            f"generation commit {gen_code_revision[:10]} is not an ancestor of the "
+            f"monitor pin {TRACEGUARD_COMMIT[:10]}; refusing to score across a fork")
+    diff = run(["git", "-C", "/tmp/traceguard", "diff", "--name-only",
+                gen_code_revision, TRACEGUARD_COMMIT])
+    allowed_changes = {
+        # 2026-10-20 prefill-logits guard + device_map hotfix (monitor-kernel
+        # OOM, see docs/deviations.md): inference-layer only; registry, views,
+        # monitors, grader, schemas, configs untouched.
+        "src/traceguard/models/qwen.py",
+    }
+    non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
+    changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]
+    disallowed = [ln for ln in changed
+                  if ln not in allowed_changes and not ln.startswith(non_research_prefixes)]
+    if disallowed:
+        raise SystemExit(
+            f"research-core files changed between generation {gen_code_revision[:10]} and "
+            f"monitor pin {TRACEGUARD_COMMIT[:10]}: {disallowed} — regeneration or a new "
+            f"deviation-approved allowlist entry is required")
     manifest["gen_code_revision"] = gen_code_revision
+    manifest["revision_gate"] = {
+        "mode": "ancestor+diff-allowlist",
+        "changed_files": changed,
+        "allowed_hotfix_files": sorted(allowed_changes),
+    }
 
     import yaml
     config_yaml = "/tmp/traceguard-config-from-manifest.yaml"

@@ -117,11 +117,17 @@ class _Model:
         self.torch = torch
         self.kwargs: dict | None = None
 
+    def forward(self, input_ids, logits_to_keep=None, **_kwargs):
+        """Signature source for the prefill-logits guard (transformers >=5
+        exposes logits_to_keep in the forward signature)."""
+        return logits_to_keep
+
     def generate(self, **kwargs):
         self.kwargs = kwargs
         assert self.torch.in_rng_scope
         assert self.torch.seed == 7919
         assert "generator" not in kwargs
+        assert kwargs["logits_to_keep"] == 1
         return [_Row([1, 2, 10, 11])]
 
 

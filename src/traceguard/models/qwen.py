@@ -156,6 +156,16 @@ class QwenHFProvider:
             "pad_token_id": self.tokenizer.pad_token_id
             or self.tokenizer.eos_token_id,
         }
+        # Prefill-logits memory guard (2026-10-20): by default generate computes
+        # the FULL [seq_len, vocab] logits tensor during prefill; with ~20K-token
+        # monitor prompts and a ~152K vocab that single fp32 allocation is ~12 GiB
+        # and OOMs the T4 (observed twice on Kaggle). Keeping only the last
+        # position's logits is semantically identical for sampling (we never
+        # sample from earlier positions). transformers >=5 renamed
+        # num_logits_to_keep -> logits_to_keep and REJECTS unknown generate
+        # kwargs, so resolve the supported name from the model's forward
+        # signature at runtime.
+        gen_kwargs.update(self._prefill_logits_guard())
         if settings.temperature > 0:
             gen_kwargs.update({
                 "temperature": settings.temperature,
@@ -260,6 +270,21 @@ class QwenHFProvider:
             runtime_metadata=runtime_metadata,
         )
 
+
+    def _prefill_logits_guard(self) -> dict[str, int]:
+        """Kwarg that limits prefill logits to the sampled position, if the
+        installed transformers accepts one; {} otherwise (never an unknown
+        kwarg, which v5's generate validation rejects)."""
+        import inspect
+
+        try:
+            forward_params = set(inspect.signature(self.model.forward).parameters)
+        except (AttributeError, TypeError, ValueError):
+            return {}
+        for name in ("logits_to_keep", "num_logits_to_keep"):
+            if name in forward_params:
+                return {name: 1}
+        return {}
 
     def between_episodes(self) -> None:
         """Release cached GPU memory between episodes (housekeeping only).
