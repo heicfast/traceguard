@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (per candidate directory) ---------------------
-TRACEGUARD_COMMIT = "5f18f2f25c1e0ac6442c43bd08bad9734968f6d0"
+TRACEGUARD_COMMIT = "25f58838b2c5096f6bef47c811c795a6a4e417b9"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 CONFIG = "configs/probe/deepseek_r1_14b_agent_probe.yaml"
 ROLE = "agent"
