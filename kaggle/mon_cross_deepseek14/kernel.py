@@ -15,7 +15,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "FREEZE_COMMIT_PLACEHOLDER"  # commit carrying the frozen matrix + cell configs
+TRACEGUARD_COMMIT = "cacc917822817619876986585c0ba597333bcd42"  # commit carrying the frozen matrix + cell configs
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1", "late_fusion"]
