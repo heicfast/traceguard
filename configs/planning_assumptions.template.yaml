@@ -1,0 +1,19 @@
+# Replace every throughput/yield field with measurements from the admission
+# pilot before preregistration freeze. These defaults are conservative examples.
+alpha: 0.05
+power: 0.80
+minimum_detectable_recall_difference: 0.10
+discordant_pair_rate: 0.30
+intracluster_correlation: 0.10
+mean_episodes_per_cluster: 8.0
+attack_policy_fraction: 0.50
+attack_attempt_rate: 0.60
+valid_paired_score_rate: 0.95
+generated_tokens_per_episode: 4000
+monitor_tokens_per_episode_condition: 2500
+generation_tokens_per_second: 12.0
+monitoring_tokens_per_second: 18.0
+gpu_count_per_job: 1
+operational_reserve_fraction: 0.20
+bytes_per_episode_raw: 500000
+bytes_per_monitor_score: 80000

@@ -17,6 +17,7 @@ import hashlib
 import json
 from typing import Any
 
+from .provenance import verify_evidence_index
 from .sandbox.grader import GRADER_VERSION, grade_episode
 from .sandbox.invariants import Invariant
 from .sandbox.state import SandboxState
@@ -54,8 +55,9 @@ def verify_run(run_dir: str) -> dict[str, Any]:
 
     config_sha = manifest.get("config_sha256")
     if config_sha:
-        mismatched = [e["episode_id"] for e in episodes
-                      if e["provenance"].get("config_sha256") != config_sha]
+        mismatched = [
+            e["episode_id"] for e in episodes if e["provenance"].get("config_sha256") != config_sha
+        ]
         if mismatched:
             problems.append(f"{len(mismatched)} episodes with mismatched config hash")
 
@@ -79,6 +81,7 @@ def verify_run(run_dir: str) -> dict[str, Any]:
                     continue
                 content = audit_event["content"]
                 from .ids import sha256_json, sha256_text
+
                 hash_checks = {
                     "raw_output_utf8_sha256": sha256_text(content["raw_output"]),
                     "raw_output_with_special_tokens_utf8_sha256": sha256_text(
@@ -91,9 +94,7 @@ def verify_run(run_dir: str) -> dict[str, Any]:
                 }
                 for field, expected in hash_checks.items():
                     if content.get(field) != expected:
-                        problems.append(
-                            f"raw evidence hash mismatch {env['episode_id']}:{field}"
-                        )
+                        problems.append(f"raw evidence hash mismatch {env['episode_id']}:{field}")
         try:
             final_state = SandboxState.from_payload(priv["final_state"])
             initial_state = SandboxState.from_payload(priv["initial_state"])
@@ -109,9 +110,11 @@ def verify_run(run_dir: str) -> dict[str, Any]:
             )
             checked += 1
             stored = env["outcomes"]
-            if (outcome.attack_attempted != stored["attack_attempted"]
-                    or outcome.attack_succeeded != stored["attack_succeeded"]
-                    or outcome.main_task_succeeded != stored["main_task_succeeded"]):
+            if (
+                outcome.attack_attempted != stored["attack_attempted"]
+                or outcome.attack_succeeded != stored["attack_succeeded"]
+                or outcome.main_task_succeeded != stored["main_task_succeeded"]
+            ):
                 regraded_mismatches += 1
                 problems.append(f"outcome re-grade mismatch: {env['episode_id']}")
         except Exception as exc:
@@ -131,15 +134,15 @@ def verify_run(run_dir: str) -> dict[str, Any]:
                 continue
             commit = json.loads(commit_path.read_text(encoding="utf-8"))
             from .ids import sha256_json
+
             if commit.get("transaction_sha256") != sha256_json(transaction):
                 problems.append(f"transaction/commit hash mismatch: {ep_id}")
             projected_envelope: dict[str, Any] | None = next(
                 (item for item in episodes if item["episode_id"] == ep_id), None
             )
             priv = privileged.get(ep_id)
-            if (
-                projected_envelope is None
-                or sha256_json(projected_envelope) != transaction.get("envelope_sha256")
+            if projected_envelope is None or sha256_json(projected_envelope) != transaction.get(
+                "envelope_sha256"
             ):
                 problems.append(f"transaction/envelope mismatch: {ep_id}")
             if priv is None or sha256_json(priv) != transaction.get("privileged_sha256"):
@@ -183,6 +186,12 @@ def verify_run(run_dir: str) -> dict[str, Any]:
                 bad += 1
         if bad:
             problems.append(f"{bad} checksum mismatches")
+
+    evidence_index_path = store.artifact_dir / "evidence_index.json"
+    if evidence_index_path.exists():
+        evidence_result = verify_evidence_index(store.run_dir)
+        problems.extend(evidence_result["problems"])
+        warnings.append(f"evidence index checked {evidence_result.get('files_checked', 0)} files")
 
     return {
         "ok": not problems,

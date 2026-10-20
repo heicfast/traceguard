@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from .ids import sha256_json, sha256_text
+from .provenance import build_evidence_index
 from .traces.schema import validate_monitor_score, validate_privileged
 from .traces.storage import RunStore, atomic_write_json
 
@@ -53,12 +54,12 @@ def _audit_hash_errors(value: Any, context: str) -> tuple[list[str], int]:
             checks = {
                 "raw_output_utf8_sha256": sha256_text(value.get("raw_output", "")),
                 "raw_output_with_special_tokens_utf8_sha256": sha256_text(
-                    value.get("raw_output_with_special_tokens", "")),
+                    value.get("raw_output_with_special_tokens", "")
+                ),
                 "rendered_prompt_utf8_sha256": sha256_text(value.get("rendered_prompt", "")),
                 "input_messages_sha256": sha256_json(value.get("input_messages", [])),
                 "prompt_token_ids_sha256": sha256_json(value.get("prompt_token_ids", [])),
-                "generated_token_ids_sha256": sha256_json(
-                    value.get("generated_token_ids", [])),
+                "generated_token_ids_sha256": sha256_json(value.get("generated_token_ids", [])),
             }
             for key, expected in checks.items():
                 if value.get(key) != expected:
@@ -111,17 +112,22 @@ def build_release(
         score_count += len(records)
         for record in records:
             validate_monitor_score(record)
-            required_raw = ("raw_response", "rendered_prompt", "inference_audit",
-                            "view_hash", "prompt_hash")
+            required_raw = (
+                "raw_response",
+                "rendered_prompt",
+                "inference_audit",
+                "view_hash",
+                "prompt_hash",
+            )
             if all(key in record and record[key] is not None for key in required_raw):
                 raw_score_count += 1
             else:
                 errors.append(f"score lacks raw audit fields: {record.get('score_id', '?')}")
-            if sha256_text(record.get("rendered_prompt", "")) != record.get(
-                    "rendered_prompt_hash"):
+            if sha256_text(record.get("rendered_prompt", "")) != record.get("rendered_prompt_hash"):
                 errors.append(f"rendered prompt hash mismatch: {record.get('score_id', '?')}")
             audit_errors, audit_checked = _audit_hash_errors(
-                record.get("inference_audit"), record.get("score_id", "unknown-score"))
+                record.get("inference_audit"), record.get("score_id", "unknown-score")
+            )
             errors.extend(audit_errors)
             monitor_audit_turns_checked += audit_checked
 
@@ -138,17 +144,20 @@ def build_release(
     excluded = {
         Path("artifacts/artifact_manifest.json"),
         Path("artifacts/checksums.sha256"),
+        Path("artifacts/evidence_index.json"),
     }
     files: list[dict[str, Any]] = []
     for path in sorted(item for item in root.rglob("*") if item.is_file()):
         relative = path.relative_to(root)
         if relative in excluded:
             continue
-        files.append({
-            "path": relative.as_posix(),
-            "bytes": path.stat().st_size,
-            "sha256": _sha256(path),
-        })
+        files.append(
+            {
+                "path": relative.as_posix(),
+                "bytes": path.stat().st_size,
+                "sha256": _sha256(path),
+            }
+        )
 
     release_manifest = {
         "schema_version": "1.0.0",
@@ -173,6 +182,7 @@ def build_release(
     }
     manifest_path = root / "artifacts" / "artifact_manifest.json"
     atomic_write_json(manifest_path, release_manifest)
+    evidence_index = build_evidence_index(root)
     store.write_checksums()
 
     archive_result: str | None = None
@@ -183,7 +193,8 @@ def build_release(
             raise ValueError("archive path must be outside the run directory")
         target.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
-            dir=target.parent, prefix=".tmp-release-", suffix=".tar.gz")
+            dir=target.parent, prefix=".tmp-release-", suffix=".tar.gz"
+        )
         os.close(descriptor)
         temporary = Path(temporary_name)
         try:
@@ -202,6 +213,7 @@ def build_release(
         "archive_path": archive_result,
         "archive_sha256": archive_sha256,
         "manifest": release_manifest,
+        "evidence_index_sha256": evidence_index["index_sha256"],
     }
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "traceguard"
-version = "0.5.0"
+version = "0.6.0"
 description = "TRACEGUARD: empirical research on whether reasoning-trace visibility improves monitoring of unauthorized agent actions."
 readme = "README.md"
 requires-python = ">=3.11"

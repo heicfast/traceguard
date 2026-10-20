@@ -122,6 +122,8 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - [`docs/RESEARCH_REVIEW_V2.md`](docs/RESEARCH_REVIEW_V2.md) — consolidated findings and confirmatory blockers
 - [`docs/PHASE3_PROTOCOL.md`](docs/PHASE3_PROTOCOL.md) — harder task strata, structured monitoring, statistics, and release contract
 - [`docs/MULTIMODEL_STUDY.md`](docs/MULTIMODEL_STUDY.md) — T4 feasibility, audited model matrix, admission probes, tuning isolation, and raw-evidence additions
+- [`docs/ACADEMIC_METHODS_V6.md`](docs/ACADEMIC_METHODS_V6.md) — literature-grounded estimands, factorial design, sizing mathematics, multiplicity, and claim rules
+- [`docs/AUTOMATION_AND_EVIDENCE_V6.md`](docs/AUTOMATION_AND_EVIDENCE_V6.md) — resumable workflow journal, failure taxonomy, evidence index, and figure contract
 - [`docs/prior_art_matrix.md`](docs/prior_art_matrix.md) — how TRACEGUARD differs from SLEIGHT-Bench, MonitorBench, OpenAI monitorability evals, SHADE-Arena
 - [`docs/research_question.md`](docs/research_question.md) — the one falsifiable hypothesis and its negative outcomes
 - [`docs/deviations.md`](docs/deviations.md) — dated deviation log (changes after any freeze)

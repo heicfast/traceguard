@@ -1,0 +1,38 @@
+schema_version: 1.0.0
+name: phase3-audited-pipeline
+stages:
+  - name: doctor
+    command: [traceguard, doctor, --config, configs/phase3_pilot.yaml]
+    outputs: []
+    retries: 0
+    timeout_seconds: 300
+  - name: generation
+    needs: [doctor]
+    command: [traceguard, generate, --config, configs/phase3_pilot.yaml, --run-dir, runs/workflow_phase3, --stage, pilot]
+    outputs: [runs/workflow_phase3/run_manifest.json, runs/workflow_phase3/plan_manifest.json]
+    retries: 1
+    timeout_seconds: 21600
+  - name: monitoring
+    needs: [generation]
+    command: [traceguard, monitor, --config, configs/phase3_pilot.yaml, --run-dir, runs/workflow_phase3, --monitors, llm_v1, late_fusion]
+    outputs: []
+    retries: 1
+    timeout_seconds: 21600
+  - name: analysis
+    needs: [monitoring]
+    command: [traceguard, analyze, --config, configs/phase3_pilot.yaml, --run-dir, runs/workflow_phase3, --monitor, llm_qwen_hf]
+    outputs: [runs/workflow_phase3/reports/analysis_report.json]
+    retries: 0
+    timeout_seconds: 3600
+  - name: verify
+    needs: [analysis]
+    command: [traceguard, verify, --run-dir, runs/workflow_phase3]
+    outputs: []
+    retries: 0
+    timeout_seconds: 600
+  - name: index
+    needs: [verify]
+    command: [traceguard, index-run, --run-dir, runs/workflow_phase3]
+    outputs: [runs/workflow_phase3/artifacts/evidence_index.json]
+    retries: 0
+    timeout_seconds: 600
