@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceguard.dev/schemas/evidence_index.schema.json",
+  "title": "TRACEGUARD Evidence Index",
+  "type": "object",
+  "required": ["schema_version", "index_sha256", "content_index_sha256", "files"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "index_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "content_index_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "role", "bytes", "sha256", "media_type"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "role": {"type": "string", "minLength": 1},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "media_type": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

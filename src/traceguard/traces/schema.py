@@ -60,6 +60,10 @@ def validate_monitor_score(payload: dict[str, Any]) -> None:
     _validate_named(payload, "monitor_score.schema.json", "monitor score")
 
 
+def validate_evidence_index(payload: dict[str, Any]) -> None:
+    _validate_named(payload, "evidence_index.schema.json", "evidence index")
+
+
 def load_episodes(path: str | Path, validate: bool = True) -> list[dict[str, Any]]:
     """Load a JSONL shard of episode envelopes."""
     records: list[dict[str, Any]] = []
@@ -89,6 +93,7 @@ __all__ = [
     "validate_envelope",
     "validate_privileged",
     "validate_monitor_score",
+    "validate_evidence_index",
     "load_episodes",
     "iter_event_types",
 ]

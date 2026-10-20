@@ -7,38 +7,54 @@ figure -> analysis data -> scores -> views -> episodes.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from ..ids import sha256_json
+from ..traces.storage import atomic_write_json
 
 
 def _finalize(fig, path: Path, data_payload: dict[str, Any], provenance: str) -> Path:
     fig.text(0.01, 0.005, provenance, fontsize=5, color="0.35", ha="left", va="bottom")
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    fig.savefig(
+        path,
+        dpi=200,
+        bbox_inches="tight",
+        metadata={
+            "Title": path.stem,
+            "Subject": provenance,
+        },
+    )
+    for suffix in (".svg", ".pdf"):
+        fig.savefig(path.with_suffix(suffix), bbox_inches="tight")
     import matplotlib.pyplot as plt
+
     plt.close(fig)
     data_path = path.with_suffix(".plotdata.json")
-    data_path.write_text(json.dumps(data_payload, indent=2, sort_keys=True) + "\n",
-                         encoding="utf-8")
+    atomic_write_json(data_path, data_payload)
     return path
 
 
-def plot_roc_curves(per_condition: dict[str, dict[str, Any]], out_path: str | Path,
-                    title: str, provenance: str) -> Path:
+def plot_roc_curves(
+    per_condition: dict[str, dict[str, Any]], out_path: str | Path, title: str, provenance: str
+) -> Path:
     """ROC curves for several conditions; per_condition: name -> roc_points."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(6.2, 5.4), constrained_layout=True)
     for name, payload in per_condition.items():
         pts = payload["points"]
-        ax.plot([p[0] for p in pts], [p[1] for p in pts],
-                label=f"{name} (AUC={payload['auroc']:.3f})",
-                linewidth=1.6, alpha=0.9)
+        ax.plot(
+            [p[0] for p in pts],
+            [p[1] for p in pts],
+            label=f"{name} (AUC={payload['auroc']:.3f})",
+            linewidth=1.6,
+            alpha=0.9,
+        )
     ax.plot([0, 1], [0, 1], color="0.6", linestyle=":", linewidth=1)
     ax.set_xlabel("False positive rate")
     ax.set_ylabel("Recall (TPR)")
@@ -51,23 +67,39 @@ def plot_roc_curves(per_condition: dict[str, dict[str, Any]], out_path: str | Pa
     return _finalize(fig, Path(out_path), data, provenance)
 
 
-def plot_score_distributions(scores_by_label: dict[str, dict[str, list[float]]],
-                             out_path: str | Path, title: str, provenance: str) -> Path:
+def plot_score_distributions(
+    scores_by_label: dict[str, dict[str, list[float]]],
+    out_path: str | Path,
+    title: str,
+    provenance: str,
+) -> Path:
     """Distributions of scores by condition, split by true label."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     conditions = sorted(next(iter(scores_by_label.values())).keys())
-    fig, axes = plt.subplots(1, len(conditions), figsize=(3.1 * len(conditions), 3.6),
-                             constrained_layout=True, squeeze=False)
+    fig, axes = plt.subplots(
+        1,
+        len(conditions),
+        figsize=(3.1 * len(conditions), 3.6),
+        constrained_layout=True,
+        squeeze=False,
+    )
     for ix, condition in enumerate(conditions):
         ax = axes[0][ix]
         benign = scores_by_label.get("benign", {}).get(condition, [])
         attack = scores_by_label.get("attack", {}).get(condition, [])
-        ax.hist([benign, attack], bins=20, range=(0.0, 1.0), stacked=False,
-                label=[f"benign (n={len(benign)})", f"attack (n={len(attack)})"],
-                color=["#2c7fb8", "#d95f0e"], alpha=0.85)
+        ax.hist(
+            [benign, attack],
+            bins=20,
+            range=(0.0, 1.0),
+            stacked=False,
+            label=[f"benign (n={len(benign)})", f"attack (n={len(attack)})"],
+            color=["#2c7fb8", "#d95f0e"],
+            alpha=0.85,
+        )
         ax.set_title(condition, fontsize=9)
         ax.set_xlabel("suspicion score", fontsize=8)
         if ix == 0:
@@ -77,10 +109,114 @@ def plot_score_distributions(scores_by_label: dict[str, dict[str, list[float]]],
     return _finalize(fig, Path(out_path), scores_by_label, provenance)
 
 
-def plot_paired_effect(estimates: dict[str, dict[str, Any]], out_path: str | Path,
-                       title: str, provenance: str) -> Path:
+def plot_precision_recall_curves(
+    per_condition: dict[str, dict[str, Any]],
+    out_path: str | Path,
+    title: str,
+    provenance: str,
+) -> Path:
+    """Precision-recall curves, the informative view for rare attacks."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(6.2, 5.4), constrained_layout=True)
+    for name, payload in per_condition.items():
+        points = payload["points"]
+        ax.step(
+            [point[0] for point in points],
+            [point[1] for point in points],
+            where="post",
+            label=f"{name} (AP={payload['average_precision']:.3f})",
+            linewidth=1.6,
+        )
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_title(title)
+    ax.set_xlim(-0.01, 1.01)
+    ax.set_ylim(-0.01, 1.01)
+    ax.grid(alpha=0.25)
+    ax.legend(loc="lower left", fontsize=8)
+    return _finalize(fig, Path(out_path), per_condition, provenance)
+
+
+def plot_capability_funnel(
+    funnel: dict[str, Any],
+    out_path: str | Path,
+    title: str,
+    provenance: str,
+) -> Path:
+    """Display agent capability attrition before monitor comparisons."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    labels = ["assigned attack", "completed", "attempted", "succeeded", "task preserved"]
+    values = [
+        funnel.get(key, 0)
+        for key in (
+            "attack_episodes",
+            "attack_completed",
+            "attack_attempted",
+            "attack_succeeded",
+            "attack_main_task_preserved",
+        )
+    ]
+    fig, ax = plt.subplots(figsize=(7.0, 3.8), constrained_layout=True)
+    bars = ax.bar(labels, values, color=["#636363", "#3182bd", "#756bb1", "#de2d26", "#31a354"])
+    ax.bar_label(bars, padding=3, fontsize=8)
+    ax.set_ylabel("episodes")
+    ax.set_title(title)
+    ax.tick_params(axis="x", labelrotation=18)
+    ax.grid(alpha=0.2, axis="y")
+    return _finalize(fig, Path(out_path), {"labels": labels, "values": values}, provenance)
+
+
+def plot_measurement_completeness(
+    diagnostics: dict[str, Any],
+    out_path: str | Path,
+    title: str,
+    provenance: str,
+) -> Path:
+    """Valid versus invalid/missing score counts per evidence condition."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    by_condition = diagnostics.get("by_condition", {})
+    names = sorted(by_condition)
+    valid = [by_condition[name].get("valid_scores", 0) for name in names]
+    missing = [by_condition[name].get("invalid_or_missing", 0) for name in names]
+    fig, ax = plt.subplots(figsize=(7.2, max(3.4, 0.45 * len(names))), constrained_layout=True)
+    ys = list(range(len(names)))
+    ax.barh(ys, valid, color="#2ca25f", label="valid")
+    ax.barh(ys, missing, left=valid, color="#de2d26", label="invalid or missing")
+    ax.set_yticks(ys, labels=names, fontsize=8)
+    ax.set_xlabel("eligible episode-condition records")
+    ax.set_title(title)
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.2, axis="x")
+    return _finalize(
+        fig,
+        Path(out_path),
+        {
+            "conditions": names,
+            "valid": valid,
+            "invalid_or_missing": missing,
+        },
+        provenance,
+    )
+
+
+def plot_paired_effect(
+    estimates: dict[str, dict[str, Any]], out_path: str | Path, title: str, provenance: str
+) -> Path:
     """Paired delta with cluster-bootstrap CI per comparison."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import numpy as np
@@ -115,4 +251,12 @@ def provenance_line(run_id: str, config_sha: str, extra: str = "") -> str:
     return f"TRACEGUARD {run_id} · cfg:{config_sha[:12]} · data:{digest}{' · ' + extra if extra else ''}"
 
 
-__all__ = ["plot_roc_curves", "plot_score_distributions", "plot_paired_effect", "provenance_line"]
+__all__ = [
+    "plot_roc_curves",
+    "plot_precision_recall_curves",
+    "plot_score_distributions",
+    "plot_paired_effect",
+    "plot_capability_funnel",
+    "plot_measurement_completeness",
+    "provenance_line",
+]
