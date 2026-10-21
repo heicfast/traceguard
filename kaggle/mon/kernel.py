@@ -256,7 +256,7 @@ def main() -> int:
     dest.mkdir(parents=True, exist_ok=True)
     for item in ("monitor_scores", "episodes", "privileged", "run_manifest.json",
                  "plan_manifest.json", "logs", "completed_episode_ids.txt",
-                 "transactions", "commits", "artifacts", "reports"):
+                 "transactions", "commits", "artifacts", "reports", "tables"):
         src = work_run / item
         if src.exists():
             r = run(["cp", "-r", str(src), str(dest)])
