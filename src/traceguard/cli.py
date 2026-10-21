@@ -364,6 +364,34 @@ def cmd_index_run(args: argparse.Namespace) -> int:
     return 0 if result.get("ok", True) else 1
 
 
+def cmd_canonicalize(args: argparse.Namespace) -> int:
+    """Rebuild the integrity chain: evidence index first, then the checksum
+    ledger covering the index.
+
+    Required after any stage writes NEW files into a run directory (for
+    example: analysis writes reports/ and tables/ into a monitored run).
+    The order is binding: index, then ledger (the ledger must cover the
+    index), then verify — per the 2026-10-20 MISSING_INDEX incident fix.
+    """
+    from .provenance import build_evidence_index
+    from .traces.storage import RunStore
+
+    index_result = build_evidence_index(args.run_dir)
+    ledger = RunStore(args.run_dir).write_checksums()
+    covered = sum(1 for line in ledger.read_text(encoding="utf-8").splitlines()
+                  if line.strip())
+    display = {
+        "ok": True,
+        "run_dir": str(args.run_dir),
+        "indexed_files": index_result["file_count"],
+        "ledger_entries": covered,
+        "index_sha256": index_result["index_sha256"],
+        "ledger_path": str(ledger),
+    }
+    print(json.dumps(display, indent=2, sort_keys=True, default=str))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceguard")
     parser.add_argument("--version", action="version", version=f"traceguard {__version__}")
@@ -477,6 +505,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--run-dir", required=True)
     p.add_argument("--check", action="store_true")
     p.set_defaults(func=cmd_index_run)
+
+    p = sub.add_parser("canonicalize",
+                       help="rebuild evidence index + checksum ledger (index first, "
+                            "then ledger covering the index)")
+    p.add_argument("--run-dir", required=True)
+    p.set_defaults(func=cmd_canonicalize)
 
     args = parser.parse_args(argv)
     return int(args.func(args) or 0)

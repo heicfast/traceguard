@@ -243,6 +243,15 @@ class QwenHFProvider:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         new_ids = output_ids[0][inputs["input_ids"].shape[-1]:].tolist()
+        # Memory hygiene (2026-10-21): release the per-call attention/KV
+        # arena between generate() calls. Phase-3 scale-cell forensics showed
+        # marginal OOMs (440 MiB..2.2 GiB requests failing with up to
+        # 2.27 GiB 'reserved but unallocated') — allocator fragmentation on
+        # 14B-NF4-per-T4 monitoring sessions. transformers generate()
+        # rebuilds the KV cache every call (no cross-call reuse), so freeing
+        # between calls is always safe; cost is ~1 ms per call.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         decoded_output = self.tokenizer.decode(
             new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )

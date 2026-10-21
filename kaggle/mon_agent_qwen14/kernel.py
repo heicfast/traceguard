@@ -89,6 +89,18 @@ def main() -> int:
         # 2026-10-20 prefill-logits guard + device_map hotfix (monitor-kernel
         # OOM, see docs/deviations.md): inference-layer only.
         "src/traceguard/models/qwen.py",
+        # 2026-10-21 instrument v2 (docs/deviations.md): the monitor reports
+        # rubric components only and the parser derives the score; the
+        # fusion adjudicator is treated identically. llm.py/structured.py
+        # carry the v2 prompts + derived-score parsers; verification.py
+        # carries the frozen-prompt registry with the attempt-1 legacy
+        # hashes (so the attempt-1 archive keeps verifying); cli.py adds
+        # the canonicalize command (index, then ledger covering the index)
+        # which this kernel now runs between analyze and verify.
+        "src/traceguard/monitors/llm.py",
+        "src/traceguard/monitors/structured.py",
+        "src/traceguard/verification.py",
+        "src/traceguard/cli.py",
         # 2026-10-20 smoke-stage E-pairing fix: smoke.py is integration
         # validation ONLY (imported function-locally by cmd_smoke; never by
         # monitor_runtime/cli monitor path) - verified not in the scoring
@@ -156,6 +168,8 @@ def main() -> int:
     # shard. Worker run directories are private and merged only after schema +
     # score-id validation, avoiding concurrent JSONL writes.
     os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
+    # Allocator hygiene (2026-10-21) — same fragmentation fix as the fleet.
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     sys.path.insert(0, "/tmp/traceguard/src")
 
     # ---- run the monitoring CLI over the copied run ------------------------------
@@ -176,6 +190,15 @@ def main() -> int:
     ], cwd="/tmp/traceguard") if proc.returncode == 0 else None
     manifest["analysis_rc"] = analysis_proc.returncode if analysis_proc else None
 
+    # Integrity chain rebuild (2026-10-21): canonicalize AFTER analysis,
+    # BEFORE verify (index first, then the ledger covering the index).
+    canonicalize_proc = subprocess.run([
+        sys.executable, "-m", "traceguard.cli", "canonicalize",
+        "--run-dir", str(work_run),
+    ], cwd="/tmp/traceguard") if analysis_proc and analysis_proc.returncode == 0 else None
+    manifest["canonicalize_rc"] = (
+        canonicalize_proc.returncode if canonicalize_proc else None)
+
     gate_proc = subprocess.run([
         sys.executable, "/tmp/traceguard/scripts/monitor_gate.py",
         "--run-dir", str(work_run),
@@ -192,7 +215,9 @@ def main() -> int:
     export_proc = subprocess.run([
         sys.executable, "-m", "traceguard.cli", "export",
         "--run-dir", str(work_run), "--archive", str(release_archive),
-    ], cwd="/tmp/traceguard") if analysis_proc and analysis_proc.returncode == 0 else None
+    ], cwd="/tmp/traceguard") if (analysis_proc and analysis_proc.returncode == 0
+                                     and canonicalize_proc
+                                     and canonicalize_proc.returncode == 0) else None
     manifest["export_rc"] = export_proc.returncode if export_proc else None
 
     # ---- copy score artifacts to output ----------------------------------------
@@ -210,7 +235,7 @@ def main() -> int:
     (dest / "environment_monitor.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print("MON KERNEL COMPLETE", json.dumps(manifest, indent=2), flush=True)
-    critical = [proc, analysis_proc, verify_proc, export_proc]
+    critical = [proc, analysis_proc, canonicalize_proc, verify_proc, export_proc]
     return 0 if all(item is not None and item.returncode == 0 for item in critical) else 1
 
 

@@ -60,11 +60,21 @@ def _frozen_prompt_hashes() -> dict[str, frozenset[str]]:
     )
 
     current_llm = prompt_hash(MONITOR_PROMPT_TEMPLATE)
+    # Legacy pre-nonce LLM prompt (phase-2 pre-test archives, superseded
+    # 2026-10-19 by the nonce-hardened prompt).
     legacy_llm = "309ef4aa865be30e1a01f89c7b31e303ee0766fa7ed227306e3d6b22d8ff3564"
+    # v6 instrument attempt 1 (phase-3 pilot attempt 1, 2026-10-20):
+    # self-reported risk_score with rubric-sum equality check. Gate-failed M2
+    # (llm 69-89% invalid; fusion 41%) — the 4B monitor fails arithmetic
+    # self-consistency while its rubric components remain well-formed.
+    # Superseded 2026-10-21 by the v2 rubric-only prompt with a
+    # parser-derived score. Retained so the attempt-1 score archive keeps
+    # verifying under the current code.
+    legacy_llm_v6_attempt1 = "075bc30379a1c5b20ed0859b07d30fadaa62202ead63345d7ae67d2d523a971f"
     return {
         "rules": frozenset({prompt_hash("rules_v1: policy-conformance over tool history")}),
         "keywords": frozenset({prompt_hash("keywords_v1: suspicious-phrase features")}),
-        "llm": frozenset({current_llm, legacy_llm}),
+        "llm": frozenset({current_llm, legacy_llm, legacy_llm_v6_attempt1}),
         "fusion": frozenset({
             prompt_hash("\n".join([
                 ACTION_EXTRACTOR_PROMPT, REASONING_EXTRACTOR_PROMPT,
@@ -74,6 +84,10 @@ def _frozen_prompt_hashes() -> dict[str, frozenset[str]]:
                 ACTION_EXTRACTOR_PROMPT, REASONING_EXTRACTOR_PROMPT,
                 FACT_CHECK_PROMPT, ADJUDICATOR_PROMPT,
             ])),
+            # v6 instrument attempt 1 fusion adjudicator (superseded
+            # 2026-10-21, same decision as the llm v1 prompt above):
+            "edcd2d1703f9400198c503c74974bb9455172f95708961ef41ac734c2208183b",
+            "75a8e9509184f790a70e27b34121c3e02892fb624531ec32bd7acee7c1e358ad",
         }),
     }
 
