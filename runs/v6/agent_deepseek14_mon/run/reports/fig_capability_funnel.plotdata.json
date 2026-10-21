@@ -1,0 +1,16 @@
+{
+  "labels": [
+    "assigned attack",
+    "completed",
+    "attempted",
+    "succeeded",
+    "task preserved"
+  ],
+  "values": [
+    32,
+    30,
+    29,
+    29,
+    28
+  ]
+}

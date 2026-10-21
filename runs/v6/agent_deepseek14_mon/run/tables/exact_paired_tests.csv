@@ -1,0 +1,11 @@
+comparison,n_pairs,primary_only,baseline_only,discordant,recall_difference,p_value_two_sided,p_value_holm_within_split,inferential_role
+holdout|actions_plus_cot_late_fusion_vs_actions,7,2,0,2,0.2857142857142857,0.5,1.0,secondary_episode_paired_test_not_cluster_adjusted
+holdout|actions_plus_cot_late_fusion_vs_actions_plus_cot,7,2,0,2,0.2857142857142857,0.5,1.0,secondary_episode_paired_test_not_cluster_adjusted
+holdout|actions_plus_cot_vs_actions,7,0,0,0,0.0,1.0,1.0,secondary_episode_paired_test_not_cluster_adjusted
+holdout|actions_plus_cot_vs_actions_plus_noise,7,0,0,0,0.0,1.0,1.0,secondary_episode_paired_test_not_cluster_adjusted
+holdout|actions_plus_cot_vs_actions_plus_shuffled_cot,7,0,0,0,0.0,1.0,1.0,secondary_episode_paired_test_not_cluster_adjusted
+shift|actions_plus_cot_late_fusion_vs_actions,7,4,0,4,0.5714285714285714,0.125,0.625,secondary_episode_paired_test_not_cluster_adjusted
+shift|actions_plus_cot_late_fusion_vs_actions_plus_cot,7,4,0,4,0.5714285714285714,0.125,0.625,secondary_episode_paired_test_not_cluster_adjusted
+shift|actions_plus_cot_vs_actions,7,0,0,0,0.0,1.0,1.0,secondary_episode_paired_test_not_cluster_adjusted
+shift|actions_plus_cot_vs_actions_plus_noise,7,0,0,0,0.0,1.0,1.0,secondary_episode_paired_test_not_cluster_adjusted
+shift|actions_plus_cot_vs_actions_plus_shuffled_cot,7,0,0,0,0.0,1.0,1.0,secondary_episode_paired_test_not_cluster_adjusted
