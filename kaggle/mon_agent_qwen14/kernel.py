@@ -38,15 +38,29 @@ def main() -> int:
 
     # ---- locate the generation run directory (kernel data source mount) -------
     # Kaggle explodes uploaded dataset zips at the dataset root, so the run dir
-    # can appear at any depth under /kaggle/input/<dataset-slug>/... ; match
-    # ANY path ending in run/run_manifest.json (recursive).
-    candidates = sorted(glob.glob("/kaggle/input/**/run/run_manifest.json", recursive=True))
+    # can appear at any depth under /kaggle/input/<dataset-slug>/... , in two
+    # layouts: wrapped (.../<any>/run/run_manifest.json) or FLAT (the zip root
+    # WAS the run dir: .../<slug>/run_manifest.json with episodes/ etc. as
+    # siblings). Match any run_manifest.json recursively, then keep only
+    # candidates whose parent directory actually looks like a run dir (has an
+    # episodes/ sibling) — robust to both layouts (2026-10-21: the agent
+    # cohort datasets mount flat and the wrapped-only glob missed them).
+    candidates = sorted(
+        p for p in glob.glob("/kaggle/input/**/run_manifest.json", recursive=True)
+        if (Path(p).parent / "episodes").is_dir()
+    )
     if not candidates:
         print("NO RUN MANIFEST FOUND. /kaggle/input contents:", flush=True)
         os.system("find /kaggle/input -maxdepth 5 -type d | head -50")
         raise SystemExit(1)
     run_dir = Path(candidates[0]).parent
-    stage_dir = run_dir.parent.name
+    # Wrapped layout: .../<stage_dir>/run  -> stage_dir = parent dir name.
+    # Flat layout: .../<slug>              -> use the manifest's stage field.
+    if run_dir.name == "run":
+        stage_dir = run_dir.parent.name
+    else:
+        _rm = json.loads(Path(candidates[0]).read_text(encoding="utf-8"))
+        stage_dir = _rm.get("stage") or _rm.get("experiment_stage") or "pilot"
     print("Using run dir:", run_dir, flush=True)
     manifest["run_dir"] = str(run_dir)
 
