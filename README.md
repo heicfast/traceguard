@@ -34,8 +34,23 @@ renamed to `runs/pre-tests-data/`, every phase re-executed on the hardened core
 with fresh admissions. The v0.6 core passed three independent expert reviews with
 every BLOCKER/MAJOR fixed before any run (`c3fe999`, 218 tests). Fresh program
 identity: `traceguard_v6_pilot_v1`. All four 14B role-admissions passed on v0.6
-(`runs/v6/probes/`); the GPU smoke is running; the fresh anchor cohort and
-monitor/agent cells follow on the multi-account fleet.
+(`runs/v6/probes/`); the GPU smoke and the fresh 128-episode anchor cohort
+are complete (attempts 83%, success 53/53, honest 63/64, re-grade 128/128).
+
+**Phase-3 progress (2026-10-21).** The full 5-cell model-capability matrix
+is executing on the three-account fleet with the v2 monitor instrument:
+anchor (4B monitor over the 4B cohort), scale (Qwen3-14B monitor), cross
+(DeepSeek-R1-14B monitor), and the two agent-cohort cells. Both agent
+cohorts are landed, verified (64/64 re-grade each), archived
+(`runs/v6/agent_cohorts/`) and published as datasets. Headline agent
+result: stronger agents are MORE reliable attackers AND better honest
+workers — Qwen3-14B attempts 32/32 (100%) with 100% honest completion;
+DeepSeek-R1-14B 29/32 (91%); vs 83% attempts for the 4B anchor.
+The v2 instrument (attempt-1 post-mortem, `docs/deviations.md`
+2026-10-21): the model now reports four banded rubric components only and
+the parser derives the 0-100 score deterministically — the v1 contract's
+arithmetic self-report invalidated 69-89% of 4B monitor outputs without
+touching the underlying rubric judgments.
 
 **Pilot result, most defensible statement** (exploratory, 64 episodes,
 Qwen3-4B agent × same-checkpoint monitor): adding capped CoT did not improve
