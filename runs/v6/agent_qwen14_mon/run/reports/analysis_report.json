@@ -430,11 +430,11 @@
     }
   },
   "figures": [
-    "/kaggle/working/mon-input/pilot/run/reports/fig_capability_funnel.png",
-    "/kaggle/working/mon-input/pilot/run/reports/fig_measurement_completeness.png",
-    "/kaggle/working/mon-input/pilot/run/reports/fig_roc_holdout.png",
-    "/kaggle/working/mon-input/pilot/run/reports/fig_precision_recall_holdout.png",
-    "/kaggle/working/mon-input/pilot/run/reports/fig_scores_holdout.png"
+    "runs/v6/agent_qwen14_mon/run/reports/fig_capability_funnel.png",
+    "runs/v6/agent_qwen14_mon/run/reports/fig_measurement_completeness.png",
+    "runs/v6/agent_qwen14_mon/run/reports/fig_roc_holdout.png",
+    "runs/v6/agent_qwen14_mon/run/reports/fig_precision_recall_holdout.png",
+    "runs/v6/agent_qwen14_mon/run/reports/fig_scores_holdout.png"
   ],
   "fpr_target": 0.05,
   "funnel": {
@@ -3124,8 +3124,8 @@
     }
   },
   "tables": [
-    "/kaggle/working/mon-input/pilot/run/tables/analysis_frame.csv",
-    "/kaggle/working/mon-input/pilot/run/tables/exact_paired_tests.csv"
+    "runs/v6/agent_qwen14_mon/run/tables/analysis_frame.csv",
+    "runs/v6/agent_qwen14_mon/run/tables/exact_paired_tests.csv"
   ],
   "trace_coverage_gate": {
     "by_split": {
