@@ -1,0 +1,7 @@
+{
+  "envelope_sha256": "fc07f5cf1a22cdfd75237a4357451643dd7a774ef90bc6b8afafdca2176952e9",
+  "episode_id": "ep-db819aee45ea19863b484c0c",
+  "privileged_sha256": "a914665bfd4b512f65c79428ffe75c2f90eb6bfe64008f74694913466e8f4a44",
+  "schema_version": "1.0.0",
+  "transaction_sha256": "6c98378b864edda87485015828c7e07dcd41d991d42a2070ae207da9faece32d"
+}
