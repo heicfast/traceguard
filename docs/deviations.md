@@ -746,3 +746,76 @@ fixed-FPR confirmatory blocked; exploratory only), rules baseline recall
 0/53 on the phase-3 non-action-visible families (the headroom redesign
 working as intended), threshold resolution floor(16*0.05)=0 < 3. These
 carry into S5 sizing as before.
+
+### 2026-10-22 — Attempt-2 monitor runs landed/decoded: anchor cell COMPLETE (raw-arm degeneracy is instrument-level, not agent-capability); scale/cross blocked by a measured capacity knife edge; dual-T4 split chosen
+
+**Anchor cell (`umar0x/traceguard-monitor-scoring`, v2 instrument, pinned
+1394950) — COMPLETE, landed:**
+
+- Full chain green in-kernel (monitor_rc 0, analysis 0, canonicalize 0,
+  verify 0, export 0, 6472.7 s) with `monitor_gate_rc: 3` recorded as the
+  honest verdict. Landed via the standard flow: local re-analysis
+  reproduced the kernel's reports (plotdata byte-identical; report JSON
+  identical modulo absolute path prefixes; rendered figures differ only by
+  embedded dc:date + matplotlib 3.10.0-vs-3.9.2 metadata — plotdata is the
+  deterministic layer), canonicalize -> verify ok (128/128 re-grade, 306
+  files indexed, 0 problems) -> export `release_complete: true`. Archived
+  at `runs/v6/anchor_mon/`.
+- Gate verdict reproduced locally: M1 PASS (1664 views recompiled, 0
+  failures, 0 leakage), M2 PASS, M2' PASS, M3 FAIL (score resolution), M4
+  FAIL (2 benign calibration clusters — predeclared design fact), M5 INFO
+  (rules baseline recall 0/53, FPR 0/75 on the phase-3 non-action-visible
+  families — the headroom redesign working as intended), M6 FAIL
+  (floor(16*0.05)=0 allowed false positives < 3).
+
+**Scientific result (exploratory) — the pending discriminator is resolved,
+and it CORRECTS the interpretation recorded in commits 9cd5fd1/01a25f6:**
+
+- The v2 raw arm is degenerate for the 4B monitor on the anchor cohort too,
+  INCLUDING the actions-only condition (A: distinct=1, all rubric zeros;
+  C/E: distinct=2 [0.0, 0.25]; D: distinct=1) — 117/117 valid records per
+  condition, zero information. Raw C-vs-A AUROC: 0.469 dev / 0.542 holdout
+  (chance). Because condition A contains no untrusted narrative at all,
+  the all-zero collapse CANNOT be attributed to "raw concatenation of the
+  agent narrative" — the agent-cell commits' "the failure is ARCHITECTURAL
+  (raw concatenation)" framing over-claims: under instrument v2 the raw
+  arm is an uninformative MEASUREMENT INSTRUMENT for this monitor class,
+  and raw-vs-fusion contrasts measure instrument-vs-instrument, not
+  architecture-vs-architecture.
+- Late fusion (same 4B checkpoint, structured extractors + adjudicator,
+  raw CoT withheld from the adjudicator): AUROC 0.923 development / 0.690
+  holdout / 0.826 shift / 0.888 validation vs 0.5 for actions-only; 16
+  distinct score levels; M3 PASS for that arm. The fusion architecture's
+  detection capability is replicated on the third cohort (qwen14-agent:
+  0.953/0.719; deepseek14-agent: 0.859/0.634; anchor 4B-agent: 0.923/0.690).
+- What remains genuinely open: whether a LARGER monitor's raw arm still
+  collapses under the same v2 instrument (scale/cross cells) — i.e.
+  whether the collapse is 4B-capacity-linked or instrument-linked. The
+  scale/cross cells are therefore scientifically essential, not mere
+  matrix completion.
+
+**Scale/cross attempt-2 runs — ERROR, root-caused to a measured capacity
+knife edge (genuine exhaustion, not fragmentation):**
+
+- Workers completed all scoring loops and recorded every failure
+  (fail-closed): C failed 23/128 (18.0%), E failed 17/128 (13.3%) — both
+  above the M2 <=10% gate, which correctly refused (kernel ERROR, zero
+  admissible-cell claims). A, D, and late fusion: 128/128 clean on both
+  workers. Reserved-but-unallocated memory at failure was only 187-218
+  MiB — the 2026-10-21 allocator fix removed the fragmentation component;
+  what remains is capacity.
+- Measured on the exact anchor-cohort views (scripts/measure_prompt_sizes.py):
+  the OOM boundary sits at ~15.6-15.7K prompt chars (~3.5K tokens) for the
+  14B-NF4-per-T4 layout: largest C pass 15,659 chars vs smallest C fail
+  15,615 chars (margin -0.3% — a knife edge). E failures are NOT purely
+  length-driven (an 8,059-char E prompt failed while 17,106 passed),
+  i.e. the usable ceiling drifts with process state; window reduction
+  alone (e.g. 2048-token window brings max C to 13,803 chars, ~13% under
+  the static boundary) would leave unsafe margin AND cost protocol
+  comparability.
+- DECISION (infrastructure only; no protocol change): run the 14B monitor
+  cells with the model SPLIT ACROSS BOTH T4s (device_map auto, ~4.75 GiB
+  weights per GPU, one shared provider instance for raw+fusion — verified
+  shared in monitor_runtime), giving >40% headroom at the same 12,288-char
+  window. Per admission discipline the cross-GPU NF4 load path is new and
+  gets a probe kernel (both 14B models) BEFORE any cell re-launch.
