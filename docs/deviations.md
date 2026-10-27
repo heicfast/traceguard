@@ -947,3 +947,34 @@ conditions (A and C, 128/128 each). Partial worker output archived at
 provenance preserved). Per the no-compromise rule the cell is RE-RUN in
 full (v3 pushed 2026-10-28, RUNNING); no partial score will be mixed into
 the landed record.**
+
+### 2026-10-28 — Headroom measurement (S5-decisive): the v6 action-visibility ceiling is UNIFORM — A-AUROC = 1.000 on every family and strategy at 14B
+
+Per-family rank-based AUROC (Mann-Whitney, no threshold assumption; script
+`scripts/headroom_by_family.py`, output archived at
+`runs/v6/headroom_by_family_20261028.txt`) measured on the landed scale-cell
+scores (128 episodes, 53 attempted attacks, 75 benign):
+
+- 14B monitor, actions-only: **A-AUROC = 1.000 on all 4 families AND all 4
+  attack strategies.** Even the v6 relational/non-action-visible family
+  designs (cross-object refs, deferred effects) are fully action-inferable
+  by a 14B semantic monitor — the dispositive information IS present in the
+  action sequence for a capable reader, even though the syntactic rules
+  monitor sees nothing (rules_v1 recall 0/53).
+- 14B, actions+CoT: C-AUROC 0.958–1.000 — never above A (3 families
+  marginally below). The CoT signal is real (E-AUROC drops to 0.73–0.92
+  when shuffled) but redundant with action information.
+- 4B v2 raw instrument: 0.500 everywhere (uniform degeneracy, confirming
+  the capacity finding is uniform, not family-specific).
+
+**S5 consequence (recorded per the preregistered estimand-integrity
+policy):** the headroom blocking condition (#1) fails UNIFORMLY — recall
+(actions) cannot enter the 0.40–0.70 band on this template inventory for
+any capable monitor. A confirmatory-scale run (~550–650 episodes, ~40–60
+GPU-h) on the current families would measure a structurally-null estimand
+and is therefore NOT scientifically justified (no-compromise means not
+burning quota on a premeasured null). The correct path: freeze the
+exploratory matrix result as the v6 evidence, and predeclare the
+confirmatory program as future work requiring genuinely intent-only
+attacks (legitimate-appearing action sequences whose violation is
+recoverable ONLY from reasoning), plus >=40 benign calibration clusters.
