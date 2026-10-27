@@ -1,0 +1,160 @@
+{
+  "artifact_sha256": "60bd29f8412fd2e912b2d5b459b9b60216320fee103bddc9b3db2ef8a4ce0de8",
+  "bitsandbytes_version": "0.50.2",
+  "candidate": "deepseek_r1_14b_split",
+  "config": "configs/probe/deepseek_r1_14b_monitor_probe.yaml",
+  "device_map": "auto",
+  "gates": [
+    {
+      "gate": "cuda available",
+      "passed": true,
+      "time_utc": "2026-10-27T06:54:51.052094+00:00"
+    },
+    {
+      "gate": "at least two gpus for the split layout (saw 2)",
+      "passed": true,
+      "time_utc": "2026-10-27T06:54:51.078978+00:00"
+    },
+    {
+      "gate": "clone repository",
+      "passed": true,
+      "time_utc": "2026-10-27T06:54:55.540467+00:00"
+    },
+    {
+      "gate": "checkout c5017477d7",
+      "passed": true,
+      "time_utc": "2026-10-27T06:54:56.801460+00:00"
+    },
+    {
+      "gate": "install traceguard package",
+      "passed": true,
+      "time_utc": "2026-10-27T06:55:03.116158+00:00"
+    },
+    {
+      "gate": "install bitsandbytes",
+      "passed": true,
+      "time_utc": "2026-10-27T06:55:06.928047+00:00"
+    },
+    {
+      "gate": "probe gates passed (deepseek_r1_14b_split, split layout)",
+      "passed": true,
+      "time_utc": "2026-10-27T07:02:23.375318+00:00"
+    }
+  ],
+  "gpus": [
+    {
+      "capability": [
+        7,
+        5
+      ],
+      "index": 0,
+      "name": "Tesla T4",
+      "total_memory_gib": 14.56
+    },
+    {
+      "capability": [
+        7,
+        5
+      ],
+      "index": 1,
+      "name": "Tesla T4",
+      "total_memory_gib": 14.56
+    }
+  ],
+  "kernel": "traceguard-probe-deepseek_r1_14b_split",
+  "kernel_seconds": 459.0,
+  "layout": "split",
+  "pinned_commit": "c5017477d7020e14744abcccee53f2ea0e7e0622",
+  "pip_bnb_rc": 0,
+  "pip_repo_rc": 0,
+  "probe_gates": [
+    {
+      "detail": 2,
+      "name": "cuda_available",
+      "passed": true
+    },
+    {
+      "detail": {
+        "capability": [
+          7,
+          5
+        ],
+        "name": "Tesla T4"
+      },
+      "name": "t4_sm75",
+      "passed": true
+    },
+    {
+      "detail": "float16",
+      "name": "fp16_compute",
+      "passed": true
+    },
+    {
+      "detail": "sdpa",
+      "name": "sdpa_attention",
+      "passed": true
+    },
+    {
+      "detail": "eos",
+      "name": "nonempty_visible_answer",
+      "passed": true
+    },
+    {
+      "detail": "ok",
+      "name": "json_conformance",
+      "passed": true
+    },
+    {
+      "detail": {
+        "context_budget_tokens": 8192,
+        "minimum_deployment_scale_chars": 15288,
+        "reaches_deployment_scale": true,
+        "stress_prompt_chars": 18140,
+        "window_chars": 12288
+      },
+      "name": "stress_reaches_deployment_scale",
+      "passed": true
+    },
+    {
+      "detail": {
+        "budget_bytes": 15032385536,
+        "per_device": {
+          "0": {
+            "peak_allocated_bytes": 7305966592,
+            "peak_reserved_bytes": 7721713664
+          },
+          "1": {
+            "peak_allocated_bytes": 11637838336,
+            "peak_reserved_bytes": 12134121472
+          }
+        }
+      },
+      "name": "vram_budget_all_devices",
+      "passed": true
+    },
+    {
+      "detail": {
+        "stop_reason": "eos",
+        "stress_seconds": 114.0
+      },
+      "name": "stress_generation_completed",
+      "passed": true
+    }
+  ],
+  "probe_rc": 0,
+  "probe_schema_version": "1.1.0",
+  "python": "3.13.15",
+  "resolved_model_revision": "1df8507178afcc1bef68cd8c393f61a886323761",
+  "resolved_tokenizer_revision": "1df8507178afcc1bef68cd8c393f61a886323761",
+  "role": "monitor",
+  "stress_prompt_metrics": {
+    "context_budget_tokens": 8192,
+    "minimum_deployment_scale_chars": 15288,
+    "reaches_deployment_scale": true,
+    "stress_prompt_chars": 18140,
+    "window_chars": 12288
+  },
+  "timestamp_utc": "2026-10-27T06:54:44.333331+00:00",
+  "transformers_before": "5.16.1",
+  "transformers_used": "5.16.1"
+}

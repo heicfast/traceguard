@@ -95,7 +95,7 @@ monitor:
   monitor_reasoning_mode: false
   output_scale_max: 100
   primary_fpr_target: 0.05
-  probe_artifact_sha256: fefb4552cb3f5fa1be14360bd644889cb58656a4007e5b1b61a4b850fd5bd739
+  probe_artifact_sha256: 60bd29f8412fd2e912b2d5b459b9b60216320fee103bddc9b3db2ef8a4ce0de8
   provider: generic_hf
   quantization: bnb_nf4
   reasoning_protocol: think_tags

@@ -95,7 +95,7 @@ monitor:
   monitor_reasoning_mode: false
   output_scale_max: 100
   primary_fpr_target: 0.05
-  probe_artifact_sha256: 7e0a269b93426475854a432b6886381556f43153237a4d992b5082ed00699581
+  probe_artifact_sha256: a06ac8e6699cefb906b56d1a6379d86f069b9ac2cf3926420897c21a24f4280d
   provider: qwen_hf
   quantization: bnb_nf4
   reasoning_protocol: qwen3

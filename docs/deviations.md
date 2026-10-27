@@ -881,3 +881,23 @@ GPU round at a time. Two structural fixes:
    only; grep-verified zero references across the scoring import graph —
    same precedent as smoke.py). All other attempt-3 files are
    docs/scripts/kaggle/tests prefixed (non-research by the frozen rule).
+
+### 2026-10-27 — Split-layout admissions PASSED for both 14B monitors (deployment-scale stress gate on real hardware)
+
+- `heicjpg/traceguard-probe-split-qwen14` (349 s): ALL 9 probe gates PASS on
+  the cross-GPU NF4 load path. Stress prompt 18,140 chars (deployment max
+  measured 15,659 — the gate exercises ~16% ABOVE deployment); peak reserved
+  7.16 / 11.00 GiB per device vs 14.0 GiB budget. Resolved revision
+  40c06982... == the frozen scale-cell revision (anchor continuity).
+- `heicfast/traceguard-probe-split-deepseek14` (459 s): ALL 9 gates PASS;
+  same stress scale; peak reserved 7.19 / 11.30 GiB. Resolved revision
+  1df85071... == the frozen cross-cell revision.
+- The asymmetric balance (accelerate places the larger share on device 1)
+  is recorded; both devices hold >=3 GiB headroom at stress scale, and the
+  allocator-hygiene env (expandable_segments) applies on top in the cells.
+- Both cell configs' probe_artifact_sha256 pinned to the split artifacts;
+  cell kernels' artifact_rel moved to runs/v6/probes/monitor_split/; factory
+  fail-closed verification re-run locally for both cells: PASS.
+- The stress gate would have REFUSED the attempt-2 single-GPU layout at
+  admission (18,140 chars > the 15,615-char OOM boundary) — the structural
+  gap is closed: capacity admission now measures deployment scale.
