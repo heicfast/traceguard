@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # ---------------- run parameters (per candidate directory) ---------------------
-TRACEGUARD_COMMIT = "PIN_EXACT_COMMIT_BEFORE_RUN"
+TRACEGUARD_COMMIT = "c5017477d7020e14744abcccee53f2ea0e7e0622"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 CONFIG = "configs/probe/deepseek_r1_14b_monitor_probe.yaml"
 ROLE = "monitor"
