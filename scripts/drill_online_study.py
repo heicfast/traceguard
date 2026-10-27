@@ -16,6 +16,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import argparse
 from pathlib import Path
 
 import yaml
@@ -62,6 +63,10 @@ class DrillBlockOnceMonitor(StructuredPendingActionMonitor):
 
 def main() -> int:
     import subprocess as sp
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--keep-out", help="persist the merged drill run to this path")
+    dargs = parser.parse_args()
 
     head = sp.run(["git", "-C", str(REPO), "rev-parse", "HEAD"],
                   capture_output=True, text=True, check=True).stdout.strip()
@@ -197,6 +202,14 @@ def main() -> int:
                   "protection path not exercised", file=sys.stderr)
             return 1
         print("ONLINE STUDY DRILL: FULL PASS")
+        if dargs.keep_out:
+            keep = Path(dargs.keep_out)
+            keep.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+            if keep.exists():
+                shutil.rmtree(keep)
+            shutil.copytree(merged_dir, keep)
+            print(f"drill output persisted to {keep}")
         return 0
 
 
