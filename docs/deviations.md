@@ -1007,3 +1007,18 @@ the exact second the scale cell completed, 2/5 llm conditions scored
 (A, C: 128/128 each); the partial worker output is archived at
 runs/v6/failed_attempts/cross_mon_interrupted_20261027/ and the cell is
 re-run in full (v3 RUNNING) — no partial scores mix into the record.
+
+### 2026-10-28 — Online study v1 fast-fail: the kernel's own agent-identity gate caught a comparison bug (fail-closed working as designed); v2 relaunched
+
+Online kernel v1 passed all preflight gates (model load, authentic think
+tokens, VRAM release, dataset-identity) and then FAILED its own
+agent-identity gate — the gate compared the SUBSTITUTED online config's
+agent section (resolved model revisions) against the RAW pilot config's
+agent section (PIN placeholders still present), which can never be
+equal. The gate logic was fixed to compare pin-normalized sections
+(excluding model_revision/tokenizer_revision, the only fields the kernel
+resolves in the online copy); the fix is verified locally (both
+comparisons True) and the comparison semantics are unchanged — the
+paired-design guarantee still requires every non-pin field to match.
+Kernel v2 pushed and RUNNING. No research data was affected (the study
+had not started scoring; the failure occurred before any rollout).
