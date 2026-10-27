@@ -819,3 +819,65 @@ knife edge (genuine exhaustion, not fragmentation):**
   shared in monitor_runtime), giving >40% headroom at the same 12,288-char
   window. Per admission discipline the cross-GPU NF4 load path is new and
   gets a probe kernel (both 14B models) BEFORE any cell re-launch.
+
+### 2026-10-27 — Attempt-3 capacity fix: single_split layout + deployment-scale admission stress gate + local kernel preflight (session re-created the interrupted fix set)
+
+Session context: the 2026-10-22 session died mid-implementation of this fix
+set (uncommitted work lost); this session re-created and validated it in
+full. Nothing from the failed attempts was reused unverified: every piece
+was re-implemented, unit-tested, drilled end-to-end on CPU, and lint/mypy
+checked before any kernel push. 243 tests green.
+
+**Root-cause class (systemic, per the owner's "make sure this doesn't
+happen again" directive):** five Kaggle rounds were lost in the v6 launch to
+defects that were ALL locally checkable (allowlist misses, stale artifact
+namespaces, missing install gates, wrong env bindings) — each discovered one
+GPU round at a time. Two structural fixes:
+
+1. `scripts/preflight_kernel.py` (new): local pre-push replay of every
+   kernel's OWN on-Kaggle checks — pin existence, the ancestor+diff-allowlist
+   revision gate (AST-parsed from the kernel source, never hand-typed),
+   config/probe-artifact existence AT THE PIN (git show), metadata
+   title-resolving slug rule (§9.5), and the run-manifest discovery glob.
+   A kernel that fails preflight locally is never pushed.
+
+2. Deployment-scale admission stress gate (`model_probe.py`): the attempt-2
+   knife edge slipped through because probes exercised ~90-char prompts
+   while deployment renders ~17.9K-char evidence-window prompts. The probe
+   now renders a deployment-faithful prompt (the frozen monitor template
+   wrapping a synthetic condition-C view at the full config-derived window:
+   max_monitor_tokens x 4.0 chars/token + action/overhead budgets — never
+   hardcoded), runs a real generation under it, and gates: (a) prompt
+   reaches deployment scale, (b) per-device peak VRAM within
+   max_memory_per_gpu_gib on ALL visible devices (the old gate checked
+   device 0 only), (c) generation completes. OOM raises and fails the probe
+   fail-closed. Probe artifact schema 1.0.0 -> 1.1.0 (stress metrics +
+   gates recorded).
+
+3. `single_split` worker layout (`run_monitor_workers.py`): ONE worker
+   process with the model SPLIT ACROSS BOTH T4s (CUDA_VISIBLE_DEVICES=all,
+   TRACEGUARD_DEVICE_MAP=auto; accelerate balances 14B-NF4 weights ~4.75
+   GiB per GPU) scoring all episodes sequentially. Trades ~2x wall time for
+   >40% per-device headroom at the SAME frozen 12,288-char evidence window —
+   infrastructure only, zero protocol change (the recorded 2026-10-22
+   decision). `per_gpu` layout preserved byte-for-byte (historical
+   behavior); single_split with <2 visible GPUs REFUSES (no fallback).
+   Topology extracted to a pure unit-tested planner. Local drill: 1 split
+   worker vs 2 per_gpu workers produced 1024/1024 byte-identical
+   deterministic scores over a fresh copy of the 128-episode anchor cohort,
+   and the canonicalize->verify chain is green on the scored copy.
+
+4. Admission discipline (per the recorded decision): BEFORE any cell
+   re-launch, both 14B monitors get split-layout probe kernels
+   (probe_split_qwen14 on heicjpg/acct3, probe_split_deepseek14 on
+   heicfast/acct2) exercising the cross-GPU NF4 load path + the new stress
+   gate on real hardware. Cell configs' probe_artifact_sha256 are updated
+   to the landed artifacts BEFORE the cells launch; the factory fails
+   closed otherwise. The kernels were made provably identical modulo the
+   candidate identity lines (diff-verified).
+
+5. Cell kernel allowlist extension: `src/traceguard/model_probe.py` added
+   with justification (function-local import in the probe-model CLI handler
+   only; grep-verified zero references across the scoring import graph —
+   same precedent as smoke.py). All other attempt-3 files are
+   docs/scripts/kaggle/tests prefixed (non-research by the frozen rule).

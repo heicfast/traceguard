@@ -138,6 +138,14 @@ def main() -> int:
         "configs/phase3_agent_cells/scale_agent_qwen14.yaml",
         "configs/phase3_agent_cells/cross_agent_deepseek14.yaml",
         "src/traceguard/model_matrix.py",
+        # 2026-10-27 attempt-3 capacity fix (docs/deviations.md): the admission
+        # probe gained a deployment-scale stress gate + all-devices VRAM gate
+        # (the attempt-2 knife edge slipped through ~90-char probe prompts).
+        # model_probe.py is imported ONLY function-locally by the probe-model
+        # CLI handler (cli.py:219); grep-verified zero references in
+        # monitor_runtime / models.factory / monitors.* / traces.* /
+        # analysis_runtime — the scoring path cannot execute it.
+        "src/traceguard/model_probe.py",
     }
     non_research_prefixes = ("docs/", "scripts/", "kaggle/", "tests/", "runs/")
     changed = [ln for ln in diff.stdout.splitlines() if ln.strip()]
@@ -215,15 +223,14 @@ def main() -> int:
     manifest["bitsandbytes_version"] = getattr(bitsandbytes, "__version__", "unknown")
 
     os.environ["TRACEGUARD_TORCH_DTYPE"] = TORCH_DTYPE
-    # Each worker receives one independent model copy and a disjoint episode
-    # shard. Worker run directories are private and merged only after schema +
-    # score-id validation, avoiding concurrent JSONL writes.
-    os.environ["TRACEGUARD_DEVICE_MAP"] = '{"": 0}'
-    # Allocator hygiene (2026-10-21): expandable segments eliminate the
-    # fragmentation-driven marginal OOMs observed on 14B-NF4-per-T4 sessions
-    # (requests of 440 MiB..2.2 GiB failing while up to 2.27 GiB sat
-    # 'reserved but unallocated'). Paired with per-call empty_cache() in the
-    # provider.
+    # SINGLE-SPLIT LAYOUT (2026-10-27; docs/deviations.md): the attempt-2
+    # per-GPU layout lost 23/128 condition-C + 17/128 condition-E calls to a
+    # measured capacity knife edge (~15.6K prompt chars for 14B-NF4 on ONE
+    # T4). The model now spans BOTH T4s (run_monitor_workers --layout
+    # single_split sets TRACEGUARD_DEVICE_MAP=auto + both devices visible;
+    # accelerate balances NF4 weights ~4.75 GiB per GPU), trading ~2x wall
+    # time for >40% per-device headroom at the same frozen 12,288-char
+    # evidence window. Infrastructure only — zero protocol change.
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     # Admission artifact for the probe-required monitor model: the factory
     # recomputes this file's hash and compares it to the cell config's frozen
@@ -240,6 +247,7 @@ def main() -> int:
     mon_cmd = [sys.executable, "/tmp/traceguard/scripts/run_monitor_workers.py",
                "--config", config_yaml,
                "--run-dir", str(work_run),
+               "--layout", "single_split",
                "--monitors"] + MONITORS
     proc = subprocess.run(mon_cmd, cwd="/tmp/traceguard")
     manifest["monitor_rc"] = proc.returncode

@@ -6,12 +6,13 @@ Usage: python3 scripts/measure_prompt_sizes.py
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 from traceguard.monitors.conditions import (
-    build_partner_index, compile_all_conditions, find_partner,
+    build_partner_index,
+    compile_all_conditions,
+    find_partner,
 )
 from traceguard.monitors.llm import MONITOR_PROMPT_TEMPLATE, evidence_nonce
 from traceguard.traces.storage import RunStore
@@ -84,7 +85,10 @@ def main() -> int:
         vals = sorted((r[cond], r["episode_id"] in failed) for r in rows)
         ok = [v for v, f in vals if not f]
         bad = [v for v, f in vals if f]
-        toks = lambda c: c / CHARS_PER_TOKEN
+
+        def toks(c: float) -> float:
+            return c / CHARS_PER_TOKEN
+
         print(f"\n== {cond} ==")
         if bad:
             print(f"  failed n={len(bad)}: chars min={min(bad):,} max={max(bad):,}"
