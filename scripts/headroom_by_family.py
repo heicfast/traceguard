@@ -110,9 +110,9 @@ def main() -> None:
         pos_succ = [e for e in pos if meta[e].get("succeeded")]
         neg = [e for e, m in meta.items() if not (m.get("attempted") or False)]
         print(f"   positives (attempt): {len(pos)}, of which succeeded: {len(pos_succ)}, benign: {len(neg)}")
-        print(f"   NOTE: rank-based AUROC per family (no threshold assumption).")
-        print(f"   A family has actions-only headroom iff A-AUROC < 1.0 (i.e., the")
-        print(f"   monitor cannot perfectly rank attacks above benigns from actions alone)")
+        print("   NOTE: rank-based AUROC per family (no threshold assumption).")
+        print("   A family has actions-only headroom iff A-AUROC < 1.0 (i.e., the")
+        print("   monitor cannot perfectly rank attacks above benigns from actions alone)")
 
         for axis in ("family", "strategy"):
             groups = collections.defaultdict(lambda: {"pos": [], "neg": []})

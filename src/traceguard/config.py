@@ -111,6 +111,12 @@ class MonitorConfig(FrozenModel):
     model_revision: str = "PIN_BEFORE_RUN"
     model_family: str = "qwen3"
     conditions: list[str] = Field(default_factory=lambda: ["actions", "actions_plus_cot"])
+    # Online pre-action study (RQ4): the blocking threshold is frozen from
+    # OFFLINE development-split calibration BEFORE any online rollout runs.
+    # None means "online arm not configured" — the online driver fails closed.
+    online_blocking_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    # Which offline condition the online monitor arm reproduces.
+    online_monitor_arm: Literal["late_fusion"] = "late_fusion"
     primary_fpr_target: float = Field(ge=0.0, le=1.0, default=0.05)
     calibration_split: Literal["development", "validation"] = "validation"
     max_monitor_tokens: int = Field(gt=0, default=3072)

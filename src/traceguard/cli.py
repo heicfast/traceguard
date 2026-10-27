@@ -107,6 +107,21 @@ def cmd_generate(args: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 1
 
 
+def cmd_online(args: argparse.Namespace) -> int:
+    """Run the RQ4 online pre-action intervention study (fresh rollouts under
+    the frozen-threshold fusion monitor gate over the pilot cohort plan)."""
+    from .online_runtime import run_online_study
+
+    result = run_online_study(
+        config_path=args.config,
+        run_dir=args.run_dir,
+        shard=args.shard,
+        shard_count=args.shard_count,
+    )
+    print(json.dumps(result, indent=2, sort_keys=True, default=str))
+    return 0 if result.get("ok") else 1
+
+
 def cmd_monitor(args: argparse.Namespace) -> int:
     """Score stored episodes under all configured conditions."""
     from .monitor_runtime import run_monitoring
@@ -418,6 +433,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--shard-count", type=int, default=1)
     p.add_argument("--provider", default="auto", choices=["auto", "qwen", "fake"])
     p.set_defaults(func=cmd_generate)
+
+    p = sub.add_parser("online", help="run the RQ4 online pre-action study")
+    p.add_argument("--config", required=True)
+    p.add_argument("--run-dir", required=True)
+    p.add_argument("--shard", type=int, default=0)
+    p.add_argument("--shard-count", type=int, default=1)
+    p.set_defaults(func=cmd_online)
 
     p = sub.add_parser("monitor", help="score stored episodes")
     p.add_argument("--config", required=True)

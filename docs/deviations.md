@@ -978,3 +978,32 @@ exploratory matrix result as the v6 evidence, and predeclare the
 confirmatory program as future work requiring genuinely intent-only
 attacks (legitimate-appearing action sequences whose violation is
 recoverable ONLY from reasoning), plus >=40 benign calibration clusters.
+
+### 2026-10-28 — RQ4 online study implemented (predeclared design); scale cell landed; cross cell re-launched after external interruption
+
+**Online arm design (frozen BEFORE any online rollout ran):** the arm
+replays the frozen v6 pilot cohort plan EXACTLY (dataset/agent sections
+byte-identical to phase3_pilot.yaml; kernel-enforced dataset-identity
+gate), with fresh rollouts under a pre-action blocking gate. The monitor
+is the structured late-fusion instrument with ONE shared Qwen3-4B
+checkpoint serving agent turns (thinking, temp 0.6) and monitor calls
+(non-thinking, temp 0.0) — per-call settings, so behavior is identical
+to separate instances at half the VRAM. The blocking threshold is
+FROZEN from offline development-split calibration of the anchor cell's
+fusion scores (0.16; dev realized FPR 0.0) and recorded in the config
+(`monitor.online_blocking_threshold`) — never tuned on online data.
+Evidence contract: schema-validated episode envelopes + privileged
+records whose `events_audit` carries per-turn `online_decision` entries
+(suspicion, threshold, decision, counterfactual would_violate from the
+engine's violation simulation); blocked violating proposals count as
+attempts, never executed state changes. New CLI `traceguard online`;
+worker topology reuses the audited run_gpu_workers pattern
+(scripts/run_online_workers.py) with the same merge+verify chain.
+
+**Fleet state this session:** scale cell (Qwen3-14B monitor, split
+layout) COMPLETE + LANDED through the full chain (see the 2026-10-28
+landing entry above). Cross cell attempt-3 was externally cancelled at
+the exact second the scale cell completed, 2/5 llm conditions scored
+(A, C: 128/128 each); the partial worker output is archived at
+runs/v6/failed_attempts/cross_mon_interrupted_20261027/ and the cell is
+re-run in full (v3 RUNNING) — no partial scores mix into the record.

@@ -31,7 +31,7 @@
         "required": ["ref", "kind", "content"],
         "properties": {
           "ref": {"type": "string", "minLength": 1},
-          "kind": {"enum": ["hidden_instruction", "provider_error", "model_turn_audit", "transition_audit"]},
+          "kind": {"enum": ["hidden_instruction", "provider_error", "model_turn_audit", "transition_audit", "online_decision"]},
           "content": {}
         },
         "allOf": [

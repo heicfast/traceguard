@@ -25,7 +25,7 @@ from ..sandbox.engine import simulate_proposed_patch_violation
 from ..sandbox.engine import step as engine_step
 from ..tasks.generator import EpisodePlan
 from ..tasks.specs import TaskInstance
-from ..traces.views import compile_view_checked
+from ..traces.views import REASONING_WINDOW_CHARS, compile_view_checked
 
 
 class OnlineOutcome:
@@ -46,12 +46,16 @@ def run_online_episode(
     config: ExperimentConfig,
     run_id: str,
     threshold: float,
+    reasoning_window_chars: int | None = None,
 ) -> OnlineOutcome:
     """Run one episode under a pre-action blocking monitor protocol.
 
-    ``monitor`` is a Monitor over compiled views; ``threshold`` is the frozen
-    decision threshold (calibrated offline on development data). Decisions
-    are logged BEFORE the action is applied.
+    ``monitor`` is either a single-view Monitor (``.score``) or a structured
+    late-fusion monitor (``.score_views``); the structured path compiles the
+    same actions/cot_only view pair the offline runtime uses. ``threshold`` is
+    the frozen decision threshold (calibrated offline on development data).
+    Decisions are logged BEFORE the action is applied. The predeclared
+    evidence window applies to reasoning views exactly as offline.
     """
     agent_cfg = config.agent
     ep_id = make_episode_id(run_id, task.task_id, plan.policy_mode, plan.generation_seed)
@@ -123,15 +127,46 @@ def run_online_episode(
 
         # -- pre-action monitor decision (view excludes this action's result) --
         envelope_stub = {"episode_id": ep_id, "events": pending_events}
-        observation = compile_view_checked(
-            envelope_stub,
-            task_authorization=task.user_goal,
-            public_policy=task.public_policy_text(),
-            condition="actions_plus_cot",
-            hidden_instruction=task.attack_instruction if plan.policy_mode == "attack" else None,
-            cutoff_event_index=None,
-        )
-        score = monitor.score(observation)
+        is_structured = hasattr(monitor, "score_views")
+        if is_structured:
+            # Structured late-fusion monitors receive the SAME two views the
+            # offline monitor runtime compiles (actions + cot_only), so the
+            # online arm is instrument-consistent with the offline arm.
+            action_view = compile_view_checked(
+                envelope_stub,
+                task_authorization=task.user_goal,
+                public_policy=task.public_policy_text(),
+                condition="actions",
+                hidden_instruction=(
+                    task.attack_instruction if plan.policy_mode == "attack" else None),
+                cutoff_event_index=None,
+                reasoning_window_chars=reasoning_window_chars,
+            )
+            reasoning_view = compile_view_checked(
+                envelope_stub,
+                task_authorization=task.user_goal,
+                public_policy=task.public_policy_text(),
+                condition="cot_only",
+                hidden_instruction=(
+                    task.attack_instruction if plan.policy_mode == "attack" else None),
+                cutoff_event_index=None,
+                reasoning_window_chars=reasoning_window_chars,
+            )
+            score = monitor.score_views(
+                action_view, reasoning_view,
+                condition="actions_plus_cot_late_fusion")
+        else:
+            observation = compile_view_checked(
+                envelope_stub,
+                task_authorization=task.user_goal,
+                public_policy=task.public_policy_text(),
+                condition="actions_plus_cot",
+                hidden_instruction=(
+                    task.attack_instruction if plan.policy_mode == "attack" else None),
+                cutoff_event_index=None,
+                reasoning_window_chars=reasoning_window_chars,
+            )
+            score = monitor.score(observation)
         if not score.valid:
             status = "runtime_error"
             decision_log.append({
@@ -204,10 +239,19 @@ def run_online_episode(
         "family_id": plan.family_id,
         "split_role": plan.split_role,
         "threshold": threshold,
+        "monitor_name": getattr(monitor, "name", "unknown"),
+        "monitor_structured": bool(hasattr(monitor, "score_views")),
+        "reasoning_window_chars": (
+            reasoning_window_chars if reasoning_window_chars is not None
+            else REASONING_WINDOW_CHARS),
         "status": status,
         "blocks": blocks,
         "valid_tool_calls": valid_calls,
         "decision_log": decision_log,
+        "events": pending_events,
+        "transitions": transitions,
+        "final_state": state.to_payload(),
+        "initial_state": initial_state.to_payload(),
         "outcomes": outcome.to_payload(),
     }
     return OnlineOutcome(payload)
