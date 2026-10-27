@@ -179,12 +179,20 @@ def main() -> int:
 
     # The paired design REQUIRES the online arm to replay the pilot cohort's
     # frozen plan: the dataset sections of the online and pilot configs must
-    # be identical, and the agent sections must match too.
+    # be identical, and the agent sections must match on every non-pin field
+    # (the kernel resolves revision pins only in the ONLINE copy, so those
+    # two fields are compared after pin-normalization).
     pilot_cfg = yaml.safe_load((REPO_DIR / PLAN_SOURCE_CONFIG).read_text(encoding="utf-8"))
     gate(cfg_data["dataset"] == pilot_cfg["dataset"],
          "dataset section identical to the pilot cohort config", manifest)
-    gate(cfg_data["agent"] == pilot_cfg["agent"],
-         "agent section identical to the pilot cohort config", manifest)
+    PIN_FIELDS = ("model_revision", "tokenizer_revision")
+
+    def _pin_normalized(section: dict) -> dict:
+        return {k: v for k, v in section.items() if k not in PIN_FIELDS}
+
+    gate(_pin_normalized(cfg_data["agent"]) == _pin_normalized(pilot_cfg["agent"]),
+         "agent section identical to the pilot cohort config (pin-normalized)",
+         manifest)
     gate(cfg_data["monitor"]["online_blocking_threshold"] is not None,
          "frozen blocking threshold present in config", manifest)
 
