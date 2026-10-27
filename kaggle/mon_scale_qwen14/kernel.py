@@ -15,7 +15,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-TRACEGUARD_COMMIT = "1394950e509d7699e42c62cc152eb193812f2fbd"  # instrument v2 + chain order + allocator hygiene (attempt-1 fixes)
+TRACEGUARD_COMMIT = "63b43cbacac30e42fdb8cc773a60c5f041d28866"
 REPO_URL = "https://github.com/heicfast/traceguard.git"
 TORCH_DTYPE = "float16"
 MONITORS = ["rules_v1", "keywords_v1", "llm_v1", "late_fusion"]
