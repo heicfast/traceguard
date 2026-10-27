@@ -1,0 +1,23 @@
+{
+  "conditions": [
+    "actions",
+    "actions_plus_cot",
+    "actions_plus_cot_late_fusion",
+    "actions_plus_noise",
+    "actions_plus_shuffled_cot"
+  ],
+  "invalid_or_missing": [
+    3,
+    0,
+    0,
+    1,
+    0
+  ],
+  "valid": [
+    114,
+    117,
+    117,
+    116,
+    117
+  ]
+}

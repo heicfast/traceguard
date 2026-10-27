@@ -901,3 +901,49 @@ GPU round at a time. Two structural fixes:
 - The stress gate would have REFUSED the attempt-2 single-GPU layout at
   admission (18,140 chars > the 15,615-char OOM boundary) — the structural
   gap is closed: capacity admission now measures deployment scale.
+
+### 2026-10-28 — Scale cell (Qwen3-14B monitor) LANDED attempt-3: raw-arm recovery at 14B confirms capacity explanation; cross cell externally interrupted at 2/5 LLM conditions, re-launched
+
+**Scale cell (`heicjpg/traceguard-mon-scale-qwen14`, v3 split layout, pinned
+63b43cb, cell scale-monitor-qwen4-qwen14): COMPLETE, kernel_seconds 27050 (~7.5 h),
+all critical rcs zero (monitor/analysis/canonicalize/verify/export). The
+single_split worker scored 128/128 episodes on all 5 llm conditions with
+ZERO generation failures (M2 invalid <= 2.3%, M2' retention >= 97.4%) —
+the attempt-2 knife edge (C 18% OOM) is fully resolved by the dual-T4
+split; the deployment-scale stress gate held in production.**
+
+**Landing chain reproduced locally end-to-end**: verify re-grade 128/128,
+canonicalize (env manifest ledgered), verify 0 problems, monitor gate
+reproduced exactly (M1 PASS 1664 views/0 leakage; M3 FAIL raw arms 6/5/2/5
+distinct vs late_fusion 26; M4 2 benign clusters; M6 0 allowed FPs — same
+honest design facts as the anchor), analysis determinism PROVEN (only
+output-path prefixes differ; all 1,664 score leaves identical), export
+`release_complete: true`.
+
+**Scientific result (exploratory) — the capacity-vs-instrument question is
+resolved for the raw arm:**
+- The identical v2 raw prompt that collapses to all-zeros at 4B yields a
+  DISCRIMINATIVE score distribution at 14B (actions distinct=6,
+  C distinct=5, fusion distinct=26) — the Phase-2-style raw-arm degeneracy
+  is monitor-capacity-bound, NOT an unavoidable instrument property.
+- AUROC (A / C): dev 1.0/1.0, holdout 1.0/0.9583, shift 1.0/1.0,
+  validation 1.0/0.9643 — actions-only remains AT CEILING on this cohort,
+  so positive ΔR(C−A) stays structurally blocked by benchmark action
+  visibility (predeclared limitation, unchanged).
+- RQ3 is now STRONGLY positive at capable scale: C decisively beats both
+  content controls — E (shuffled CoT) collapses recall@FPR to 0.0 on all
+  four splits while C stays 0.92–1.0, and D (noise) drops to 0.62 on dev.
+  The 14B monitor genuinely uses reasoning CONTENT and ordering.
+- Persuasion robustness improves with capability: the 4B anchor's
+  holdout 1.0 → 0.0 CoT collapse does not reproduce at 14B (C 0.9167
+  recall at 0 FPR). The authorization-laundering channel is attenuated
+  but not eliminated at this scale (M3 shows raw arms still coarse).
+
+**Cross cell (`heicfast/traceguard-mon-cross-deepseek14`): the attempt-3
+run was externally cancelled at 27,050 s — the same second the scale cell
+completed — after DeepSeek-R1-14B loaded (579 shards) and scored 2/5 llm
+conditions (A and C, 128/128 each). Partial worker output archived at
+`runs/v6/failed_attempts/cross_mon_interrupted_20261027/` (61 MB, full
+provenance preserved). Per the no-compromise rule the cell is RE-RUN in
+full (v3 pushed 2026-10-28, RUNNING); no partial score will be mixed into
+the landed record.**

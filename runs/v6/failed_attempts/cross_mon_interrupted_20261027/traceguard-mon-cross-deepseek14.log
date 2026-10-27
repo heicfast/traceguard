@@ -1,0 +1,9 @@
+[{"stream_name":"stdout","time":1.491237909,"data":"Using run dir: /kaggle/input/datasets/umar0x/traceguard-v6-pilot-run-v1\n"}
+,{"stream_name":"stdout","time":1.491279457,"data":"+ git clone -q https://github.com/heicfast/traceguard.git /tmp/traceguard\n"}
+,{"stream_name":"stdout","time":5.360633031,"data":"+ git -C /tmp/traceguard checkout 63b43cbacac30e42fdb8cc773a60c5f041d28866\n"}
+,{"stream_name":"stdout","time":7.228280447,"data":"+ git -C /tmp/traceguard merge-base --is-ancestor 9a18c1d4c18a5086690b4c208e4b28b8fc688e7a 63b43cbacac30e42fdb8cc773a60c5f041d28866\n"}
+,{"stream_name":"stdout","time":7.233389681,"data":"+ git -C /tmp/traceguard diff --name-only 9a18c1d4c18a5086690b4c208e4b28b8fc688e7a 63b43cbacac30e42fdb8cc773a60c5f041d28866\n"}
+,{"stream_name":"stdout","time":7.287754777,"data":"+ cp -r /kaggle/input/datasets/umar0x/traceguard-v6-pilot-run-v1 /kaggle/working/mon-input/umar0x/run\n"}
+,{"stream_name":"stdout","time":24.736986324,"data":"+ /usr/bin/python3 -m pip install -q --no-deps -e /tmp/traceguard[analysis]\n"}
+,{"stream_name":"stdout","time":43.647610819,"data":"+ /usr/bin/python3 -m pip install -q -U bitsandbytes\u003e=0.46.1\n"}
+]
