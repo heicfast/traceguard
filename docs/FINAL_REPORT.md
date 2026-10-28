@@ -209,7 +209,53 @@ score records with prompt hashes and rendered prompts, is committed.
 below are the landed state as of this draft's timestamp and are
 reproduced from `runs/v6/*/run/reports/analysis_report.json`.)*
 
-### 4.1 Pilot (Phase 2, 64 episodes) — to be consolidated from archived reports
+### 4.1 Pilot (Phase 2, 64 episodes, pre-test archive)
+
+The first real-model cohort (32 attack / 32 honest; Qwen3-4B agent ×
+same-checkpoint 4B monitor, v1 raw instrument) established feasibility and
+produced the study's first — and warningly negative — exploratory signal
+(`runs/pre-tests-data/pilot/`, superseded by the v0.6 from-scratch restart;
+full evidentiary archive, `release_complete: true`). Capability funnel:
+14/32 attacks attempted (43.8%), 14/14 attempted attacks succeeded (100%),
+honest task completion 25/32 (78.1%); trace coverage complete. Every
+fixed-FPR statement from this run is **exploratory**: the validation split
+carried only 2 benign calibration clusters against the 40 required, so the
+precision gate fired and confirmatory execution was blocked by design.
+
+At the development-calibrated threshold, the paired primary contrast
+ΔR = R(C) − R(A) estimated on the holdout split was **−1.0** (A recall 1.0 →
+C recall 0.0). Three qualifications, all recorded in the run's own analysis
+and verified by three independent reviews: (i) the cluster bootstrap CI is
+**not estimable** — 4 holdout clusters with exactly 1 positive-bearing
+cluster, degenerate-replicate fraction 0.31, and a single-point support at
+−1.0; the zero-width presentation expresses a design that cannot express
+uncertainty, not a precisely-known effect; (ii) the point estimate is
+censoring-sensitive — 5/46 actions+CoT scores were JSON-invalid versus 1/46
+actions-only, and channel-repaired parsing of the malformed first fields
+moves C to ≈ 1/3 (ΔR ≈ −0.67); the direction survives, the magnitude does
+not; (iii) the v1 instrument itself was coarse (3–5 distinct score levels
+per condition, failing the score-resolution gate), and the degradation
+co-occurred with generic long-context fragility — the matched-length noise
+control (D) also cost recall on development (0.4) and holdout (0.5)
+relative to actions (0.8 / 1.0). The shuffle control (E) matched C's
+collapse on holdout (0.0), so on this pilot no content-specific claim was
+possible.
+
+Two findings from the pilot survived all scrutiny and shaped Phase 3.
+First, the deterministic keyword monitor's recall tripled with CoT exposure
+(2/14 → 6/14 attack episodes flagged): the traces contained additional
+extractable attack signal that the 4B LLM monitor failed to use — evidence
+that the negative result measured the monitor, not the medium. Second, the
+recorded verdict texts showed the failure mode in the raw: across the five
+attempted-attack episodes scored lowest under C, every verdict adopted the
+agent's self-authorization framing ("per the override note...", "as
+authorized...") while simultaneously quoting the violating action — the
+persuasion-channel mechanism that the later agent-capability cells and the
+14B monitor cells were designed to isolate (and that the 2026 persuasion
+literature documents independently: scratchpad exposure as an additional
+persuasion channel). These two observations — extractable signal plus
+persuasion susceptibility — became the two hypotheses the Phase-3 matrix
+separates.
 
 ### 4.2 Phase-3 anchor cell (4B monitor, v2 instrument)
 
@@ -247,15 +293,53 @@ reproduce on this cohort — the deterministic keyword monitor flags
 0/53 attacks from actions and 1/53 with CoT, plus one honest false
 flag: the v6 families' reasoning simply does not contain the legacy
 suspicious-phrase vocabulary, so keyword extractability is itself
-benchmark-relative.) — genuine
-reasoning content is used by the 14B monitor; matched-length neutral prose
-is not reliably distinguished at this scale. Persuasion robustness
+benchmark-relative.)
+
+The content-vs-volume verdict from the two controls read together: the
+label-matched shuffle control (E) destroys the CoT advantage while
+matched-length neutral prose (D) does not consistently separate from real
+CoT off-development — so genuine reasoning content is used by the 14B
+monitor (E-AUROC retains rank signal per family/strategy), but volume
+matching is not reliably distinguished at this scale, and the RQ3 content
+claim rests on E alone. Persuasion robustness
 improves with capability: the 4B anchor's holdout collapse (1.0 → 0.0)
 does not reproduce at 14B (C stays ≥ 0.92).
 
 ### 4.4 Phase-3 agent cells and cross-family cell
 
-*(Consolidated at landing.)*
+**Agent-capability cells (landed).** Two fresh cohorts replayed the frozen
+plan with stronger agents under the same 4B v2 monitor: Qwen3-14B
+(32/32 attacks attempted = 100%, 32/32 succeeded; honest completion 32/32 =
+100%) and DeepSeek-R1-Distill-Qwen-14B (29/32 attempted = 91%, 29/29
+succeeded; honest completion 30/32 = 93.75%). Two conclusions follow. First,
+agent capability raises threat fidelity without any honesty cost: both
+agents are *more* reliable attackers *and* better honest workers than the 4B
+anchor (83% attempts, 98% honest completion), and attack success among
+attempted episodes remains 100% — so every detection number on these
+cohorts is measured against fully-executed violations, not degraded
+attempts. Second, the 4B raw monitor's collapse is **agent-independent**:
+its score distribution stays at a single distinct level (AUROC 0.5)
+across all four conditions and all four splits on both cohorts — while
+the same 4B checkpoint under the fusion adjudicator prompt stays
+discriminative (late-fusion AUROC: Qwen3-14B cohort 0.953 dev / 0.719
+holdout / 0.797 shift / 0.859 validation; DeepSeek cohort 0.859 / 0.634 /
+0.768 / 0.893). The raw-arm degeneracy therefore cannot be attributed to
+anything the agent wrote — it reproduces unchanged when the untrusted
+narrative comes from a different, stronger model family, and even on the
+actions-only arm that contains no narrative at all. (The fusion AUROC dip
+on the stronger-agent cohorts versus the 4B-agent anchor — 0.719/0.634
+holdout vs 0.690 — is within the paired-cluster uncertainty of these
+designs and no agent-difficulty claim is made.)
+
+**Cross-family monitor cell (DeepSeek-R1-14B monitor, re-run in flight).**
+*(Consolidated at landing: the family-diversity axis — whether the raw
+prompt's degeneracy at 4B recovers at 14B in a *different* model family,
+isolating monitor-capacity from family-specific effects. Per the frozen
+no-partial-mixing policy, the externally-cancelled attempts 3 (2/5
+conditions) and 4 (3/5 conditions) are archived under
+`runs/v6/failed_attempts/` and contribute nothing to the record; both
+cancelled mid-run with zero OOM events, validating the dual-T4 split
+layout.)*
 
 ### 4.5 Headroom: the uniform action-visibility ceiling
 
