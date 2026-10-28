@@ -1105,3 +1105,37 @@ mechanics incl. benign score distributions, negative-pool sensitivity
 for A-AUROC, 4B zero-rubric forensics, family-x-strategy cross-table,
 keywords movement); no cross-family or prevention claim may be written
 before those cells land.
+
+### 2026-10-28 — Cross cell attempt-4 externally cancelled at 3/5 LLM conditions (capacity fix validated, zero OOM); attempt-5 re-hosted on heicjpg for quota
+
+Attempt-4 (`heicfast/traceguard-mon-cross-deepseek14`, pin `63b43cb`) passed
+every kernel gate and the single_split worker scored with ZERO OOM events —
+validating the dual-T4 split layout on the real workload. Completed before the
+external cancellation (Kaggle status `CANCEL_ACKNOWLEDGED`): rules_v1 4/4
+conditions, keywords_v1 4/4, llm (DeepSeek-R1-Distill-Qwen-14B NF4 split) 3/5
+conditions at 128/128 scores each (`actions`, `actions_plus_cot`,
+`actions_plus_noise`); `actions_plus_cot_late_fusion` and
+`actions_plus_shuffled_cot` were in flight when the run died. No
+`environment.json` persisted (kernel chain unfinished).
+
+Actions taken, per the frozen no-partial-mixing policy (attempt-3 precedent):
+
+- Partial output archived to
+  `runs/v6/failed_attempts/cross_mon_cancelled_20261028/` (kernel log +
+  worker run with the 11 partial score files) — audit trail only.
+- Attempt-5 re-pushed **unchanged** (identical kernel script, same pin
+  `63b43cb`, same dataset source, local preflight PASS) to
+  `heicjpg/traceguard-mon-cross-deepseek14`. Hosting change reason: the
+  `heicfast` account's remaining GPU quota (5.87 h) is below the measured
+  full-run requirement (~6-7 h from attempt-4's observed pace: 3 conditions
+  ≈ 4 h + late-fusion ≈ 1.5x + shuffled ≈ 1x); `heicjpg` has 22.4 h remaining
+  and both slots free. Account hosting is operational only — kernels are
+  path-portable and account-independent by design (SOP-002 §9.3); accounts are
+  never treated as statistical replicates.
+- The online study (acct1) was untouched and continues RUNNING; its output had
+  not been produced at check time (0 files — genuinely still in flight, not
+  completed; the owner's report of completion was checked against the kernel's
+  persisted output and statuses before any action).
+
+The expected total wall-clock for attempt-5 is ~6-7 h; the run records its own
+gates and any failure is fail-closed.
