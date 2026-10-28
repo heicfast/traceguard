@@ -22,20 +22,29 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M6.7 Phase 3 pilot (pre-test) | **generated, verified, gate-passed, archived** — 128 episodes (`runs/pre-tests-data/phase3/pilot_v0_run`), attempts 83%, attack success 100%, honest completion 98%, trace coverage 100%; public dataset `heicjpg/traceguard-phase3-pilot-run-v1`; **superseded by the v0.6.0 from-scratch restart (owner directive `5d1a00e`)** |
 | M6.8 monitor-capability cells (pre-test) | matrix frozen + scoring started under v0.5.x; **stopped by owner directive and folded into the v0.6.0 restart** |
 | M6.9 v0.6.0 core upgrade + multi-POV review | **merged; 3 independent reviews; ALL findings fixed** — 2 BLOCKERs (gate retries; export re-certifying tampered archives) + 14 MAJORs; 218 tests, ruff + mypy clean (`c3fe999`) |
-| M6.10 v0.6.0 from-scratch program | **IN FLIGHT** — GPU smoke running; all four fresh 14B role-admissions PASSED (`runs/v6/probes/`); fresh anchor cohort next; pre-test data renamed to `runs/pre-tests-data/` |
-| M7 preregistration freeze | blocked on Phase 3 gates and sizing |
-| M8 confirmatory + online intervention | pending |
+| M6.10 v0.6.0 from-scratch program | **matrix 4/5 landed** — fresh 128-episode cohort (attempts 83%, success 53/53, honest 98%), anchor + scale + both agent cells verified/gate-analysed/exported and committed under `runs/v6/`; deployment-scale admission stress gates added after the measured 14B capacity knife edge (`c501747`) |
+| M6.11 monitor-matrix science | **LANDED** — 4B v2 raw instrument degenerate on 3 cohorts (AUROC 0.5) while the SAME prompt at Qwen3-14B is discriminative (A-AUROC 1.0 everywhere): the raw-arm collapse is monitor-capacity-bound; late fusion works at both scales; RQ3 content evidence = the label-matched shuffled control (E), NOT volume matching (D separates on dev only); persuasion robustness improves with capability |
+| M6.12 headroom measurement (S5-decisive) | **UNIFORM CEILING** — 14B actions-only rank AUROC = 1.000 on ALL 4 families and ALL 4 strategies; 0/53 attacks action-invisible (one-sided 95% upper bound 5.5% < SESOI 0.10); confirmatory on this inventory = premeasured null; exploratory-freeze path recorded with the confirmatory program (intent-only attacks + >=40 benign clusters) predeclared as future work |
+| M6.13 multi-POV matrix review | **3x APPROVE-WITH-CONDITIONS, all findings fixed** — WAL-recovery validation + decision-log artifact bindings (launch blockers), threshold provenance corrected (validation-split), E-control mechanics + D-control dev-only scoping + all wording corrections applied; 249 tests, ruff + mypy clean (`b0e84cf`) |
+| M6.14 RQ4 online pre-action study | **IN FLIGHT** — predeclared paired-armor design (same frozen plan/seeds, fresh rollouts, offline-frozen threshold 0.16, shared 4B checkpoint, blocked-violating-proposals-as-attempts); CPU drill FULL PASS (64/64 attacks prevented, recovery intact, merge+verify clean) |
+| M6.15 cross-family monitor cell | **RE-RUNNING** — attempt-3 externally cancelled at 2/5 llm conditions; partial output archived (`runs/v6/failed_attempts/cross_mon_interrupted_20261027/`); full re-run in flight |
+| M7 preregistration freeze | exploratory-freeze path decided by the headroom measurement; freeze executes after the last two cells land + review sign-off |
+| M8 confirmatory + online intervention | confirmatory blocked (premeasured null); RQ4 online in flight |
 
-**Current stage: v0.6.0 from-scratch program (owner directive `5d1a00e`).**
-The owner upgraded the research core (workflow engine with hash-chained journal,
-evidence index, failure taxonomy, McNemar+Holm analysis, sizing model, figure
-contract) and directed a full restart: all in-flight runs stopped, all prior data
-renamed to `runs/pre-tests-data/`, every phase re-executed on the hardened core
-with fresh admissions. The v0.6 core passed three independent expert reviews with
-every BLOCKER/MAJOR fixed before any run (`c3fe999`, 218 tests). Fresh program
-identity: `traceguard_v6_pilot_v1`. All four 14B role-admissions passed on v0.6
-(`runs/v6/probes/`); the GPU smoke and the fresh 128-episode anchor cohort
-are complete (attempts 83%, success 53/53, honest 63/64, re-grade 128/128).
+**Current stage: Phase-3 matrix completion + RQ4.** The v0.6 from-scratch
+program (owner directive `5d1a00e`) landed four of five matrix cells
+through the full evidence chain (verify -> gate -> analysis -> canonicalize
+-> export `release_complete: true` -> committed archive). The scale cell
+resolved the capacity-vs-instrument question; the headroom measurement
+(`runs/v6/headroom_by_family_20261028.txt`) closed the S5 design question
+with a uniform action-visibility ceiling at 14B. Three independent
+reviews (statistician, scientist, security) returned APPROVE-WITH-CONDITIONS;
+every finding was verified against raw data and fixed (`b0e84cf`, 249
+tests). Remaining: the DeepSeek-R1-14B cross-family cell (re-running),
+the RQ4 online pre-action study (in flight, review-hardened kernel),
+the 5-cell comparison, the exploratory freeze, and the final report
+(`docs/FINAL_REPORT.md`, stable sections drafted, results fill from
+evidence only).
 
 **Phase-3 progress (2026-10-21).** The full 5-cell model-capability matrix
 is executing on the three-account fleet with the v2 monitor instrument:
