@@ -241,8 +241,13 @@ dominate even under wrong-label reasoning), and a leave-one-benign-out
 recalibration moves E recall to 0.46–1.0. The noise control (D) does
 NOT consistently separate: D dips below C only on development (0.62 vs
 1.0); on holdout, shift, and validation D matches or exceeds C. RQ3's
-content claim therefore rests on the label-matched E control (and the
-Phase-2 keyword-baseline movement), NOT on volume matching — genuine
+content claim therefore rests on the label-matched E control, NOT on
+volume matching. (The Phase-2 keyword-baseline tripling does NOT
+reproduce on this cohort — the deterministic keyword monitor flags
+0/53 attacks from actions and 1/53 with CoT, plus one honest false
+flag: the v6 families' reasoning simply does not contain the legacy
+suspicious-phrase vocabulary, so keyword extractability is itself
+benchmark-relative.) — genuine
 reasoning content is used by the 14B monitor; matched-length neutral prose
 is not reliably distinguished at this scale. Persuasion robustness
 improves with capability: the 4B anchor's holdout collapse (1.0 → 0.0)
