@@ -1139,3 +1139,30 @@ Actions taken, per the frozen no-partial-mixing policy (attempt-3 precedent):
 
 The expected total wall-clock for attempt-5 is ~6-7 h; the run records its own
 gates and any failure is fail-closed.
+
+### 2026-10-28 — Online study attempt-1 externally cancelled at 110/128 episodes (machinery proven at cohort scale); full re-run with the unchanged kernel
+
+The online study v1 (kernel v2 push, pin `b0e84cf`, threshold 0.16) passed all
+10 kernel gates and both per-GPU workers generated online rollouts cleanly —
+49 + 61 = 110 of 128 episodes with zero recorded worker failures in ~5.5 h —
+before an external cancellation (status `CANCEL_ACKNOWLEDGED`) during the
+recovery session. The 18 remaining episodes were never started.
+
+Two options were weighed for the continuation:
+
+1. **Resume-seed** (upload the 110 completed episodes as a dataset; the
+   runtime natively skips ledger-complete episodes under the same
+   run_id/config-hash): saves ~4.5 h of GPU + wall-clock, but requires a
+   kernel edit (mount + pre-seed copy), re-opening the config-pin
+   substitution surface where the earlier online gate bugs lived.
+2. **Full re-run with the UNCHANGED kernel** (chosen): the online study is not
+   the critical path (the cross-family monitor cell finishes on a similar
+   horizon), so the resume saves no end-to-end schedule; the unchanged kernel
+   carries the proven gate set and the 110/110 clean generation rate; acct1
+   quota (16.85 h) comfortably covers the ~6.4 h full run.
+
+The 110 completed episodes are archived to
+`runs/v6/failed_attempts/online_cancelled_20261028/` (audit trail only; no
+partial data enters the record, consistent with the cross-cell policy). The
+fresh run (kernel v2 push, same pin `b0e84cf`, same frozen threshold) started
+2026-10-28 and runs the full 128-episode paired-armor plan from scratch.
