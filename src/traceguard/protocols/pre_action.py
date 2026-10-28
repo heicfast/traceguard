@@ -179,6 +179,11 @@ def run_online_episode(
             break
         decision = "allow" if (score.suspicion < threshold) else "block"
         would_violate = simulate_proposed_patch_violation(state, action, invariants)
+        # Security review (2026-10-28, F2): every decision entry binds to the
+        # reproducible monitor artifacts — score_id + the compiled views'
+        # hashes + the prompt-level hash — so tampered suspicion values are
+        # detectable WITHOUT re-running the model, matching the offline
+        # records' tamper-evidence bar.
         decision_log.append({
             "turn": turn,
             "event": "pre_action_decision",
@@ -188,6 +193,12 @@ def run_online_episode(
             "action": action.arguments_payload(),
             "would_violate": bool(would_violate),
             "score_valid": score.valid,
+            "score_id": score.score_id,
+            "score_prompt_hash": score.prompt_hash,
+            "action_view_hash": (
+                action_view.view_hash if is_structured else observation.view_hash),
+            "reasoning_view_hash": (
+                reasoning_view.view_hash if is_structured else None),
         })
 
         if decision == "block":

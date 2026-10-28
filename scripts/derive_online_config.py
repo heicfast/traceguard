@@ -3,7 +3,7 @@
 
 The online arm must replay the frozen pilot cohort plan EXACTLY (identical
 dataset section), changing only: experiment identity (name/stage), the
-monitor's frozen blocking threshold (offline development calibration of the
+monitor's frozen blocking threshold (offline calibration of the
 anchor cell's fusion scores), and the run provenance. Everything else is
 copied verbatim so build_episode_plan(config, stage="pilot") reproduces the
 cohort plan byte-for-byte.
@@ -20,7 +20,8 @@ SRC = REPO / "configs" / "phase3_pilot.yaml"
 DST = REPO / "configs" / "online_study.yaml"
 
 # Frozen 2026-10-28 from runs/v6/anchor_mon/run/reports/analysis_report.json:
-# late_fusion development-split calibrated threshold, realized FPR 0.0.
+# late_fusion calibrated threshold (validation split; dev benign max is 0.12,
+# so 0.16 is the conservative choice), realized FPR 0.0 on both splits.
 FROZEN_THRESHOLD = 0.16
 
 
@@ -43,7 +44,7 @@ def main() -> None:
         "replays the same frozen plan (tasks, instance seeds, generation "
         "# seeds) with fresh rollouts under the pre-action gate.\n"
         "# monitor.online_blocking_threshold is frozen from OFFLINE "
-        "development-split calibration\n"
+        "offline calibration (validation split)\n"
         "# of the anchor cell's late-fusion scores (dev realized FPR 0.0); "
         "never tuned on online data.\n"
     )

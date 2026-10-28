@@ -225,10 +225,36 @@ class RunStore:
         writer.append(payload)
         writer.flush()
 
-    def recover_transactions(self) -> dict[str, int]:
-        """Finish prepared episode commits without rerunning inference."""
+    def recover_transactions(self) -> dict[str, Any]:
+        """Finish prepared episode commits without rerunning inference.
+
+        Security review (2026-10-28, F1): every transaction projected during
+        recovery is schema-validated and membership-checked BEFORE it touches
+        the canonical stores. A pre-planted transaction that fails the episode
+        schema, disagrees with its own recorded run_id, or names an episode
+        outside the plan manifest aborts the recovery loudly — silent evidence
+        substitution through the WAL is impossible.
+        """
+        from .schema import validate_envelope, validate_privileged
+
+        plan_keys: set[tuple] | None = None
+        plan_path = self.run_dir / "plan_manifest.json"
+        if plan_path.exists():
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            plan_keys = set()
+            for entry in plan.get("plans", []):
+                plan_keys.add((
+                    str(entry.get("template_name")),
+                    str(entry.get("policy_mode")),
+                    int(entry.get("instance_index", -1)),
+                    int(entry.get("instance_seed", -1)),
+                ))
+            if not plan_keys:
+                plan_keys = None
+
         recovered = 0
         verified = 0
+        recovered_ids: list[str] = []
         for tx_path in sorted(self.transaction_dir.glob("*.json")):
             transaction = json.loads(tx_path.read_text(encoding="utf-8"))
             commit_path = self.commit_dir / tx_path.name
@@ -238,9 +264,43 @@ class RunStore:
                     raise ValueError(f"commit hash mismatch for {transaction.get('episode_id')}")
                 verified += 1
                 continue
+            envelope = transaction.get("envelope")
+            privileged = transaction.get("privileged")
+            if not isinstance(envelope, dict) or not isinstance(privileged, dict):
+                raise ValueError(
+                    f"WAL recovery refuses malformed transaction {tx_path.name}: "
+                    "envelope/privileged missing")
+            validate_envelope(envelope)
+            validate_privileged(privileged)
+            tx_run_id = envelope.get("run_id")
+            manifest_path = self.run_dir / "run_manifest.json"
+            if manifest_path.exists():
+                manifest_run_id = json.loads(
+                    manifest_path.read_text(encoding="utf-8")).get("run_id")
+                if tx_run_id != manifest_run_id:
+                    raise ValueError(
+                        f"WAL recovery refuses transaction {envelope.get('episode_id')}: "
+                        f"run_id {tx_run_id!r} != manifest {manifest_run_id!r}")
+            if plan_keys is not None:
+                prov = envelope.get("provenance") or {}
+                member_key = (
+                    str(prov.get("template_name")),
+                    str(envelope.get("policy_mode")),
+                    int(prov.get("instance_index", -1)),
+                    int(prov.get("instance_seed", -1)),
+                )
+                if member_key not in plan_keys:
+                    raise ValueError(
+                        f"WAL recovery refuses transaction {envelope.get('episode_id')}: "
+                        "episode is not a member of the plan manifest")
             self._project_transaction(transaction)
             recovered += 1
-        return {"recovered": recovered, "verified_commits": verified}
+            recovered_ids.append(str(envelope.get("episode_id")))
+        if recovered_ids:
+            self.log("recovery.log",
+                     "recovered transactions: " + ", ".join(sorted(recovered_ids)) + "\n")
+        return {"recovered": recovered, "verified_commits": verified,
+                "recovered_episode_ids": recovered_ids}
 
     # -- monitor scores ------------------------------------------------------
     def score_shard_path(self, monitor_name: str, condition: str, shard: int) -> Path:

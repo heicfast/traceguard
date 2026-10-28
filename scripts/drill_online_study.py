@@ -12,11 +12,11 @@ Usage: python scripts/drill_online_study.py
 """
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
 import tempfile
-import argparse
 from pathlib import Path
 
 import yaml

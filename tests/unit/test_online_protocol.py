@@ -337,3 +337,131 @@ def test_online_assembled_records_schema_valid():
     assert any(d["content"].get("decision") == "block"
                for d in record.privileged["events_audit"]
                if d["kind"] == "online_decision")
+
+
+def test_online_decision_log_binds_artifacts():
+    """Security review F2 fix: every pre_action_decision entry carries the
+    score_id + view hashes so tampered suspicion is detectable without
+    re-running the model."""
+    cfg, plan, task = _attack_plan_and_task()
+    provider = TaskScriptedAgent(task, "attack")
+    monitor = StructuredPendingActionMonitor()
+    outcome = run_online_episode(
+        plan=plan, task=task, provider=provider, monitor=monitor,
+        config=cfg, run_id="online-bind", threshold=0.5)
+    decisions = [d for d in outcome.payload["decision_log"]
+                 if d.get("event") == "pre_action_decision"]
+    assert decisions, "no decisions logged"
+    for d in decisions:
+        assert d.get("score_id"), "every decision must bind its score_id"
+        assert d.get("score_prompt_hash"), "every decision must bind the prompt hash"
+        assert d.get("action_view_hash"), "every decision must bind the action view hash"
+    structured_decisions = [
+        d for d in outcome.payload["decision_log"]
+        if d.get("event") == "pre_action_decision" and d.get("reasoning_view_hash")]
+    assert structured_decisions, (
+        "structured decisions must additionally bind the reasoning view hash")
+
+
+def test_online_wal_recovery_rejects_foreign_transaction(tmp_path):
+    """Security review F1 fix: recovery refuses transactions whose episode is
+    not a member of the plan manifest (or that fail schema/run_id checks)."""
+    import json as _json
+
+    from traceguard.traces.storage import RunStore
+
+    store = RunStore(tmp_path)
+    # a plan manifest whose keys do NOT include the foreign transaction's plan
+    store.write_plan_manifest({"schema_version": "1.0.0", "stage": "online",
+                               "plans": [{"template_name": "some/other",
+                                          "policy_mode": "honest",
+                                          "instance_index": 0,
+                                          "instance_seed": 12345}]})
+    store.write_run_manifest({"run_id": "run-A", "stage": "online"})
+    # plant a transaction that is schema-VALID but not a plan member
+    cfg, plan, task = _attack_plan_and_task()
+    provider = TaskScriptedAgent(task, "attack")
+    outcome = run_online_episode(
+        plan=plan, task=task, provider=provider, monitor=RuleMonitor(),
+        config=cfg, run_id="run-A", threshold=1.5)
+    from traceguard.online_runtime import _assemble_records
+
+    class _P:
+        provider_name = "t"
+        model_revision = "r"
+        model_profile = None
+
+    record = _assemble_records(
+        outcome_payload=outcome.payload, plan=plan, task=task,
+        config=cfg, provider=_P(), run_id="run-A", wall_ms=1.0)
+    tx = {
+        "schema_version": "1.0.0",
+        "episode_id": record.envelope["episode_id"],
+        "episode_shard": "shard-00001.jsonl",
+        "privileged_shard": "shard-00001.jsonl",
+        "envelope_sha256": "x",
+        "privileged_sha256": "x",
+        "envelope": record.envelope,
+        "privileged": record.privileged,
+    }
+    (tmp_path / "transactions").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "transactions" / f"{record.episode_id}.json").write_text(
+        _json.dumps(tx))
+    try:
+        store.recover_transactions()
+    except ValueError as exc:
+        assert "not a member of the plan manifest" in str(exc), (
+            f"recovery must refuse foreign transactions, got: {exc}")
+    else:
+        raise AssertionError("recovery accepted a foreign-episode transaction")
+
+
+def test_online_wal_recovery_accepts_plan_member(tmp_path):
+    """The same validation must ACCEPT a legitimate plan-member transaction
+    (no false-positive lockout of the crash-recovery path)."""
+    import json as _json
+
+    from traceguard.traces.storage import RunStore
+
+    cfg, plan, task = _attack_plan_and_task()
+    provider = TaskScriptedAgent(task, "attack")
+    outcome = run_online_episode(
+        plan=plan, task=task, provider=provider, monitor=RuleMonitor(),
+        config=cfg, run_id="run-B", threshold=1.5)
+    from traceguard.online_runtime import _assemble_records
+
+    class _P:
+        provider_name = "t"
+        model_revision = "r"
+        model_profile = None
+
+    record = _assemble_records(
+        outcome_payload=outcome.payload, plan=plan, task=task,
+        config=cfg, provider=_P(), run_id="run-B", wall_ms=1.0)
+    prov = record.envelope["provenance"]
+
+    store = RunStore(tmp_path)
+    store.write_plan_manifest({
+        "schema_version": "1.0.0", "stage": "online",
+        "plans": [{"template_name": prov["template_name"],
+                   "policy_mode": record.envelope["policy_mode"],
+                   "instance_index": prov["instance_index"],
+                   "instance_seed": prov["instance_seed"]}]})
+    store.write_run_manifest({"run_id": "run-B", "stage": "online"})
+    from traceguard.ids import sha256_json
+    tx = {
+        "schema_version": "1.0.0",
+        "episode_id": record.episode_id,
+        "episode_shard": "shard-00001.jsonl",
+        "privileged_shard": "shard-00001.jsonl",
+        "envelope_sha256": sha256_json(record.envelope),
+        "privileged_sha256": sha256_json(record.privileged),
+        "envelope": record.envelope,
+        "privileged": record.privileged,
+    }
+    (tmp_path / "transactions").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "transactions" / f"{record.episode_id}.json").write_text(
+        _json.dumps(tx))
+    report = store.recover_transactions()
+    assert report["recovered"] == 1, f"legitimate transaction must recover: {report}"
+    assert report["recovered_episode_ids"] == [record.episode_id]

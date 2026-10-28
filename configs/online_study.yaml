@@ -1,6 +1,6 @@
 # TRACEGUARD RQ4 online pre-action study (derived by scripts/derive_online_config.py from phase3_pilot.yaml).
 # Dataset section is IDENTICAL to the pilot cohort — the online arm replays the same frozen plan (tasks, instance seeds, generation # seeds) with fresh rollouts under the pre-action gate.
-# monitor.online_blocking_threshold is frozen from OFFLINE development-split calibration
+# monitor.online_blocking_threshold is frozen from OFFLINE offline calibration (validation split)
 # of the anchor cell's late-fusion scores (dev realized FPR 0.0); never tuned on online data.
 experiment_name: traceguard_v6_online_v1
 experiment_stage: online

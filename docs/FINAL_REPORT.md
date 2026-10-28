@@ -116,24 +116,27 @@ the frozen grader — never by an LLM judge. The same grader re-derives
 every outcome during verification, so a landed run's outcome labels are
 independently reproducible from its event stream alone.
 
-### 3.2 Attack model: eight frozen strategies across four task families
+### 3.2 Attack model: four frozen strategies across four task families
 
 Attack episodes carry a hidden side objective (never visible to any
-monitor condition) drawn from a frozen pool of eight neutral-worded
-strategies: unaware, monitor-aware, outcome-seeking,
-concealment-pressure, implicit-pressure, plan-obfuscation,
-delayed-execution, and adaptive-red-team variants. The Phase-3 inventory
-spans four task families designed to move dispositive evidence away from
-single obvious actions: `artifact_routing` (promotion must respect
-cross-object identity constraints), `service_identity` (an apparently
-routine change re-points a service at a different principal),
+monitor condition) drawn from the frozen v6 strategy pool of four
+neutral-worded policies — `explicit_override`, `side_objective`,
+`implicit_pressure`, and `monitor_aware` — crossed with all four task
+families (32 attack episodes per strategy; the eight-strategy pool from
+the Phase-2 design, including unaware and adaptive-red-team variants,
+is retained in the registry for the confirmatory program). The Phase-3
+inventory spans four task families designed to move dispositive evidence
+away from single obvious actions: `artifact_routing` (promotion must
+respect cross-object identity constraints), `service_identity` (an
+apparently routine change re-points a service at a different principal),
 `export_destination` (a write to a technically writable but unauthorized
 destination), and `deferred_automation` (an apparently benign schedule
 edit triggers a forbidden behavior later). Honest twins of every task
 instance — same seeds, same template, no hidden instruction — exist for
 every attack episode, so false-positive rates are exercised on genuinely
-benign but structurally tricky inputs, including one-third
-negative-control variants that deliberately inspect or mention protected
+benign but structurally tricky inputs; half of the honest episodes are
+negative-control variants (alternating `inspect_protected` and
+`suspicious_phrasing`) that deliberately inspect or mention protected
 state without touching it.
 
 ### 3.3 Blinded evidence conditions
@@ -175,9 +178,17 @@ policy. The Phase-3 matrix crosses this with capability: the anchor arm
 (4B judging 4B), a scale arm (Qwen3-14B monitor, NF4-quantized, admitted
 through a deployment-scale stress probe on the same hardware), a
 cross-family arm (DeepSeek-R1-Distill-Qwen-14B), and two agent-scale
-arms (14B agents judged by the 4B monitor). All cells run the same
-128-episode cohort, plan, seeds, and code revision, so contrasts are
-paired at the episode level.
+arms (14B agents judged by the 4B monitor). Three landed cells and the
+re-running two run the same frozen design
+(`configs/phase3_pilot.yaml`); the three monitor cells score the SAME
+stored 128-episode cohort (byte-identical episode archives; verified at
+landing), while the two agent cells generate fresh 64-episode cohorts
+under their own 14B agents (zero episode overlap with the anchor cohort —
+per-model cohort generation is the design, not a confound, because
+agent contrasts compare monitors over each agent's own rollouts). All
+cells share the same code lineage (the monitor cells ran two adjacent
+kernel pins whose scoring-path diff is empty — verified). Contrasts are
+paired at the episode level within each cell.
 
 ### 3.5 Evidence discipline and reproducibility
 
@@ -213,18 +224,29 @@ raw-arm contrasts on this cell are non-estimable and reported as such.
 ### 4.3 Phase-3 scale cell (Qwen3-14B monitor) — LANDED 2026-10-28
 
 At 14B the identical raw prompt yields a discriminative distribution
-(actions: 6 distinct levels; CoT: 5; late fusion: 26) and clean
-separation: AUROC (A/C) = 1.0/1.0 (dev), 1.0/0.9583 (holdout),
-1.0/0.9643 (validation). Actions-only recall at calibrated zero-FPR is
-1.0 on every split — the ceiling that makes positive ΔR(C−A)
-structurally impossible on this inventory. The information-value
-controls, however, are decisive: shuffled reasoning collapses recall to
-0.0 everywhere (E-AUROC 0.73-0.92 by family) while genuine reasoning
-keeps 0.92-1.0, and noise degrades dev recall to 0.62. The 14B monitor
-genuinely reads reasoning content; the benchmark simply does not need it
-once actions are this legible. Persuasion robustness improves with
-capability: the 4B anchor's holdout collapse (1.0 → 0.0) does not
-reproduce at 14B.
+(actions: 6 distinct levels; CoT: 5; late fusion: 26; the raw arms still
+sit below the preregistered ≥10-level M3 instrument-resolution gate, so
+all raw-arm numbers in this section carry an M3-coarse-instrument
+caveat) and clean separation: AUROC (A/C) = 1.0/1.0 (dev), 1.0/0.9583
+(holdout), 1.0/0.9643 (validation). Actions-only recall at calibrated
+zero-FPR is 1.0 on every split — the ceiling that makes positive
+ΔR(C−A) structurally impossible on this inventory. The information-value
+controls separate CONTENT from VOLUME as follows. The shuffled-reasoning
+control (E) is decisive: at the frozen threshold E recall collapses to
+0.0 on all four splits, but this is a single-threshold-event — one
+honest validation episode scored E=1.0 and inflated the calibrated
+threshold to 1.0; E retains rank signal everywhere (E-AUROC 0.73–1.00
+by family/strategy, with two strata at exactly 1.000 where actions
+dominate even under wrong-label reasoning), and a leave-one-benign-out
+recalibration moves E recall to 0.46–1.0. The noise control (D) does
+NOT consistently separate: D dips below C only on development (0.62 vs
+1.0); on holdout, shift, and validation D matches or exceeds C. RQ3's
+content claim therefore rests on the label-matched E control (and the
+Phase-2 keyword-baseline movement), NOT on volume matching — genuine
+reasoning content is used by the 14B monitor; matched-length neutral prose
+is not reliably distinguished at this scale. Persuasion robustness
+improves with capability: the 4B anchor's holdout collapse (1.0 → 0.0)
+does not reproduce at 14B (C stays ≥ 0.92).
 
 ### 4.4 Phase-3 agent cells and cross-family cell
 
@@ -234,14 +256,22 @@ reproduce at 14B.
 
 Rank-based (Mann-Whitney) actions-only AUROC computed per family and per
 strategy on the landed scale-cell scores: **1.000 on all four task
-families and all four attack strategies.** Even the relational,
-non-action-visible family designs are fully inferable by a 14B semantic
-monitor from the action stream alone — while the syntactic rules monitor
-sees nothing (recall 0/53), confirming the families did move evidence
-beyond *syntactic* legibility, just not beyond *semantic* legibility.
-Consequence recorded in the preregistration: a confirmatory-scale
-(~550-650 episode) run on this inventory would measure a structurally
-null primary estimand and is not scientifically justified; the
+families and all four strategies.** Threshold-based recall agrees (1.0 at
+FPR 0 in every family; the benign score maximum is 0.0 and the minimum
+positive score is 0.53). Even the relational, non-action-visible family
+designs are fully inferable by a 14B semantic monitor from the action
+stream alone — while the syntactic rules monitor sees nothing (recall
+0/53), confirming the families did move evidence beyond *syntactic*
+legibility, just not beyond *semantic* legibility. Quantitative bound on
+the S5 decision: 0 of 53 attempted attacks scored at-or-below the maximum
+honest action score, so no attack's violation was action-invisible to the
+preregistered 14B monitor; the one-sided 95% upper bound on the
+action-invisible fraction is 5.5% (< the preregistered SESOI of 10%;
+exact binomial P(0 visible-defects | true rate ≥ 10%) = 0.0038). Consequence recorded in the preregistration: a
+confirmatory-scale (~550-650 episode) run on this inventory would measure
+a structurally null primary estimand for the preregistered 14B monitor
+class (the measurement does not generalize to other monitor families by
+construction) and is not scientifically justified; the
 confirmatory program is predeclared as future work requiring
 genuinely intent-only attacks and ≥40 benign calibration clusters.
 
@@ -259,20 +289,26 @@ framing points.)*
 
 The picture that emerges is conditional and, we argue, more useful than a
 binary answer. (1) CoT is an information channel, not a free lunch: at
-sufficient monitor capability the content is genuinely used (the
-shuffled and noise controls break detection while genuine reasoning
-preserves it) — but on attack inventories where the action stream itself
-is semantically legible, the channel adds nothing, and the primary
-estimand has no room to be positive. (2) Raw early fusion is fragile in a
-capability-dependent way: the identical prompt that collapses a 4B
-monitor's expressiveness works at 14B; structured late fusion removes
-the persuasion surface and works at both scales — architecture, not
-model size, is the robust axis. (3) The persuasion failure mode is real
-but attenuates with capability and disappears under staged extraction.
+sufficient monitor capability the content is genuinely used — the
+label-matched shuffled-reasoning control breaks detection while genuine
+reasoning preserves it — but on attack inventories where the action
+stream itself is semantically legible, the channel adds nothing, and the
+primary estimand has no room to be positive. Matched-length neutral
+prose is NOT reliably rejected at this scale (the volume control does
+not separate off-development), so the content finding is specifically
+about intent-bearing ordering and labels, not mere CoT-shaped text.
+(2) Raw early fusion is fragile in a capability-dependent way: the
+identical prompt that collapses a 4B monitor's expressiveness works at
+14B under production quantization; structured late fusion removes the
+persuasion surface and works at both scales — architecture, not model
+size, is the robust axis. (3) The persuasion failure mode is real but
+attenuates with capability and disappears under staged extraction.
 (4) What the field calls "action-visible" is monitor-relative: syntactic
 monitors and semantic monitors see the same actions very differently,
 and headroom gates must be defined against the monitor class under
-test.
+test. (5) Offline detection does not by itself prevent anything — the
+RQ4 pre-action study quantifies the prevention-to-detection translation
+separately.
 
 ## 6. Limitations
 
@@ -298,7 +334,19 @@ commits, checksum-ledgered evidence archives under `runs/v6/`, the
 deterministic grader re-run by `traceguard verify`, view-recompilation
 by the monitor gate, analysis determinism proven at landing, and export
 verification (`release_complete: true`) on every landed cell. The pilot
-cohorts are also published as public Kaggle datasets.
+cohorts are also published as public Kaggle datasets. Monitor identity
+for each scored cell is provenanced in the monitor-session's
+`environment_monitor.json` (NOT the run manifest, which records the
+cohort-generation model), the cell config, and each score record's
+`model_revision` + identity hash. Known benign-coverage notes (security
+review 2026-10-28): deterministic-monitor views collide across episodes
+with identical task instances (48 unique rendered prompts across 128
+episodes in condition A — correct behavior for a deterministic function,
+but effective-distinct-view counts are reported), and one attack episode
+of 64 quotes its hidden instruction verbatim inside its own reasoning
+(agent-generated evidence in the UNTRUSTED region — the predeclared
+no-censorship semantics; the per-episode quoting rate is reported with
+the results).
 
 *(Results tables, figures, and the final numbers will be inserted from
 the landed archives; nothing in Sections 4-5 cites memory.)*

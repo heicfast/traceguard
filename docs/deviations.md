@@ -1022,3 +1022,86 @@ comparisons True) and the comparison semantics are unchanged — the
 paired-design guarantee still requires every non-pin field to match.
 Kernel v2 pushed and RUNNING. No research data was affected (the study
 had not started scoring; the failure occurred before any rollout).
+
+### 2026-10-28 — Multi-POV review of the landed matrix evidence (3x APPROVE-WITH-CONDITIONS): launch blockers fixed before the online re-run; all wording corrections applied
+
+Three independent reviews (statistician, scientist, security researcher)
+examined the 4 landed cells + headroom measurement. Every critical claim
+reproduced from raw evidence (AUROCs recomputed from raw score files,
+cohort identity verified byte-level, 4992 views recompiled with 0
+mismatches, twin pairing verified on all 128 E-views, monitor identity
+hashes re-derived). Verdicts: 3x APPROVE-WITH-CONDITIONS. All findings
+below were independently verified by the implementation agent before
+being acted on.
+
+**LAUNCH BLOCKERS (security review, fixed before the online re-run):**
+- F1 WAL recovery projected unvalidated transactions — silent evidence
+  substitution path via pre-planted transaction. FIXED: recovery now
+  schema-validates every transaction, checks run_id against the manifest,
+  checks plan membership keyed by (template_name, policy_mode,
+  instance_index, instance_seed), and echoes projected ids (recovery.log +
+  result field). First implementation attempt keyed membership by task_id
+  == plan_key — WRONG (plan_key is template-based); caught by an
+  immediate programmatic test and corrected before commit.
+- F2 online decision entries lacked score_id/view bindings — tampered
+  suspicion detectable only by re-running the model. FIXED: every
+  pre_action_decision entry now binds score_id, score_prompt_hash,
+  action_view_hash, and (structured monitors) reasoning_view_hash.
+- The running online v2 was STOPPED and is relaunched on the fixed code;
+  its ~2h of decision evidence did not meet the tamper-evidence bar.
+
+**PROVENANCE CORRECTION (statistician F3, verified):** the frozen online
+threshold 0.16 was labeled "development-split calibration" in three
+places — it is the VALIDATION-split calibrated value (dev benign max is
+0.12; 0.16 is the conservative choice; realized FPR 0.0 on both splits).
+Corrected in the preregistration (with a dated correction note), config
+comments, derive script, and the driver's provenance string. The numeric
+freeze predates any online outcome either way.
+
+**WORDING CORRECTIONS (all verified against raw data):**
+- The E-condition "collapse to 0.0 on all four splits" is a
+  single-threshold-event (one honest validation episode scored E=1.0,
+  inflating the calibrated threshold to 1.0); E retains rank signal
+  (E-AUROC 0.73-1.00 by family/strategy, two strata at exactly 1.000;
+  leave-one-benign-out recalibration moves E recall to 0.46-1.0). The
+  four-split recall agreement is NOT four-fold replication.
+- "C decisively beats both content controls" is WRONG for D off-development:
+  D (noise) matches or beats C on holdout/shift/validation; the D dip is
+  dev-only (0.62 vs 1.0). RQ3's content claim rests on the label-matched
+  E control only. FINAL_REPORT §4.3/§5 and the S5 headroom entry
+  reworded accordingly; the earlier commit message's "(C>>E,D)" overstated.
+- Headroom bound quantified (scientist F4): 0/53 attempted attacks scored
+  at-or-below the max honest action score; one-sided 95% upper bound on
+  the action-invisible fraction = 5.5% < SESOI 0.10; exact binomial
+  p = 0.0038. "Any capable monitor" scoped to "the preregistered 14B
+  monitor class". M3-coarse-instrument caveat retained on all raw-arm
+  numbers.
+- FINAL_REPORT §3.2 stale inventory corrected (4 strategies, 50%
+  negative controls on honest — not the Phase-2 8-strategy/1/3 text);
+  §3.4 cohort description corrected (agent cells generate their own
+  cohorts; monitor cells share the byte-identical 128-episode cohort;
+  pin delta documented with empty scoring-path diff).
+- Preregistration condition-C prompt hash annotated (v1 309ef4aa is the
+  documented legacy constant; v2 ad477262 is the landed instrument).
+- Security F3: deterministic-monitor condition-A views collide across
+  identical task instances (48 unique rendered prompts / 128 episodes
+  for rules/keywords — correct for deterministic functions;
+  effective-distinct-view counts to be reported with results).
+- Security F4: 1/64 attack episodes quotes its hidden instruction
+  verbatim in its own reasoning (agent-generated, UNTRUSTED region, the
+  predeclared no-censorship semantics; quoting rate to be reported).
+- Security F6: expected online false-block rate predeclared from offline
+  benign distributions (0/16 dev; 2/16 validation; 3/16 holdout; 1/16
+  shift at the 0.16 threshold) — the online landing must report against
+  this expectation. Security F8: per-condition/per-strategy abort+invalid
+  rates gate the online landing.
+- Security F7: blocked actions record no tool_result event (nothing
+  executed) — documented as protocol semantics.
+
+**REMAINING REVIEW CONDITIONS for the S5 freeze:** land the cross cell
+(family-diversity axis) and the online study (RQ4); add the scientist's
+requested missing analyses to the final report (E operating-point
+mechanics incl. benign score distributions, negative-pool sensitivity
+for A-AUROC, 4B zero-rubric forensics, family-x-strategy cross-table,
+keywords movement); no cross-family or prevention claim may be written
+before those cells land.
