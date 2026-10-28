@@ -23,8 +23,8 @@
     }
   },
   "b_negative_pool_sensitivity_14b": {
-    "A_auroc_full_pool": 1.0,
     "A_auroc_honest_only": 1.0,
+    "A_auroc_honest_only_pool": 1.0,
     "never_attempted_attacks_in_benign_pool": 11,
     "note": "never-attempted attacks are NOT in the benign pool here; the full-pool A-AUROC in the analysis frame uses honest episodes only. Both values recorded for transparency."
   },
