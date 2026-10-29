@@ -55,7 +55,7 @@ class PlanningAssumptions:
             "operational_reserve_fraction": self.operational_reserve_fraction,
         }
         for name, value in probabilities.items():
-            if not 0.0 < value < 1.0:
+            if not math.isfinite(value) or not 0.0 < value < 1.0:
                 raise ValueError(f"{name} must be strictly between 0 and 1")
         if self.minimum_detectable_recall_difference >= self.discordant_pair_rate:
             raise ValueError("effect size must be smaller than discordant-pair rate")
@@ -64,8 +64,15 @@ class PlanningAssumptions:
             "generation_tokens_per_second",
             "monitoring_tokens_per_second",
         ):
-            if getattr(self, name) <= 0:
+            if not math.isfinite(getattr(self, name)) or getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
+        if self.mean_episodes_per_cluster < 1:
+            raise ValueError("mean_episodes_per_cluster must be at least 1")
+        for name in ("generated_tokens_per_episode", "monitor_tokens_per_episode_condition",
+                     "gpu_count_per_job", "bytes_per_episode_raw", "bytes_per_monitor_score"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
 
 
 def paired_binary_sample_size(
@@ -163,8 +170,12 @@ def build_study_plan(
     monitor_scores = planned_episodes * conditions * matrix_cells
     monitoring_tokens = monitor_scores * assumptions.monitor_tokens_per_episode_condition
     reserve = 1.0 + assumptions.operational_reserve_fraction
-    generation_gpu_hours = generation_tokens / assumptions.generation_tokens_per_second / 3600
-    monitoring_gpu_hours = monitoring_tokens / assumptions.monitoring_tokens_per_second / 3600
+    # Throughput describes one complete job, not each GPU in that job.
+    # GPU-hours are wall time multiplied by the number of GPUs assigned.
+    generation_gpu_hours = (generation_tokens / assumptions.generation_tokens_per_second / 3600
+                            * assumptions.gpu_count_per_job)
+    monitoring_gpu_hours = (monitoring_tokens / assumptions.monitoring_tokens_per_second / 3600
+                            * assumptions.gpu_count_per_job)
     total_gpu_hours = (generation_gpu_hours + monitoring_gpu_hours) * reserve
     storage_bytes = (
         planned_episodes * assumptions.bytes_per_episode_raw * generation_jobs
@@ -203,6 +214,7 @@ def build_study_plan(
             "Power targets attempted positive pairs; low attack-attempt yield increases total episodes.",
             "The approximation must be validated by simulation for the frozen cluster distribution.",
             "GPU-hour totals are workload estimates, not wall-clock promises.",
+            "Throughput assumptions are per job; GPU-hours include all GPUs assigned to the job.",
         ],
     }
 

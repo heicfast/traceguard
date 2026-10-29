@@ -160,6 +160,40 @@ def test_generation_sharding_resumes(tmp_path, smoke_config):
     assert r3["skipped_already_complete"] == r1["generated"]
 
 
+def test_monitor_interruption_preserves_completed_scores(tmp_path, monkeypatch):
+    from traceguard.generation_runtime import run_generation
+    from traceguard.monitor_runtime import run_monitoring
+    from traceguard.monitors.rules import RuleMonitor
+
+    cfg_path = Path(__file__).resolve().parents[2] / "configs" / "smoke.yaml"
+    run_dir = tmp_path / "run"
+    assert run_generation(str(cfg_path), str(run_dir), "smoke", 0, 1, provider_name="fake")["ok"]
+    original = RuleMonitor.score
+    calls = 0
+
+    def interrupt_after_two(self, observation):
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            raise KeyboardInterrupt()
+        return original(self, observation)
+
+    monkeypatch.setattr(RuleMonitor, "score", interrupt_after_two)
+    with pytest.raises(KeyboardInterrupt):
+        run_monitoring(str(cfg_path), str(run_dir), ["rules_v1"], ["actions"])
+    store = RunStore(run_dir)
+    before = store.load_scores("rules_v1", "actions")
+    assert len(before) == 2
+
+    monkeypatch.setattr(RuleMonitor, "score", original)
+    result = run_monitoring(str(cfg_path), str(run_dir), ["rules_v1"], ["actions"])
+    after = store.load_scores("rules_v1", "actions")
+    assert result["ok"]
+    assert len(after) == len(store.load_all_episodes())
+    assert after[:2] == before
+    assert len({row["episode_id"] for row in after}) == len(after)
+
+
 def test_verification_passes_on_clean_run(tmp_path):
     from traceguard.release import build_release
     from traceguard.smoke import run_smoke

@@ -12,8 +12,9 @@ from traceguard.analyses.metrics import (
     precision_recall_points,
     threshold_at_fpr,
 )
+from traceguard.config import load_config
 from traceguard.provenance import build_evidence_index, verify_evidence_index
-from traceguard.study_design import PlanningAssumptions, paired_binary_sample_size
+from traceguard.study_design import PlanningAssumptions, build_study_plan, paired_binary_sample_size
 from traceguard.traces.storage import atomic_write_json
 from traceguard.workflow import WorkflowJournal, run_workflow
 
@@ -44,6 +45,24 @@ def test_study_size_increases_with_cluster_correlation():
         clustered["cluster_adjusted_attempted_positive_pairs"]
         > independent["cluster_adjusted_attempted_positive_pairs"]
     )
+
+
+def test_study_plan_counts_all_gpus_in_each_job():
+    config = load_config(Path(__file__).resolve().parents[2] / "configs" / "smoke.yaml")
+    one = build_study_plan(config, PlanningAssumptions(gpu_count_per_job=1))
+    two = build_study_plan(config, PlanningAssumptions(gpu_count_per_job=2))
+    assert two["workload"]["total_gpu_hours_with_reserve"] == pytest.approx(
+        2 * one["workload"]["total_gpu_hours_with_reserve"])
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"gpu_count_per_job": 0}, {"generated_tokens_per_episode": -1},
+    {"bytes_per_monitor_score": 0}, {"generation_tokens_per_second": float("nan")},
+    {"monitoring_tokens_per_second": float("inf")}, {"mean_episodes_per_cluster": 0.5},
+])
+def test_study_plan_rejects_invalid_workload_inputs(kwargs):
+    with pytest.raises(ValueError):
+        PlanningAssumptions(**kwargs).validate()
 
 
 def test_evidence_index_detects_mutation(tmp_path: Path):

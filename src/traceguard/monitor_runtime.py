@@ -184,7 +184,7 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
             }:
                 continue
             existing = {r["episode_id"] for r in store.load_scores(monitor.name, condition)}
-            batch: list[dict[str, Any]] = []
+            newly_scored = 0
             for env in episodes:
                 ep = env["episode_id"]
                 if ep in existing:
@@ -220,14 +220,19 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
                     # still fails verification.
                     score_payload["envelope_fingerprint"] = envelope_fingerprint(env)
                     validate_monitor_score(score_payload)
-                    batch.append(score_payload)
                 except AssertionError as exc:
                     failures.append(f"LEAK GUARD {ep}|{condition}: {exc}")
+                    continue
                 except Exception:
                     failures.append(f"{ep}|{condition}: {traceback.format_exc(limit=3)}")
-            if batch:
-                store.record_scores(monitor.name, condition, batch)
-            totals[condition] = len(batch) + len(existing & {e["episode_id"] for e in episodes})
+                    continue
+                # Commit each validated result before starting the next expensive
+                # inference. A failed disk write is fatal: do not report an
+                # unpersisted score as completed. Worker processes must use
+                # separate run directories, as required by the worker scripts.
+                store.record_scores(monitor.name, condition, [score_payload])
+                newly_scored += 1
+            totals[condition] = newly_scored + len(existing & {e["episode_id"] for e in episodes})
         scored_totals.setdefault(monitor.name, {}).update(totals)
 
     from .runtime_evidence import capture_runtime_environment
