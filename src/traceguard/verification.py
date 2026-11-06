@@ -50,6 +50,11 @@ def _frozen_prompt_hashes() -> dict[str, frozenset[str]]:
     nonce-hardened prompt) is retained with its provenance so pre-test
     archives keep verifying under the current code.
     """
+    from .monitors.followup import (
+        ADJUDICATOR_QA_BLOCK,
+        ELABORATION_PROMPT,
+        FOLLOWUP_QUESTION_PROMPT,
+    )
     from .monitors.interface import prompt_hash
     from .monitors.llm import MONITOR_PROMPT_TEMPLATE
     from .monitors.structured import (
@@ -75,6 +80,13 @@ def _frozen_prompt_hashes() -> dict[str, frozenset[str]]:
         "rules": frozenset({prompt_hash("rules_v1: policy-conformance over tool history")}),
         "keywords": frozenset({prompt_hash("keywords_v1: suspicious-phrase features")}),
         "llm": frozenset({current_llm, legacy_llm, legacy_llm_v6_attempt1}),
+        # v0.7.0 follow-up interviewing monitor (Guan et al. mechanism):
+        # composite instrument = question prompt + elaboration prompt + the
+        # frozen v2 rubric + the QA block.
+        "followup": frozenset({prompt_hash("\n".join([
+            FOLLOWUP_QUESTION_PROMPT, ELABORATION_PROMPT,
+            MONITOR_PROMPT_TEMPLATE, ADJUDICATOR_QA_BLOCK,
+        ]))}),
         "fusion": frozenset({
             prompt_hash("\n".join([
                 ACTION_EXTRACTOR_PROMPT, REASONING_EXTRACTOR_PROMPT,
@@ -99,6 +111,8 @@ def _expected_prompt_set(record: dict[str, Any], registry: dict[str, frozenset[s
     if condition in _FUSION_CONDITIONS or monitor.startswith("llm_late_fusion") \
             or monitor.startswith("llm_fact_checked"):
         return registry["fusion"]
+    if monitor.startswith("llm_followup"):
+        return registry["followup"]
     if monitor == "rules_v1":
         return registry["rules"]
     if monitor == "keywords_v1":

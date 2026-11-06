@@ -226,6 +226,97 @@ def holm_adjust(p_values: Sequence[float]) -> list[float]:
     return adjusted
 
 
+def benjamini_hochberg(p_values: Sequence[float]) -> list[float]:
+    """Benjamini-Hochberg FDR adjustment, returned in original order.
+
+    Used only for EXPLORATORY families (ACADEMIC_METHODS_V7 §6);
+    confirmatory contrasts use Holm.  Step-up procedure with enforced
+    monotonicity, matching statsmodels' fdr_bh.
+    """
+    if any(not 0.0 <= value <= 1.0 for value in p_values):
+        raise ValueError("p-values must be in [0, 1]")
+    count = len(p_values)
+    if count == 0:
+        return []
+    ordered = sorted(enumerate(p_values), key=lambda item: item[1])
+    adjusted = [0.0] * count
+    running = 1.0
+    for rank in range(count - 1, -1, -1):
+        original_index, value = ordered[rank]
+        running = min(running, value * count / (rank + 1))
+        running = min(running, 1.0)
+        adjusted[original_index] = running
+    return adjusted
+
+
+def cluster_label_permutation_test(
+    labels_by_cluster: dict[str, int],
+    statistic_by_cluster: dict[str, float],
+    *,
+    statistic_aggregator="mean",
+    replicates: int = 10_000,
+    alternative: str = "greater",
+    seed: int = 20261106,
+) -> dict[str, float | int | str | None]:
+    """Exact-Monte-Carlo permutation test at the CLUSTER level.
+
+    Permuting the label of an entire cluster preserves within-cluster
+    dependence (template clustering) while breaking the label-association
+    under H0.  ``labels_by_cluster`` maps cluster -> binary label (e.g.
+    whether the cluster's episodes are attacks), ``statistic_by_cluster``
+    maps cluster -> the per-cluster statistic (e.g. mean monitor score).
+    """
+    import random
+
+    if statistic_aggregator != "mean":
+        raise ValueError("only the mean aggregator is supported")
+    if set(labels_by_cluster) != set(statistic_by_cluster):
+        raise ValueError("label and statistic cluster keys must match")
+    if alternative not in ("greater", "less", "two_sided"):
+        raise ValueError("alternative must be greater|less|two_sided")
+    if replicates < 1:
+        raise ValueError("replicates must be >= 1")
+    keys = sorted(labels_by_cluster)
+    labels = [labels_by_cluster[k] for k in keys]
+    values = [statistic_by_cluster[k] for k in keys]
+    n = len(keys)
+    if n < 2 or len(set(labels)) < 2:
+        return {"p_value": None, "error": "degenerate_labels", "n_clusters": n}
+
+    def mean_score_over(scan_labels: list[int]) -> float:
+        positives = [v for v, lab in zip(values, scan_labels, strict=True) if lab == 1]
+        if not positives:
+            return float("nan")
+        return sum(positives) / len(positives)
+
+    observed = mean_score_over(labels)
+    rng = random.Random(seed)
+    count_extreme = 0
+    for _ in range(replicates):
+        permuted = labels[:]
+        rng.shuffle(permuted)
+        simulated = mean_score_over(permuted)
+        if simulated != simulated:
+            continue
+        if alternative == "greater" and simulated >= observed or alternative == "less" and simulated <= observed:
+            count_extreme += 1
+        elif alternative == "two_sided":
+            # two-sided: compare distances from the grand mean
+            grand = sum(values) / n
+            if abs(simulated - grand) >= abs(observed - grand):
+                count_extreme += 1
+    p_value = (count_extreme + 1) / (replicates + 1)  # add-one continuity
+    return {
+        "p_value": p_value,
+        "method": "cluster_label_permutation_mean",
+        "alternative": alternative,
+        "n_clusters": n,
+        "replicates": replicates,
+        "seed": seed,
+        "observed_statistic": observed,
+    }
+
+
 __all__ = [
     "threshold_at_fpr",
     "threshold_at_fpr_inclusive_ties",
@@ -237,4 +328,6 @@ __all__ = [
     "precision_recall_points",
     "exact_mcnemar",
     "holm_adjust",
+    "benjamini_hochberg",
+    "cluster_label_permutation_test",
 ]
