@@ -27,13 +27,25 @@ def _model(model_id: str, *, provider: str, protocol: str, quantization: str,
 
 def test_t4_registry_blocks_mxfp4_gpt_oss():
     profile = get_model_profile("openai/gpt-oss-20b")
-    assert profile.t4_status == "blocked"
-    with pytest.raises(ValueError, match="blocked on T4"):
+    # v0.7.0: hardware tiers replace the flat t4_status field; the T4/Ampere
+    # block on MXFP4 is now expressed per tier and the message names the tier.
+    assert profile.status_for("kaggle_t4") == "blocked"
+    assert profile.status_for("aws_a100_80gb") == "blocked"
+    assert profile.status_for("aws_h100_80gb") == "probe_required"
+    with pytest.raises(ValueError, match="blocked on kaggle_t4"):
         validate_model_assignment(
             profile.model_id,
             role="monitor",
-            quantization="native_mxfp4",
+            quantization="none",
             allow_probe_required=True,
+        )
+    with pytest.raises(ValueError, match="blocked on aws_a100_80gb"):
+        validate_model_assignment(
+            profile.model_id,
+            role="monitor",
+            quantization="none",
+            allow_probe_required=True,
+            hardware_tier="aws_a100_80gb",
         )
 
 

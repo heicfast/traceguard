@@ -83,12 +83,53 @@ def run_monitoring(config_path: str, run_dir: str, monitor_names: list[str],
         return f"{base}_{sha256_text(identity)[:10]}"
 
     def local_provider(spec, role="monitor", device_map=None):
-        from .models.factory import build_hf_provider
-        return build_hf_provider(spec, role=role, device_map=device_map)
+        from .models.factory import build_provider
+        return build_provider(spec, role=role, device_map=device_map)
 
     for name in monitor_names:
         if name in DETERMINISTIC_MONITORS:
             monitors.append(DETERMINISTIC_MONITORS[name]())
+        elif name == "followup":
+            # v0.7.0 follow-up interviewing monitor (Guan et al. mechanism):
+            # the monitor provider questions, an elaboration provider answers
+            # WITH reasoning, and the monitor adjudicates the standard rubric.
+            if not config.monitor.followup_enabled:
+                raise ValueError(
+                    "the followup monitor requires monitor.followup_enabled=true with a "
+                    "pinned elaboration model"
+                )
+            if shared_llm_provider is None:
+                shared_llm_provider = local_provider(config.monitor)
+            elaboration_spec = SimpleNamespace(
+                model_id=config.monitor.elaboration_model_id,
+                model_revision=config.monitor.elaboration_model_revision,
+                tokenizer_revision=config.monitor.elaboration_model_revision,
+                provider=config.monitor.elaboration_provider,
+                reasoning_protocol=config.monitor.elaboration_reasoning_protocol,
+                quantization=config.monitor.elaboration_quantization,
+                compute_dtype=config.monitor.elaboration_compute_dtype,
+                attention_backend=config.monitor.elaboration_attention_backend,
+                max_context_tokens=config.monitor.elaboration_max_context_tokens,
+                max_memory_per_gpu_gib=config.monitor.elaboration_max_memory_per_gpu_gib,
+                adapter_id=None,
+                adapter_revision=None,
+                probe_artifact_sha256=config.monitor.elaboration_probe_artifact_sha256,
+                api_base_url=config.monitor.elaboration_api_base_url,
+                api_model_id=config.monitor.elaboration_api_model_id,
+                api_key_env=config.monitor.elaboration_api_key_env,
+                hardware_tier=config.monitor.elaboration_hardware_tier,
+            )
+            elaboration_provider = local_provider(elaboration_spec)
+            from .monitors.followup import FollowUpMonitor
+            followup = FollowUpMonitor(
+                shared_llm_provider,
+                elaboration_provider,
+                max_new_tokens=config.monitor.max_output_tokens,
+                retry_once=config.monitor.missing_score_policy == "retry_once",
+                evidence_ref_max_chars=config.monitor.evidence_ref_max_chars,
+            )
+            followup.name = monitor_identity(shared_llm_provider).replace("llm_", "llm_followup_", 1)
+            monitors.append(followup)
         elif name in {"late_fusion", "fact_checked"}:
             if shared_llm_provider is None:
                 shared_llm_provider = local_provider(config.monitor)

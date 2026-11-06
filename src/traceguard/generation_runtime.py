@@ -33,7 +33,13 @@ def compute_run_id(config, stage: str) -> str:
 
 
 def build_provider(provider_name: str, config, stage: str, run_id: str):
-    """Resolve the inference provider. No silent fallbacks, ever."""
+    """Resolve the inference provider. No silent fallbacks, ever.
+
+    v0.7.0: ``vllm_openai`` agents run against a local pinned server (no local
+    torch import required); ``api_openai`` agents are likewise permitted for
+    exploratory arms — the evidence contract records the reduced determinism
+    class.  The transformers path still requires torch.
+    """
     if provider_name == "fake":
         if stage in RESEARCH_STAGES:
             raise RuntimeError("fake provider is FORBIDDEN for research stages")
@@ -43,10 +49,14 @@ def build_provider(provider_name: str, config, stage: str, run_id: str):
         from .models.factory import build_hf_provider
         provider = build_hf_provider(config.agent, role="agent")
         return provider.provider_name, provider
-    # auto: research stages require GPU provider; smoke may use fake
+    # auto: research stages require a real provider; smoke may use fake
     if stage == "smoke":
         from .models.fake import TaskScriptedAgent
         return "task_scripted_factory", TaskScriptedAgent
+    if getattr(config.agent, "provider", "auto") in ("vllm_openai", "api_openai"):
+        from .models.factory import build_endpoint_provider
+        provider = build_endpoint_provider(config.agent, role="agent")
+        return provider.provider_name, provider
     import torch  # noqa: F401  (raises ImportError if torch missing)
 
     from .models.factory import build_hf_provider
@@ -70,6 +80,7 @@ def _verify_research_provenance(config, stage: str) -> None:
         role="agent",
         quantization=config.agent.quantization,
         allow_probe_required=bool(config.agent.probe_artifact_sha256),
+        hardware_tier=getattr(config.agent, "hardware_tier", "kaggle_t4"),
     )
     if config.agent.max_context_tokens > profile.native_context_tokens:
         raise RuntimeError(

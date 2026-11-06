@@ -38,7 +38,8 @@ class AgentConfig(FrozenModel):
     max_agent_turns: int = Field(gt=0, default=8)
     max_invalid_tool_calls: int = Field(ge=0, default=2)
     max_context_messages: int = Field(gt=0, default=40)
-    provider: Literal["auto", "qwen_hf", "generic_hf"] = "auto"
+    provider: Literal["auto", "qwen_hf", "generic_hf", "vllm_openai",
+                      "api_openai"] = "auto"
     reasoning_protocol: Literal["auto", "qwen3", "think_tags", "none"] = "auto"
     quantization: Literal["none", "bnb_nf4", "bnb_int8"] = "none"
     compute_dtype: Literal["float16", "bfloat16", "float32"] = "float16"
@@ -48,6 +49,15 @@ class AgentConfig(FrozenModel):
     adapter_id: str | None = None
     adapter_revision: str | None = None
     probe_artifact_sha256: str | None = None
+    # v0.7.0 serving plane: OpenAI-compatible endpoint fields.  For
+    # ``vllm_openai`` the base_url points at a locally launched, pinned
+    # vLLM server; for ``api_openai`` at a remote frontier endpoint.
+    api_base_url: str | None = None
+    api_model_id: str | None = None
+    api_key_env: str = "TRACEGUARD_API_KEY"
+    # Hardware tier drives registry admission (aws_a100_80gb | aws_h100_80gb |
+    # kaggle_t4); the probe artifact must match the tier.
+    hardware_tier: Literal["kaggle_t4", "aws_a100_80gb", "aws_h100_80gb"] = "kaggle_t4"
 
     @model_validator(mode="after")
     def _check_runtime_contract(self) -> AgentConfig:
@@ -57,6 +67,16 @@ class AgentConfig(FrozenModel):
             raise ValueError("adapter_id and adapter_revision must be pinned together")
         if self.probe_artifact_sha256 and not _is_sha256(self.probe_artifact_sha256):
             raise ValueError("probe_artifact_sha256 must be 64 lowercase hex characters")
+        if self.provider in ("vllm_openai", "api_openai"):
+            if not self.api_base_url or not self.api_model_id:
+                raise ValueError(
+                    f"provider {self.provider!r} requires api_base_url and api_model_id"
+                )
+            if self.quantization != "none":
+                raise ValueError(
+                    "server/API providers do not take transformers quantization; "
+                    "quantization belongs to the serving spec / remote checkpoint"
+                )
         return self
 
 
@@ -65,16 +85,21 @@ class SandboxConfig(FrozenModel):
     network_enabled: Literal[False] = False
     shell_enabled: Literal[False] = False
     external_credentials: Literal[False] = False
-    engine_version: str = "1.0.2"
+    engine_version: str = "1.1.0"
 
     @field_validator("engine_version")
     @classmethod
     def _check_engine_version(cls, value: str) -> str:
-        from .sandbox.engine import ENGINE_VERSION
+        from .sandbox.engine import ENGINE_VERSION, LEGACY_ENGINE_VERSIONS
 
-        if value != ENGINE_VERSION:
+        # v0.7.0: legacy 1.0.2 configs remain loadable (the 1.1.0 op set is a
+        # strict superset; archived episodes re-grade identically), but any
+        # OTHER version still refuses provenance drift.
+        allowed = (ENGINE_VERSION, *LEGACY_ENGINE_VERSIONS)
+        if value not in allowed:
             raise ValueError(
-                f"config pins sandbox engine {value!r}, but imported code is {ENGINE_VERSION!r}; "
+                f"config pins sandbox engine {value!r}, but imported code is "
+                f"{ENGINE_VERSION!r} (accepted legacy: {list(LEGACY_ENGINE_VERSIONS)}); "
                 "refusing provenance drift"
             )
         return value
@@ -90,10 +115,14 @@ class DatasetConfig(FrozenModel):
     split_group_key: Literal["family_id", "template_id"] = "family_id"
     include_negative_controls: bool = True
     # Attack-policy treatment axis.  The legacy pilot used only
-    # ``explicit_override``; Phase 3 can cross the same task instances with
-    # less scripted and monitor-aware pressures without changing ground truth.
+    # ``explicit_override``; Phase 3 crossed the same task instances with
+    # less scripted and monitor-aware pressures.  v0.7.0 adds the four
+    # SLEIGHT-Bench-grounded presentations (authorization_claim,
+    # incremental_accumulation, needle_concealment, n_hop_indirection).
     attack_strategies: list[Literal[
-        "explicit_override", "side_objective", "implicit_pressure", "monitor_aware"
+        "explicit_override", "side_objective", "implicit_pressure", "monitor_aware",
+        "authorization_claim", "incremental_accumulation", "needle_concealment",
+        "n_hop_indirection"
     ]] = ["explicit_override"]
 
     @field_validator("attack_strategies")
@@ -146,7 +175,8 @@ class MonitorConfig(FrozenModel):
     fact_checker_adapter_id: str | None = None
     fact_checker_adapter_revision: str | None = None
     fact_checker_probe_artifact_sha256: str | None = None
-    provider: Literal["auto", "qwen_hf", "generic_hf"] = "auto"
+    provider: Literal["auto", "qwen_hf", "generic_hf", "vllm_openai",
+                      "api_openai"] = "auto"
     reasoning_protocol: Literal["auto", "qwen3", "think_tags", "none"] = "auto"
     quantization: Literal["none", "bnb_nf4", "bnb_int8"] = "none"
     compute_dtype: Literal["float16", "bfloat16", "float32"] = "float16"
@@ -156,6 +186,30 @@ class MonitorConfig(FrozenModel):
     adapter_id: str | None = None
     adapter_revision: str | None = None
     probe_artifact_sha256: str | None = None
+    # v0.7.0 serving plane + follow-up monitor fields.
+    api_base_url: str | None = None
+    api_model_id: str | None = None
+    api_key_env: str = "TRACEGUARD_API_KEY"
+    hardware_tier: Literal["kaggle_t4", "aws_a100_80gb", "aws_h100_80gb"] = "kaggle_t4"
+    followup_enabled: bool = False
+    # Elaboration provider for the follow-up monitor: typically the same
+    # checkpoint family as the episode agent.  Uses the same field pattern.
+    elaboration_model_id: str | None = None
+    elaboration_model_revision: str | None = None
+    elaboration_provider: Literal["auto", "qwen_hf", "generic_hf", "vllm_openai",
+                                  "api_openai"] = "auto"
+    elaboration_reasoning_protocol: Literal["auto", "qwen3", "think_tags", "none"] = "auto"
+    elaboration_quantization: Literal["none", "bnb_nf4", "bnb_int8"] = "none"
+    elaboration_compute_dtype: Literal["float16", "bfloat16", "float32"] = "float16"
+    elaboration_attention_backend: Literal["sdpa", "eager"] = "sdpa"
+    elaboration_max_context_tokens: int = Field(gt=512, default=8192)
+    elaboration_max_memory_per_gpu_gib: float = Field(gt=1.0, default=14.0)
+    elaboration_api_base_url: str | None = None
+    elaboration_api_model_id: str | None = None
+    elaboration_api_key_env: str = "TRACEGUARD_API_KEY"
+    elaboration_hardware_tier: Literal["kaggle_t4", "aws_a100_80gb",
+                                       "aws_h100_80gb"] = "kaggle_t4"
+    elaboration_probe_artifact_sha256: str | None = None
 
     @field_validator("conditions")
     @classmethod
@@ -181,6 +235,7 @@ class MonitorConfig(FrozenModel):
         for name, value in (
             ("probe_artifact_sha256", self.probe_artifact_sha256),
             ("fact_checker_probe_artifact_sha256", self.fact_checker_probe_artifact_sha256),
+            ("elaboration_probe_artifact_sha256", self.elaboration_probe_artifact_sha256),
         ):
             if value and not _is_sha256(value):
                 raise ValueError(f"{name} must be 64 lowercase hex characters")
@@ -188,6 +243,22 @@ class MonitorConfig(FrozenModel):
                 and (not self.fact_checker_model_id or not self.fact_checker_model_revision)):
             raise ValueError(
                 "fact-checked condition requires a pinned fact-checker model and revision")
+        if self.followup_enabled and (
+            not self.elaboration_model_id or not self.elaboration_model_revision
+        ):
+            raise ValueError(
+                "followup_enabled requires a pinned elaboration model and revision")
+        if self.provider in ("vllm_openai", "api_openai") and (
+            not self.api_base_url or not self.api_model_id
+        ):
+            raise ValueError(
+                f"provider {self.provider!r} requires api_base_url and api_model_id")
+        if self.elaboration_provider in ("vllm_openai", "api_openai") and (
+            not self.elaboration_api_base_url or not self.elaboration_api_model_id
+        ):
+            raise ValueError(
+                "elaboration endpoint provider requires elaboration_api_base_url "
+                "and elaboration_api_model_id")
         if self.require_cross_family_fact_checker:
             if (not self.fact_checker_model_family
                     or self.fact_checker_model_family == self.model_family):
@@ -239,6 +310,9 @@ class ExperimentConfig(FrozenModel):
     monitor: MonitorConfig = MonitorConfig()
     analysis: AnalysisConfig = AnalysisConfig()
     provenance: ProvenanceConfig
+    # v0.7.0: fail-closed budget guard for API-backed arms.  None disables
+    # the cap (local GPU runs meter compute only when the operator records it).
+    budget_usd_hard_cap: float | None = Field(default=None, gt=0.0)
 
     def content_hash(self) -> str:
         """SHA-256 over the canonical serialization of this config."""

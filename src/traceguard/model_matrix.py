@@ -19,16 +19,22 @@ class MatrixModel(BaseModel):
     model_id: str
     revision: str
     tokenizer_revision: str
-    provider: Literal["qwen_hf", "generic_hf"]
-    reasoning_protocol: Literal["qwen3", "think_tags", "none"]
+    provider: Literal["qwen_hf", "generic_hf", "vllm_openai", "api_openai"]
+    reasoning_protocol: Literal["qwen3", "think_tags", "none", "reasoning_field",
+                                 "harmony_channels"]
     quantization: Literal["none", "bnb_nf4", "bnb_int8"]
-    compute_dtype: Literal["float16"] = "float16"
-    attention_backend: Literal["sdpa"] = "sdpa"
-    max_context_tokens: int = Field(gt=512, le=32_768)
-    max_memory_per_gpu_gib: float = Field(gt=1.0, le=15.0, default=14.0)
+    compute_dtype: Literal["float16", "bfloat16"] = "float16"
+    attention_backend: Literal["sdpa", "eager", "vllm_default"] = "sdpa"
+    max_context_tokens: int = Field(gt=512, le=262_144)
+    max_memory_per_gpu_gib: float = Field(gt=1.0, le=76.0, default=14.0)
     probe_artifact_sha256: str | None = None
     adapter_id: str | None = None
     adapter_revision: str | None = None
+    # v0.7.0 serving plane: endpoint + tier for vllm_openai / api_openai cells.
+    api_base_url: str | None = None
+    api_model_id: str | None = None
+    api_key_env: str = "TRACEGUARD_API_KEY"
+    hardware_tier: Literal["kaggle_t4", "aws_a100_80gb", "aws_h100_80gb"] = "kaggle_t4"
 
     @model_validator(mode="after")
     def _pins_and_adapter(self) -> MatrixModel:
@@ -44,6 +50,11 @@ class MatrixModel(BaseModel):
             or any(char not in "0123456789abcdef" for char in self.probe_artifact_sha256)
         ):
             raise ValueError("probe_artifact_sha256 must be 64 lowercase hex characters")
+        if self.provider in ("vllm_openai", "api_openai") and (
+            not self.api_base_url or not self.api_model_id
+        ):
+            raise ValueError(
+                f"{self.provider} matrix entries require api_base_url and api_model_id")
         return self
 
 
@@ -74,6 +85,7 @@ class MatrixCell(BaseModel):
                 role=role,  # type: ignore[arg-type]
                 quantization=spec.quantization,
                 allow_probe_required=bool(spec.probe_artifact_sha256),
+                hardware_tier=spec.hardware_tier,
             )
             if profile.provider != spec.provider:
                 raise ValueError(f"{spec.model_id}: provider disagrees with audited registry")
@@ -85,6 +97,7 @@ class MatrixCell(BaseModel):
                 role="fact_checker",
                 quantization=self.fact_checker.quantization,
                 allow_probe_required=bool(self.fact_checker.probe_artifact_sha256),
+                hardware_tier=self.fact_checker.hardware_tier,
             )
             monitor_profile = get_model_profile(self.monitor.model_id)
             if (
@@ -199,6 +212,10 @@ def _agent_payload(spec: MatrixModel) -> dict[str, Any]:
         "probe_artifact_sha256": spec.probe_artifact_sha256,
         "adapter_id": spec.adapter_id,
         "adapter_revision": spec.adapter_revision,
+        "api_base_url": spec.api_base_url,
+        "api_model_id": spec.api_model_id,
+        "api_key_env": spec.api_key_env,
+        "hardware_tier": spec.hardware_tier,
     }
 
 
@@ -217,6 +234,10 @@ def _monitor_payload(spec: MatrixModel) -> dict[str, Any]:
         "probe_artifact_sha256": spec.probe_artifact_sha256,
         "adapter_id": spec.adapter_id,
         "adapter_revision": spec.adapter_revision,
+        "api_base_url": spec.api_base_url,
+        "api_model_id": spec.api_model_id,
+        "api_key_env": spec.api_key_env,
+        "hardware_tier": spec.hardware_tier,
     }
 
 
