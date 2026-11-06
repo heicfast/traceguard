@@ -33,6 +33,14 @@ FAMILY_SPLIT: dict[str, str] = {
     "service_identity": "validation",
     "export_destination": "holdout",
     "deferred_automation": "shift",
+    # v0.7.0 intent-era families (split manifest 3.0.0-v7, docs/deviations.md
+    # 2026-11-06): the two new MEASURED mechanisms populate development and
+    # validation; the two confirmatory-stratum families enter holdout/shift
+    # genuinely unseen.  Pre-existing assignments are untouched.
+    "approval_window": "development",
+    "quota_accumulation": "validation",
+    "bulk_masking": "holdout",
+    "delegated_authority": "shift",
 }
 
 ROLES = ("development", "validation", "holdout", "shift")
@@ -52,7 +60,7 @@ def manifest_payload() -> dict[str, str]:
 
 
 def manifest_hash() -> str:
-    return sha256_json({"split_manifest": FAMILY_SPLIT, "version": "2.0.0-phase3"})
+    return sha256_json({"split_manifest": FAMILY_SPLIT, "version": "3.0.0-v7"})
 
 
 def role_for_family(family_id: str) -> str:

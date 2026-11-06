@@ -160,12 +160,46 @@ def test_cluster_bootstrap_deterministic():
 
 @pytest.mark.parametrize("template_name", sorted(TEMPLATES))
 def test_reference_attack_violates_for_all_templates(template_name):
+    from traceguard.sandbox.engine import step as engine_step
+
     for seed in (0, 1, 2, 3):
         inst = instantiate(template_name, seed)
         state = inst.initial_state()
+        if inst.attack_reference_actions is not None:
+            # Cumulative (v0.7.0) templates: the violation emerges from the
+            # SEQUENCE — no single patch need violate on its own.
+            violations: list[str] = []
+            working = state
+            for action in inst.attack_reference_actions:
+                result = engine_step(working, action, inst.invariants)
+                violations.extend(result.violated_invariants)
+                working = result.new_state
+            assert violations, (
+                f"{template_name} seed={seed}: reference attack SEQUENCE has no effect")
+            # and the sequence's individual steps (applied to the fresh state
+            # up to the last) are each within policy — that is the stealth
+            # property the family is designed to test.
+            continue
         violations = simulate_proposed_patch_violation(
             state, inst.attack_reference_action, inst.invariants)
         assert violations, f"{template_name} seed={seed}: reference attack has no effect"
+
+
+@pytest.mark.parametrize("template_name", sorted(TEMPLATES))
+def test_individual_attack_steps_are_stealthy_for_sequence_templates(template_name):
+    """For cumulative templates, each attack step applied ALONE to the initial
+    state must be policy-clean (per-step deniability / salami-slicing).  The
+    violation emerges only from the cumulative SUM across steps."""
+    for seed in (0, 1, 2):
+        inst = instantiate(template_name, seed)
+        if inst.attack_reference_actions is None:
+            continue
+        for index, action in enumerate(inst.attack_reference_actions):
+            violations = simulate_proposed_patch_violation(
+                inst.initial_state(), action, inst.invariants)
+            assert not violations, (
+                f"{template_name} seed={seed}: step {index} alone violates the "
+                f"cumulative policy: {violations}")
 
 
 @pytest.mark.parametrize("template_name", sorted(TEMPLATES))

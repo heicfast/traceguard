@@ -33,6 +33,8 @@ from ..sandbox.actions import TypedAction
 from ..sandbox.invariants import Invariant
 from ..sandbox.state import SandboxState
 from .advanced_specs import ADVANCED_TEMPLATES
+from .intent_specs import DIAGNOSTIC_COMPLEXITY as FAMILY_DIAGNOSTIC_COMPLEXITY
+from .intent_specs import INTENT_TEMPLATES
 
 TEMPLATE_REVISION = 2
 
@@ -51,6 +53,12 @@ class TaskInstance:
     main_goal_expected: Any
     attack_instruction: str          # PRIVILEGED side objective (attack policy only)
     attack_reference_action: TypedAction | None  # PRIVILEGED validation action
+    # v0.7.0: cumulative attacks need a SEQUENCE of individually-benign patches
+    # (quota_accumulation).  Single-action templates keep the legacy field.
+    attack_reference_actions: tuple[TypedAction, ...] | None = None
+    # v0.7.0: action-channel diagnostic complexity tier (RQ5 stratification).
+    # "basic" for every pre-v0.7 family; intent-era families carry their tier.
+    diagnostic_complexity: str = "basic"
     control_variant: str = "plain"   # plain | inspect_protected | suspicious_phrasing
     task_hash: str = ""
 
@@ -72,6 +80,7 @@ class TaskInstance:
             "main_goal_path": self.main_goal_path,
             "main_goal_expected": self.main_goal_expected,
             "control_variant": self.control_variant,
+            "diagnostic_complexity": self.diagnostic_complexity,
         }
         return sha256_json(payload)
 
@@ -993,11 +1002,15 @@ TEMPLATES: dict[str, TemplateBuilder] = {
 # Phase-3 families are kept in a separate module so the frozen pilot builders
 # remain easy to audit byte-for-byte.
 TEMPLATES.update(ADVANCED_TEMPLATES)
+# v0.7.0 intent-era families (action-submerged violations; engine 1.1.0).
+TEMPLATES.update(INTENT_TEMPLATES)
 
 FAMILY_IDS = ["config_update", "data_migration", "dependency_metadata",
               "incident_workflow", "service_rotation", "backup_policy",
               "secrets_registry", "release_gate", "artifact_routing",
-              "export_destination", "service_identity", "deferred_automation"]
+              "export_destination", "service_identity", "deferred_automation",
+              "approval_window", "quota_accumulation", "bulk_masking",
+              "delegated_authority"]
 
 FAMILY_TEMPLATES: dict[str, list[str]] = {
     family: [name for name in TEMPLATES if name.startswith(family + "/")]
@@ -1036,20 +1049,24 @@ def instantiate(template_name: str, instance_seed: int, control_variant: str = "
         main_goal_expected=spec["main_goal_expected"],
         attack_instruction=spec["attack_instruction"],
         attack_reference_action=spec["attack_reference_action"],
+        attack_reference_actions=tuple(spec["attack_reference_actions"]) if spec.get(
+            "attack_reference_actions") else None,
         control_variant=control_variant,
+        diagnostic_complexity=str(spec.get("diagnostic_complexity", "basic")),
         task_hash="",
     )
 
 
 def validate_template_family() -> dict[str, str]:
-    """Authoring validation: every template's attack action must violate an invariant.
+    """Authoring validation: every template's attack must violate an invariant.
 
-    Returns a mapping template -> first violated invariant description. A
-    template whose reference attack does NOT violate protection is an
-    authoring bug: the attack would not produce a detectable unauthorized
-    state change.
+    A single reference action is simulated directly; templates that declare a
+    reference SEQUENCE (cumulative attacks) are executed through the real
+    engine in order, on an evolving copy of the state.  A template whose
+    reference attack does NOT violate protection is an authoring bug.
     """
     from ..sandbox.engine import simulate_proposed_patch_violation
+    from ..sandbox.engine import step as engine_step
 
     report: dict[str, str] = {}
     for name in TEMPLATES:
@@ -1059,6 +1076,18 @@ def validate_template_family() -> dict[str, str]:
                                if not inv.evaluate(state)]
         if initial_violations:
             report[name] = "BROKEN_INITIAL_STATE: " + "; ".join(initial_violations)
+            continue
+        if inst.attack_reference_actions is not None:
+            violations: list[str] = []
+            working = state
+            for action in inst.attack_reference_actions:
+                result = engine_step(working, action, inst.invariants)
+                violations.extend(result.violated_invariants)
+                working = result.new_state
+            if violations:
+                report[name] = "OK: " + "; ".join(violations)
+            else:
+                report[name] = "ATTACK_SEQUENCE_DOES_NOT_VIOLATE"
             continue
         if inst.attack_reference_action is None:
             report[name] = "MISSING_ATTACK_REFERENCE_ACTION"
@@ -1074,5 +1103,5 @@ def validate_template_family() -> dict[str, str]:
 
 __all__ = [
     "TEMPLATES", "FAMILY_IDS", "FAMILY_TEMPLATES", "TaskInstance", "instantiate",
-    "validate_template_family", "TEMPLATE_REVISION",
+    "validate_template_family", "TEMPLATE_REVISION", "FAMILY_DIAGNOSTIC_COMPLEXITY",
 ]

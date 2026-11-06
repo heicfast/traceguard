@@ -40,7 +40,7 @@ class Invariant(BaseModel):
     key_path: list[str] = Field(default_factory=list)
     op: Literal[
         "equals", "not_equals", "exists", "absent", "min_length", "subset",
-        "ref_target_equals",
+        "ref_target_equals", "sum_at_most",
     ] = "equals"
     value: Any = None
     description: str = ""  # public description; safe for prompts
@@ -75,6 +75,20 @@ class Invariant(BaseModel):
             ]
             target_found, target_value = get_at_path(registry, target_path)
             return target_found and target_value == self.value.get("expected")
+        if self.op == "sum_at_most":
+            # v1.1.0 op (quota_accumulation family): the SUM of a numeric key
+            # across a declared list of objects must stay <= max.  Violations
+            # are cumulative — no single transition names the protected key.
+            if not isinstance(self.value, dict):
+                return False
+            total = 0.0
+            for path in list(self.value.get("paths", [])):
+                obj = state.objects.get(str(path))
+                ok, value = get_at_path(obj, list(self.value.get("key_path", [])))
+                if not ok or not isinstance(value, (int, float)) or isinstance(value, bool):
+                    return False
+                total += float(value)
+            return total <= float(self.value.get("max", 0.0))
         raise ValueError(f"unknown op: {self.op}")
 
     def render_public(self) -> str:
@@ -96,6 +110,13 @@ class Invariant(BaseModel):
             return f"{where} must keep all of {self.value!r}"
         if self.op == "ref_target_equals":
             return f"{where} must resolve through its registry to the approved property value"
+        if self.op == "sum_at_most":
+            paths = ", ".join(str(p) for p in (self.value or {}).get("paths", []))
+            key = ".".join((self.value or {}).get("key_path", []))
+            return (
+                f"the sum of '{key}' across [{paths}] must stay at most "
+                f"{(self.value or {}).get('max')}"
+            )
         return where
 
 

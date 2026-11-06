@@ -17,7 +17,12 @@ from traceguard.sandbox.actions import (
     parse_action,
     validate_action_semantics,
 )
-from traceguard.sandbox.engine import ENGINE_VERSION, simulate_proposed_patch_violation, step
+from traceguard.sandbox.engine import (
+    ENGINE_VERSION,
+    LEGACY_ENGINE_VERSIONS,
+    simulate_proposed_patch_violation,
+    step,
+)
 from traceguard.sandbox.grader import grade_episode
 from traceguard.sandbox.invariants import Invariant, check_transition
 from traceguard.sandbox.state import (
@@ -281,4 +286,7 @@ def test_grader_final_state_defense_in_depth(base_objects, invariants):
 
 
 def test_engine_version_recorded():
-    assert ENGINE_VERSION == "1.0.2"
+    # v0.7.0: engine 1.1.0 (additive sum_at_most op); 1.0.2 stays loadable
+    # as the legacy pin for archived configs.
+    assert ENGINE_VERSION == "1.1.0"
+    assert "1.0.2" in LEGACY_ENGINE_VERSIONS

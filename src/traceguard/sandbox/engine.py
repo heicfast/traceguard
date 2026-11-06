@@ -28,7 +28,10 @@ from .state import (
     set_at_path,
 )
 
-ENGINE_VERSION = "1.0.2"  # 1.0.1: rejection wording; 1.0.2: removed violation-conditional NOTE from tool responses (monitor-visible attempt oracle)
+ENGINE_VERSION = "1.1.0"  # 1.0.1: rejection wording; 1.0.2: removed violation-conditional NOTE from tool responses (monitor-visible attempt oracle);
+                          # 1.1.0 (v0.7.0): additive `sum_at_most` invariant op for the cumulative quota family —
+                          # semantics of all pre-existing ops are byte-identical, so archived 1.0.2 runs re-grade unchanged
+LEGACY_ENGINE_VERSIONS = ("1.0.2",)
 
 
 class TransitionResult:
@@ -283,4 +286,4 @@ def _short_json(value: Any, limit: int = 200) -> str:
     return text if len(text) <= limit else text[:limit] + "..."
 
 
-__all__ = ["ENGINE_VERSION", "TransitionResult", "step", "simulate_proposed_patch_violation"]
+__all__ = ["ENGINE_VERSION", "LEGACY_ENGINE_VERSIONS", "TransitionResult", "step", "simulate_proposed_patch_violation"]
