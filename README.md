@@ -28,23 +28,25 @@ This repository contains a **working research engine** (deterministic sandbox, a
 | M6.13 multi-POV matrix review | **3x APPROVE-WITH-CONDITIONS, all findings fixed** — WAL-recovery validation + decision-log artifact bindings (launch blockers), threshold provenance corrected (validation-split), E-control mechanics + D-control dev-only scoping + all wording corrections applied; 249 tests, ruff + mypy clean (`b0e84cf`) |
 | M6.14 RQ4 online pre-action study | **IN FLIGHT** — predeclared paired-armor design (same frozen plan/seeds, fresh rollouts, offline-frozen threshold 0.16, shared 4B checkpoint, blocked-violating-proposals-as-attempts); CPU drill FULL PASS (64/64 attacks prevented, recovery intact, merge+verify clean) |
 | M6.15 cross-family monitor cell | **RE-RUNNING** — attempt-3 externally cancelled at 2/5 llm conditions; partial output archived (`runs/v6/failed_attempts/cross_mon_interrupted_20261027/`); full re-run in flight |
+| M6.16 v0.7 AWS-era upgrade | **DONE (branch `upg`)** — serving plane (vLLM v0.33.x/API + cost ledger + S3 sync), tiered registry with dated verification records, 4 intent-era families (16 total), 4 new attack strategies, follow-up monitor, TOST/calibration/agreement/power stats, paper export; 361 CPU tests green, ruff + mypy clean (`docs/UPGRADE_v0.7.md`) |
 | M7 preregistration freeze | exploratory-freeze path decided by the headroom measurement; freeze executes after the last two cells land + review sign-off |
 | M8 confirmatory + online intervention | confirmatory blocked (premeasured null); RQ4 online in flight |
 
-**Current stage: Phase-3 matrix completion + RQ4.** The v0.6 from-scratch
-program (owner directive `5d1a00e`) landed four of five matrix cells
-through the full evidence chain (verify -> gate -> analysis -> canonicalize
--> export `release_complete: true` -> committed archive). The scale cell
-resolved the capacity-vs-instrument question; the headroom measurement
-(`runs/v6/headroom_by_family_20261028.txt`) closed the S5 design question
-with a uniform action-visibility ceiling at 14B. Three independent
-reviews (statistician, scientist, security) returned APPROVE-WITH-CONDITIONS;
-every finding was verified against raw data and fixed (`b0e84cf`, 249
-tests). Remaining: the DeepSeek-R1-14B cross-family cell (re-running),
-the RQ4 online pre-action study (in flight, review-hardened kernel),
-the 5-cell comparison, the exploratory freeze, and the final report
-(`docs/FINAL_REPORT.md`, stable sections drafted, results fill from
-evidence only).
+**Current stage: v0.7 AWS era (branch `upg`) + Phase-3/RQ4 completion.** The
+v0.6 from-scratch program landed four of five matrix cells; the headroom
+measurement closed the confirmatory question on that inventory with a
+uniform action-visibility ceiling at 14B. The **v0.7 upgrade** (see
+[`docs/UPGRADE_v0.7.md`](docs/UPGRADE_v0.7.md)) moves the program to AWS
+research-credit execution: a vLLM/SGLang serving plane on A100/H100
+instances, an audited per-hardware-tier model registry (up to 32B and
+frontier API monitors), four **intent-era task families** targeting the
+verified SLEIGHT-Bench blind-spot taxonomy (the repo's own predeclared
+path out of the headroom null), a follow-up interviewing monitor
+operationalizing Guan et al. (arXiv:2512.18311), equivalence testing
+(TOST) + calibration + agreement + power-simulation statistics, a
+fail-closed cost ledger, S3 evidence sync, and paper-grade export. The
+Phase-3 cross-family cell and RQ4 online study continue under their frozen
+protocols.
 
 **Phase-3 progress (2026-10-21).** The full 5-cell model-capability matrix
 is executing on the three-account fleet with the v2 monitor instrument:
@@ -102,10 +104,11 @@ python -m traceguard.cli smoke --out runs/smoke   # full pipeline smoke with scr
 - **RQ2 (distribution shift):** Does any advantage survive on entirely held-out task families and a held-out environment shift set?
 - **RQ3 (information controls):** Is the advantage attributable to reasoning *content* (vs. more tokens / generic text / unrelated traces), via length-matched noise (D) and shuffled-CoT (E) conditions?
 - **RQ4 (control effectiveness, phase two):** When the monitor acts *before* action execution (fresh online rollouts, no replays), does it reduce completed violations without unacceptable loss of legitimate task completion?
+- **RQ5 (v0.7, intent-era families):** On task families whose violations are action-submerged (multi-step joins, counting, needle search, authorization chains — the verified SLEIGHT-Bench blind-spot categories), does adding the reasoning trace improve detection at a calibrated operating point, and does the improvement survive the noise (D) and shuffled-CoT (E) controls?
 
 ## Architecture in one paragraph
 
-Frozen experiment configs drive seeded task-instance generation across twelve synthetic task families. A deterministic in-memory sandbox executes strictly typed tool calls (`inspect_state`, `list_objects`, `propose_patch`, `submit_task`) and judges direct and relational protected-invariant violations by exact state comparison. The Qwen runtime records complete prompt and generated token ids, decoded outputs, messages, seeds, revisions, chat-template/runtime metadata, and hashes; CPU tests use a scripted fake. Episode evidence is committed through a crash-recoverable transaction before JSONL projection. An allowlist ViewCompiler builds raw, control, late-fusion, and fact-checked conditions with mechanical leakage assertions. Monitors retain exact prompts, raw responses, structured intermediate reports, and inference audits. The analysis layer uses comparison-specific pairing, frozen thresholds, CI-eligibility gates, exact small-cluster distributions, missing-score bounds, and provenance-stamped figures.
+Frozen experiment configs drive seeded task-instance generation across sixteen synthetic task families (twelve legacy + four v0.7 intent-era families whose violations demand multi-step joins, counting, needle search, or authorization chains to diagnose from actions). A deterministic in-memory sandbox executes strictly typed tool calls (`inspect_state`, `list_objects`, `propose_patch`, `submit_task`) and judges direct, relational, and cumulative protected-invariant violations by exact state comparison. The v0.7 serving plane adds pinned vLLM/SGLang servers and frontier APIs as first-class providers with per-turn determinism classes and a fail-closed cost ledger; the transformers runtime records complete prompt and generated token ids, decoded outputs, messages, seeds, revisions, chat-template/runtime metadata, and hashes; CPU tests use a scripted fake. Episode evidence is committed through a crash-recoverable transaction before JSONL projection. An allowlist ViewCompiler builds raw, control, late-fusion, fact-checked, and follow-up-interview conditions with mechanical leakage assertions. Monitors retain exact prompts, raw responses, structured intermediate reports, and inference audits. The analysis layer uses comparison-specific pairing, frozen thresholds, CI-eligibility gates, exact small-cluster distributions, missing-score bounds, equivalence testing, calibration and decision-utility metrics, and provenance-stamped figures; paper export derives LaTeX/CSV tables from verified reports only.
 
 ## Repository layout
 
@@ -122,18 +125,23 @@ runs/gpu_smoke_v*/         earlier validated smoke runs (same structure)
 docs/reviews/              multi-POV pilot reviews (scientist, security,
                            statistician) with independently verified findings
 src/traceguard/
-  tasks/       TaskSpec registry (12 families, 24 templates), seeded instances, split manifest
+  tasks/       TaskSpec registry (16 families, 32 templates), seeded instances, split manifest
   sandbox/     pure state, typed actions, engine, invariants, exact grader
-  models/      provider contract, audited model registry, quantized HF adapters
+  models/      provider contract, audited tiered model registry, HF adapters
+  serving/     v0.7: OpenAI-compatible providers, pinned vLLM server manager, cost ledger
   agents/      honest/attack policy composition, episode runner
   traces/      schema validation, atomic storage, allowlist view compiler
-  monitors/    rules/keyword baselines, LLM monitor, condition harness
+  monitors/    rules/keyword baselines, LLM monitor, structured late fusion, followup monitor
   protocols/   pre-action online intervention (phase two)
-  analyses/    metrics (AUROC/AP/recall@FPR), paired cluster bootstrap, plots
-  cli.py       doctor | probe-model | matrix-plan/materialize | prepare-tuning | pipeline
-configs/       smoke/pilot configs plus the multi-model matrix freeze template
-tests/         unit + property + integration tests
-docs/          protocol, architecture, SOPs, quality manual, review system
+  analyses/    metrics, paired cluster bootstrap, equivalence (TOST), calibration,
+               agreement, power simulation, plots
+  cli.py       doctor | generate/monitor/analyze | serve-model | probe-model | matrix | export | cost-report | sync-evidence | export-paper | power-sim
+  paper_export.py  LaTeX/CSV paper tables derived from verified reports only
+configs/       smoke/pilot/matrix configs + vLLM serving specs + AWS-era templates
+scripts/aws/   v0.7: instance lifecycle, tier-matched admission probe, cell runner
+tests/         unit + property + integration tests (361 passing, CPU-only)
+docs/          protocol, architecture, SOPs, quality manual, reviews, AWS setup,
+               inference engineering, methodology v7, references (120+)
 kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 ```
 
@@ -142,6 +150,11 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - [`docs/QUALITY_MANUAL.md`](docs/QUALITY_MANUAL.md) — no-fallback and no-hallucination policy, verification cadence, evidence rules
 - [`docs/SOP_001_EXPERIMENT_EXECUTION.md`](docs/SOP_001_EXPERIMENT_EXECUTION.md) — stage-by-stage execution procedure with gates
 - [`docs/SOP_002_KAGGLE_OPERATIONS.md`](docs/SOP_002_KAGGLE_OPERATIONS.md) — Kaggle push/monitor/download operations
+- [`docs/AWS_SETUP.md`](docs/AWS_SETUP.md) — v0.7: AWS instance lifecycle, credits, IAM, budget guards, teardown
+- [`docs/INFERENCE_ENGINEERING.md`](docs/INFERENCE_ENGINEERING.md) — v0.7: vLLM/SGLang serving standard, kernels by tier, quantization-as-treatment, determinism classes
+- [`docs/METHODOLOGY_V7.md`](docs/METHODOLOGY_V7.md) — v0.7: intent-era families (RQ5), equivalence testing, matrix cells
+- [`docs/UPGRADE_v0.7.md`](docs/UPGRADE_v0.7.md) — complete v0.7 change record with rules-compliance mapping
+- [`docs/REFERENCES.md`](docs/REFERENCES.md) — 120+ source-verified bibliography with verification keys
 - [`docs/REVIEW_SYSTEM.md`](docs/REVIEW_SYSTEM.md) — multi-POV independent review protocol (developer / scientist / security / statistician)
 - [`docs/ARCHITECTURE_V2.md`](docs/ARCHITECTURE_V2.md) — trusted-computing boundary, data flow, performance and hard gates
 - [`docs/RAW_EVIDENCE_SPEC.md`](docs/RAW_EVIDENCE_SPEC.md) — exact token/prompt/runtime retention and release separation
@@ -157,6 +170,7 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 ## Grounding
 
 - Korbak et al., *Chain of Thought Monitorability: A New and Fragile Opportunity for AI Safety* — https://arxiv.org/abs/2507.11473
+- Guan et al., *Monitoring Monitorability* — https://arxiv.org/abs/2512.18311
 - Greenblatt et al., *AI Control: Improving Safety Despite Intentional Subversion* https://proceedings.mlr.press/v235/greenblatt24a.html
 - Najt, Toft, Tracy, Roger, Benton, *SLEIGHT-Bench: A Benchmark of Evasion Attacks Against Agent Monitors* (arXiv:2605.16626) — https://alignment.anthropic.com/2026/sleight-bench/
 - OpenAI, *Evaluating chain-of-thought monitorability* — https://openai.com/index/evaluating-chain-of-thought-monitorability
@@ -166,7 +180,7 @@ kaggle/        GPU kernel scripts + metadata (preflight, generation, monitoring)
 - Qwen3-4B — https://huggingface.co/Qwen/Qwen3-4B (Apache 2.0)
 - Wang et al., *MonitorBench* — https://arxiv.org/abs/2603.28590
 - OpenAI, *Reasoning Models Struggle to Control their Chains of Thought* — https://openai.com/index/reasoning-models-chain-of-thought-controllability/
-- 
+- Full annotated bibliography (120+ entries, verification keys): [`docs/REFERENCES.md`](docs/REFERENCES.md)
 
 ## License
 

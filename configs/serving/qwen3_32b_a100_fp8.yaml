@@ -1,0 +1,16 @@
+# Serving spec: Qwen3-32B on one p4de node (8x A100-80GB, tp=2, official FP8)
+# FP8 weights ~33 GiB total; tp=2 leaves deep KV headroom at 32K context.
+# FP8 is a RECORDED study factor — never pooled silently with bf16 arms.
+model_id: Qwen/Qwen3-32B-FP8
+model_revision: PIN_BEFORE_RUN
+served_model_name: qwen3-32b-fp8
+architecture_family: qwen3_dense
+dtype: bfloat16
+tensor_parallel_size: 2
+max_model_len: 32768
+gpu_memory_utilization: 0.90
+max_num_seqs: 32
+enable_prefix_caching: true
+quantization: fp8
+reasoning_parser: qwen3
+download_dir: /mnt/ebs/hf-cache

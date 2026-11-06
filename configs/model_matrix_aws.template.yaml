@@ -1,0 +1,130 @@
+# v0.7.0 AWS-era multi-model study matrix template.
+#
+# Structure mirrors model_matrix_phase3.yaml but for the serving plane:
+# every MatrixModel carries provider/api/hardware_tier fields, revisions are
+# resolved+probed on the TARGET TIER before freeze, and one vLLM server per
+# model is launched per monitoring job (see scripts/aws/run_matrix_cell.sh).
+#
+# Cell map (see docs/METHODOLOGY_V7.md §4):
+#   anchor_4b        : continuity with the v6 program (same agent cohort
+#                      design, now on A100 bf16 instead of T4 fp16)
+#   scale_monitor_32b: monitor-capacity axis extended to 32B (the v6 open
+#                      question — does the raw-arm collapse resolve further?)
+#   cross_family_moe : GLM-4.5-Air-FP8 cross-family MoE monitor (probe first)
+#   frontier_api     : remote frontier monitor over the same stored episodes
+#                      (API determinism caveats recorded per turn)
+
+schema_version: "1.0.0"
+study_id: v7-aws-matrix
+benchmark_config: configs/aws_pilot_v0.7.template.yaml
+frozen_code_revision: PIN_BEFORE_RUN
+
+cells:
+  - cell_id: anchor_4b
+    generation_cohort_id: v7-agent-qwen3-4b
+    account_slot: 0
+    primary: true
+    replicate_ids: [0]
+    agent:
+      model_id: Qwen/Qwen3-4B
+      revision: PIN_BEFORE_RUN
+      tokenizer_revision: PIN_BEFORE_RUN
+      provider: vllm_openai
+      reasoning_protocol: qwen3
+      quantization: none
+      compute_dtype: bfloat16
+      attention_backend: vllm_default
+      max_context_tokens: 16384
+      max_memory_per_gpu_gib: 70.0
+      api_base_url: http://127.0.0.1:8000/v1
+      api_model_id: qwen3-4b
+      hardware_tier: aws_a100_80gb
+      probe_artifact_sha256: null
+    monitor:
+      model_id: Qwen/Qwen3-4B
+      revision: PIN_BEFORE_RUN
+      tokenizer_revision: PIN_BEFORE_RUN
+      provider: vllm_openai
+      reasoning_protocol: qwen3
+      quantization: none
+      compute_dtype: bfloat16
+      attention_backend: vllm_default
+      max_context_tokens: 32768
+      max_memory_per_gpu_gib: 70.0
+      api_base_url: http://127.0.0.1:8000/v1
+      api_model_id: qwen3-4b
+      hardware_tier: aws_a100_80gb
+      probe_artifact_sha256: null
+
+  - cell_id: scale_monitor_32b
+    generation_cohort_id: v7-agent-qwen3-14b
+    account_slot: 0
+    primary: false
+    replicate_ids: [0]
+    agent:
+      model_id: Qwen/Qwen3-14B
+      revision: PIN_BEFORE_RUN
+      tokenizer_revision: PIN_BEFORE_RUN
+      provider: vllm_openai
+      reasoning_protocol: qwen3
+      quantization: none
+      compute_dtype: bfloat16
+      attention_backend: vllm_default
+      max_context_tokens: 16384
+      max_memory_per_gpu_gib: 70.0
+      api_base_url: http://127.0.0.1:8000/v1
+      api_model_id: qwen3-14b
+      hardware_tier: aws_a100_80gb
+      probe_artifact_sha256: null
+    monitor:
+      model_id: Qwen/Qwen3-32B
+      revision: PIN_BEFORE_RUN
+      tokenizer_revision: PIN_BEFORE_RUN
+      provider: vllm_openai
+      reasoning_protocol: qwen3
+      quantization: none
+      compute_dtype: bfloat16
+      attention_backend: vllm_default
+      max_context_tokens: 32768
+      max_memory_per_gpu_gib: 70.0
+      api_base_url: http://127.0.0.1:8001/v1
+      api_model_id: qwen3-32b-fp8
+      hardware_tier: aws_a100_80gb
+      probe_artifact_sha256: null
+
+  - cell_id: frontier_api_monitor
+    generation_cohort_id: v7-agent-qwen3-14b
+    account_slot: 1
+    primary: false
+    replicate_ids: [0]
+    agent:
+      model_id: Qwen/Qwen3-14B
+      revision: PIN_BEFORE_RUN
+      tokenizer_revision: PIN_BEFORE_RUN
+      provider: vllm_openai
+      reasoning_protocol: qwen3
+      quantization: none
+      compute_dtype: bfloat16
+      attention_backend: vllm_default
+      max_context_tokens: 16384
+      max_memory_per_gpu_gib: 70.0
+      api_base_url: http://127.0.0.1:8000/v1
+      api_model_id: qwen3-14b
+      hardware_tier: aws_a100_80gb
+      probe_artifact_sha256: null
+    monitor:
+      model_id: api/openai/gpt-6.1-sol
+      revision: api-served-id-pin   # pinned by the API admission probe (models list)
+      tokenizer_revision: api-served-id-pin
+      provider: api_openai
+      reasoning_protocol: reasoning_field
+      quantization: none
+      compute_dtype: bfloat16
+      attention_backend: vllm_default
+      max_context_tokens: 32768
+      max_memory_per_gpu_gib: 70.0
+      api_base_url: https://api.openai.com/v1
+      api_model_id: gpt-6.1-sol
+      api_key_env: TRACEGUARD_OPENAI_API_KEY
+      hardware_tier: aws_a100_80gb
+      probe_artifact_sha256: null

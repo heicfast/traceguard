@@ -1,0 +1,16 @@
+# Serving spec: Qwen3-14B on one A100-80GB (p4de.24xlarge, tp=1)
+# BF16 weights ~30 GiB; large KV headroom for 32K monitor prompts.
+# Flags follow docs/INFERENCE_ENGINEERING.md; the argv is emitted by:
+#   traceguard serve-model argv --spec configs/serving/qwen3_14b_a100.yaml
+model_id: Qwen/Qwen3-14B
+model_revision: PIN_BEFORE_RUN   # exact commit SHA resolved by the admission probe
+served_model_name: qwen3-14b
+architecture_family: qwen3_dense
+dtype: bfloat16
+tensor_parallel_size: 1
+max_model_len: 32768
+gpu_memory_utilization: 0.92
+max_num_seqs: 64
+enable_prefix_caching: true
+reasoning_parser: qwen3
+download_dir: /mnt/ebs/hf-cache

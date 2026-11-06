@@ -1,0 +1,16 @@
+# Serving spec: gpt-oss-20b on the H100 tier (p5.48xlarge, native MXFP4)
+# MXFP4 requires Hopper-or-newer (verified against the vLLM gpt-oss
+# announcement; the A100 tier is BLOCKED for this checkpoint).
+model_id: openai/gpt-oss-20b
+model_revision: PIN_BEFORE_RUN
+served_model_name: gpt-oss-20b
+architecture_family: gpt_oss_moe
+dtype: bfloat16
+tensor_parallel_size: 1
+max_model_len: 32768
+gpu_memory_utilization: 0.90
+max_num_seqs: 64
+enable_prefix_caching: true
+quantization: mxfp4
+reasoning_parser: null
+download_dir: /mnt/ebs/hf-cache

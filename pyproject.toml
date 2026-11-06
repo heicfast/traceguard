@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "traceguard"
-version = "0.6.0"
+version = "0.7.0"
 description = "TRACEGUARD: empirical research on whether reasoning-trace visibility improves monitoring of unauthorized agent actions."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,6 +36,14 @@ analysis = [
     "scikit-learn>=1.3",
     "pandas>=2.1",
     "matplotlib>=3.8",
+]
+# v0.7.0 AWS-era serving plane.  vLLM is pinned to the audited release line
+# (v0.33.x, verified 2026-11-06); it requires GPUs with matching CUDA images.
+serving = [
+    "vllm>=0.33.0,<0.34",
+]
+aws = [
+    "boto3>=1.34",
 ]
 dev = [
     "build>=1.2",

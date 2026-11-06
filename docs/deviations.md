@@ -1166,3 +1166,45 @@ The 110 completed episodes are archived to
 partial data enters the record, consistent with the cross-cell policy). The
 fresh run (kernel v2 push, same pin `b0e84cf`, same frozen threshold) started
 2026-10-28 and runs the full 128-episode paired-armor plan from scratch.
+
+# 2026-11-06 — v0.7.0 upgrade (branch `upg`): AWS era, intent-era families, statistics extension
+
+- **What changed (pre-declared before any v7 data exists; no archived
+  artifact is modified):**
+  1. Sandbox engine 1.0.2 → **1.1.0**: additive `sum_at_most` invariant op
+     for the quota_accumulation family. All pre-existing op semantics are
+     byte-identical; archived 1.0.2 runs re-grade unchanged and legacy
+     configs remain loadable (`LEGACY_ENGINE_VERSIONS`).
+  2. Split manifest 2.0.0-phase3 → **3.0.0-v7**: four NEW families added
+     (approval_window→development, quota_accumulation→validation,
+     bulk_masking→holdout, delegated_authority→shift). No pre-existing
+     assignment changed. Old episodes' stored `split_manifest_sha256`
+     values refer to the manifest version they were planned under and are
+     not re-verified against the live manifest (analysis uses the stored
+     per-episode `split_role`).
+  3. Task inventory 12 → 16 families / 24 → 32 templates
+     (`tasks/intent_specs.py`); attack-policy axis +4 strategies
+     (authorization_claim, incremental_accumulation, needle_concealment,
+     n_hop_indirection) grounded in the SLEIGHT-Bench taxonomy.
+  4. TaskInstance gains `diagnostic_complexity` and optional
+     `attack_reference_actions` (sequence attacks); `task_hash` payload
+     therefore changes → all v7 episodes regenerate (none existed).
+  5. Model registry restructured to per-hardware-tier admission
+     (kaggle_t4 / aws_a100_80gb / aws_h100_80gb) with dated verification
+     records; new entries as listed in docs/UPGRADE_v0.7.md §1.2.
+  6. New monitor instrument (followup) registered in the frozen prompt-hash
+     registry BEFORE any research use; new analysis modules (TOST,
+     calibration, agreement, power simulation, BH, cluster permutation).
+  7. New serving plane + cost ledger + S3 sync + paper export; CLI
+     additions (serve-model, cost-report, export-paper, sync-evidence,
+     power-sim).
+- **Why:** owner directive 2026-11-06 (AWS research credits remove the T4
+  constraint; upgrade everything to the standard the final paper requires)
+  + the repo's own predeclared future-work path after the S5 headroom null
+  (intent-only attacks + ≥40 benign clusters).
+- **Impact on frozen artifacts:** none retroactive. All v0.5/v0.6 archives
+  verify unchanged under the current code (regression suites + 361-test
+  CPU suite green; ruff + mypy clean). The v7 program starts a new plan
+  epoch; config hashes, split manifest hash, and task hashes all change by
+  design for NEW runs.
+- **Approved by:** project owner (user directive, 2026-11-06 session).

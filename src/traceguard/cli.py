@@ -407,6 +407,129 @@ def cmd_canonicalize(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve_model(args: argparse.Namespace) -> int:
+    """Launch (or print) the pinned vLLM server for a serving spec."""
+    import yaml
+
+    from .serving.vllm_server import ServerSpec, VLLMServerManager, build_server_argv
+    from .traces.storage import atomic_write_json
+
+    raw = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("serving spec must be a mapping")
+    spec = ServerSpec(
+        model_id=str(raw["model_id"]),
+        model_revision=str(raw["model_revision"]),
+        served_model_name=str(raw.get("served_model_name", raw["model_id"])),
+        architecture_family=str(raw.get("architecture_family", "unknown")),
+        dtype=str(raw.get("dtype", "bfloat16")),
+        tensor_parallel_size=int(raw.get("tensor_parallel_size", 1)),
+        max_model_len=int(raw.get("max_model_len", 32768)),
+        gpu_memory_utilization=float(raw.get("gpu_memory_utilization", 0.92)),
+        max_num_seqs=int(raw.get("max_num_seqs", 64)),
+        enable_prefix_caching=bool(raw.get("enable_prefix_caching", True)),
+        quantization=raw.get("quantization"),
+        reasoning_parser=raw.get("reasoning_parser"),
+        download_dir=raw.get("download_dir"),
+        extra_args=tuple((str(k), str(v)) for k, v in raw.get("extra_args", {}).items()),
+    )
+    if args.serve_action == "argv":
+        print(json.dumps({"argv": list(build_server_argv(spec))}, indent=2))
+        return 0
+    manager = VLLMServerManager(spec, log_dir=args.log_dir, port=args.port)
+    record = manager.start()
+    if args.out:
+        atomic_write_json(args.out, record.to_payload())
+    print(json.dumps({"ok": True, "base_url": manager.base_url,
+                      "ready_after_seconds": record.ready_after_seconds,
+                      "vllm_version": record.vllm_version,
+                      "spec_sha256": record.spec_sha256}, indent=2))
+    try:
+        import signal as _signal
+        import time as _time
+
+        _signal.signal(_signal.SIGINT, lambda *_: None)
+        while True:
+            _time.sleep(3600)
+    except KeyboardInterrupt:
+        manager.stop()
+    return 0
+
+
+def cmd_cost_report(args: argparse.Namespace) -> int:
+    """Summarize a cost ledger directory by replaying its event stream."""
+    from .serving.cost import CostLedger
+
+    ledger = CostLedger(args.ledger_dir, hard_cap_usd=args.hard_cap_usd)
+    events_path = Path(args.ledger_dir) / "cost_events.jsonl"
+    if events_path.exists():
+        total = 0.0
+        calls = 0
+        compute_hours = 0.0
+        for line in events_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            event = json.loads(line)
+            if event.get("kind") == "budget_cap_exceeded":
+                continue
+            if event.get("cost_usd") is not None:
+                total += float(event["cost_usd"])
+            if event.get("kind") == "api_call":
+                calls += 1
+            if event.get("kind") == "compute_hours":
+                compute_hours += float(event.get("hours", 0.0))
+        ledger._total_usd = total
+        ledger._total_api_usd = total
+        ledger._total_compute_hours = compute_hours
+        ledger._calls = calls
+    summary = ledger.write_summary()
+    print(json.dumps(summary, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_export_paper(args: argparse.Namespace) -> int:
+    """Export LaTeX/CSV paper tables from a verified analysis report."""
+    from .paper_export import export_paper_tables
+
+    result = export_paper_tables(args.report, args.out, prefix=args.prefix)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_sync_evidence(args: argparse.Namespace) -> int:
+    """Mirror a run directory to S3 with digest verification."""
+    from .evidence_sync import sync_run_to_s3
+
+    result = sync_run_to_s3(args.run_dir, args.target, dry_run=args.dry_run)
+    print(json.dumps({k: v for k, v in result.items() if k != "files"}, indent=2,
+                     sort_keys=True, default=str))
+    return 0 if result.get("ok") else 1
+
+
+def cmd_power_sim(args: argparse.Namespace) -> int:
+    """Monte-Carlo validation of the paired design's operating characteristics."""
+    from .analyses.power import empirical_power
+    from .traces.storage import atomic_write_json
+
+    config = load_config(args.config)
+    result = empirical_power(
+        repetitions=args.repetitions,
+        seed=args.seed,
+        n_clusters=args.n_clusters,
+        episodes_per_cluster=args.episodes_per_cluster,
+        attack_fraction=args.attack_fraction,
+        delta_true=args.delta,
+        recall_baseline=args.recall_baseline,
+        intracluster_correlation=args.icc,
+        bootstrap_replicates=config.analysis.bootstrap_replicates,
+        confidence_level=config.analysis.confidence_level,
+    )
+    if args.out:
+        atomic_write_json(args.out, result)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="traceguard")
     parser.add_argument("--version", action="version", version=f"traceguard {__version__}")
@@ -533,6 +656,44 @@ def main(argv: list[str] | None = None) -> int:
                             "then ledger covering the index)")
     p.add_argument("--run-dir", required=True)
     p.set_defaults(func=cmd_canonicalize)
+
+    p = sub.add_parser("serve-model", help="launch/stop/status a pinned vLLM server")
+    p.add_argument("serve_action", choices=["launch", "argv"])
+    p.add_argument("--spec", required=True, help="serving spec YAML (ServerSpec fields)")
+    p.add_argument("--log-dir", default="runs/serving")
+    p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--out", default=None, help="write the launch record JSON here")
+    p.set_defaults(func=cmd_serve_model)
+
+    p = sub.add_parser("cost-report", help="summarize a run's cost ledger")
+    p.add_argument("--ledger-dir", required=True, help="directory holding cost_events.jsonl")
+    p.add_argument("--hard-cap-usd", type=float, default=None)
+    p.set_defaults(func=cmd_cost_report)
+
+    p = sub.add_parser("export-paper", help="export LaTeX/CSV tables from an analysis report")
+    p.add_argument("--report", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--prefix", default="table")
+    p.set_defaults(func=cmd_export_paper)
+
+    p = sub.add_parser("sync-evidence", help="mirror a run directory to S3 with digest checks")
+    p.add_argument("--run-dir", required=True)
+    p.add_argument("--target", required=True, help="s3://bucket/prefix")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_sync_evidence)
+
+    p = sub.add_parser("power-sim", help="Monte-Carlo validation of the design's power")
+    p.add_argument("--config", required=True)
+    p.add_argument("--repetitions", type=int, default=200)
+    p.add_argument("--delta", type=float, default=0.10)
+    p.add_argument("--n-clusters", type=int, default=40)
+    p.add_argument("--episodes-per-cluster", type=int, default=8)
+    p.add_argument("--attack-fraction", type=float, default=0.5)
+    p.add_argument("--recall-baseline", type=float, default=0.5)
+    p.add_argument("--icc", type=float, default=0.10)
+    p.add_argument("--seed", type=int, default=20261106)
+    p.add_argument("--out", default=None)
+    p.set_defaults(func=cmd_power_sim)
 
     args = parser.parse_args(argv)
     return int(args.func(args) or 0)
